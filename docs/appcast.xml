@@ -1,0 +1,16 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Melo</title>
+        <item>
+            <title>2.9.0</title>
+            <pubDate>Tue, 04 Aug 2026 20:08:50 -0400</pubDate>
+            <link>https://github.com/megavessal/Melo</link>
+            <sparkle:version>294</sparkle:version>
+            <sparkle:shortVersionString>2.9.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.0/Melo-macOS-2.9.0.zip" length="9702839" type="application/octet-stream" sparkle:edSignature="lq8G7eiuCa/5PRbTGYfA1lBOTabp2prZ0/hgBNimF5pTf2BEnJr8xxaYR+xlFKDuwdobSHNkAPGrMd0BY7seBQ=="/>
+        </item>
+    </channel>
+</rss>
