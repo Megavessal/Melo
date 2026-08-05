@@ -20,8 +20,6 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>2.9.0</string>
-	<key>CFBundleVersion</key>
-	<string>294</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -33,12 +31,16 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>294</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.4</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>MeloDiagnosticsEndpoint</key>
+	<string></string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Melo needs access to process and route audio from individual applications.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
@@ -47,19 +49,15 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Melo contributors; based on FineTune © 2026 Ronit Singh; GPL-3.0</string>
-	<!-- Configure these before publishing. Melo leaves Sparkle inactive while either value is empty. -->
-	<key>SUFeedURL</key>
-	<string></string>
-	<key>SUPublicEDKey</key>
-	<string></string>
-	<key>SUEnableAutomaticChecks</key>
-	<false/>
 	<key>SUAutomaticallyUpdate</key>
 	<false/>
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<key>SUFeedURL</key>
+	<string>https://megavessal.github.io/Melo/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>7JecoPcstk5rOZtPoiNUlnYweiuhfggX8yNQSDaiAkc=</string>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
-	<!-- Optional future HTTPS endpoint for user-approved diagnostic uploads. -->
-	<key>MeloDiagnosticsEndpoint</key>
-	<string></string>
 </dict>
 </plist>
