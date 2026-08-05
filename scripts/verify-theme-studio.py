@@ -43,7 +43,7 @@ require("Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift", "@preconcurre
 build_coordinator = require("Sources/Melo/Updates/UpdateBuildCoordinator.swift", "Build Melo.command", "scripts/build-app.sh")
 if "/usr/bin/xcodebuild" in build_coordinator and "xcodebuild\"," in build_coordinator:
     failures.append("UpdateBuildCoordinator.swift: builds must go through build-app.sh, not a direct xcodebuild invocation")
-project = require("Melo.xcodeproj/project.pbxproj", "ARCHS = arm64;", "EXCLUDED_ARCHS = x86_64;", "MARKETING_VERSION = 2.9.2;", "CURRENT_PROJECT_VERSION = 297;")
+project = require("Melo.xcodeproj/project.pbxproj", "ARCHS = arm64;", "EXCLUDED_ARCHS = x86_64;", "MARKETING_VERSION = 2.9.3;", "CURRENT_PROJECT_VERSION = 298;")
 build = require("scripts/build-app.sh", "ARCHS=arm64", "EXCLUDED_ARCHS=x86_64", "Removed Intel slices", '[[ "$ARCHS" == "arm64" ]]')
 if "ARCHS='arm64 x86_64'" in build or "ARCHS=arm64 x86_64" in build:
     failures.append("universal build flag remains in build script")
@@ -51,8 +51,8 @@ if '"$(inherited) @executable_path/../Frameworks"' in project:
     failures.append("malformed combined runtime search path remains")
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.2": failures.append("wrong version")
-if info.get("CFBundleVersion") != "297": failures.append("wrong build")
+if info.get("CFBundleShortVersionString") != "2.9.3": failures.append("wrong version")
+if info.get("CFBundleVersion") != "298": failures.append("wrong build")
 
 # Exactly one app icon source. Declaring both CFBundleIconFile and an asset
 # catalog let macOS choose between two near-identical files, so the icon changed
@@ -80,16 +80,25 @@ for name in ("AppIconDark", "AppIconLight"):
         if not (d / f).is_file():
             failures.append(f"missing appearance icon {name}.imageset/{f}")
 
-# macOS 26 boxes icons whose artwork carries its own rounded shape, shrinking
-# them inside a grey container. Full-bleed (fully opaque) art avoids that.
+# macOS does not mask app icons: the artwork has to carry its own rounded shape
+# with transparent margin around it. A full-bleed opaque square renders as a hard
+# square tile in a Dock of rounded ones — it reads as a cropped screenshot. Apple
+# sizes the body at 824/1024 of the canvas; Melo uses 52/64 cells, which is the
+# same proportion on a whole number of pixel-art cells.
 try:
     from PIL import Image
     for rel in ("Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png",
                 "Resources/Assets.xcassets/AppIconDark.imageset/AppIconDark@2x.png",
                 "Resources/Assets.xcassets/AppIconLight.imageset/AppIconLight@2x.png"):
         alpha = Image.open(root / rel).convert("RGBA").split()[3]
-        if alpha.getextrema()[0] != 255:
-            failures.append(f"{rel}: artwork has transparent corners; macOS 26 will box it")
+        width, height = alpha.size
+        if alpha.getpixel((0, 0)) != 0:
+            failures.append(f"{rel}: corners are opaque; the Dock tile will be a hard square")
+        if alpha.getpixel((width // 2, height // 2)) != 255:
+            failures.append(f"{rel}: the icon body is not opaque")
+        covered = sum(1 for value in alpha.getdata() if value > 0) / (width * height)
+        if not 0.55 <= covered <= 0.72:
+            failures.append(f"{rel}: body covers {covered:.0%} of the canvas; Apple's proportion is about 63%")
 except ImportError:
     pass
 

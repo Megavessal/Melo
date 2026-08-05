@@ -104,8 +104,8 @@ require("Documentation/MELO-2.7-UPDATES.md", "Sparkle 2.9.5", "three sources")
 
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.2": failures.append("wrong version")
-if info.get("CFBundleVersion") != "297": failures.append("wrong build")
+if info.get("CFBundleShortVersionString") != "2.9.3": failures.append("wrong version")
+if info.get("CFBundleVersion") != "298": failures.append("wrong build")
 if "SUFeedURL" not in info or "SUPublicEDKey" not in info:
     failures.append("Sparkle configuration keys missing")
 

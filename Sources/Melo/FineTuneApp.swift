@@ -70,6 +70,7 @@ struct MeloApp: App {
     @State private var onboardingController: OnboardingWindowController
     @State private var installLocationCoordinator: InstallLocationCoordinator
     @State private var guidedTourCoordinator: GuidedTourCoordinator
+    @State private var whatsNewCoordinator: WhatsNewCoordinator
     @State private var resolver: TargetAppResolver
     @State private var appSupportCoordinator: AppSupportCoordinator
     @StateObject private var sparkleUpdateController: SparkleUpdateController
@@ -182,15 +183,24 @@ struct MeloApp: App {
             accessibility: accessibilityService,
             audioPrimer: audioPrimer,
             guidedTour: guidedTour,
-            popupController: popupController
+            popupController: popupController,
+            audioEngine: engine,
+            sparkle: sparkleUpdater
         )
         _onboardingController = State(initialValue: onboarding)
         let installLocation = InstallLocationCoordinator()
         _installLocationCoordinator = State(initialValue: installLocation)
         _guidedTourCoordinator = State(initialValue: guidedTour)
+        let whatsNew = WhatsNewCoordinator(
+            settings: settings,
+            guidedTour: guidedTour,
+            popupController: popupController
+        )
+        _whatsNewCoordinator = State(initialValue: whatsNew)
         let appSupport = AppSupportCoordinator(
             settings: settings,
             onboarding: onboarding,
+            whatsNew: whatsNew,
             audioEngine: engine,
             sparkle: sparkleUpdater
         )
@@ -330,7 +340,12 @@ struct MeloApp: App {
         // update itself from.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             installLocation.showIfNeeded()
+            // Read before showing: `showIfNeeded()` writes nothing, but setup
+            // marks itself complete as soon as it is dismissed, so asking
+            // afterwards could report "not pending" while its window is open.
+            let setupPending = onboarding.isSetupPending
             onboarding.showIfNeeded()
+            whatsNew.showIfNeeded(suppressedByOnboarding: setupPending)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
             UpdateStartupConfirmation.confirmCurrentBuild()

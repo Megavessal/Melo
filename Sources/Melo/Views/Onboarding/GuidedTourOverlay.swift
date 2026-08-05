@@ -72,22 +72,15 @@ struct GuidedTourOverlay: View {
     private static let cardCornerRadius: CGFloat = 16
     private static let spotlightCornerRadius: CGFloat = 13
 
+    /// A step with no target is legitimate — the What's New tour uses one for
+    /// anything with no on-screen anchor — and resolves to no spotlight at all.
+    /// The equalizer is only anchored while an app row is expanded, so it keeps
+    /// its long-standing fallback to the app list rather than losing its cutout.
     private var targetFrame: CGRect? {
-        switch coordinator.step {
-        case .appList, .appControls:
-            anchors[.apps].map { geometry[$0] }
-        case .devices, .autoEQ:
-            anchors[.devices].map { geometry[$0] }
-        case .smartAudio:
-            anchors[.smartAudio].map { geometry[$0] }
-        case .equalizer:
-            anchors[.equalizer].map { geometry[$0] }
-                ?? anchors[.apps].map { geometry[$0] }
-        case .search:
-            anchors[.search].map { geometry[$0] }
-        case .settings:
-            anchors[.settings].map { geometry[$0] }
-        }
+        guard let target = coordinator.currentStep?.target else { return nil }
+        if let anchor = anchors[target] { return geometry[anchor] }
+        guard target == .equalizer else { return nil }
+        return anchors[.apps].map { geometry[$0] }
     }
 
     var body: some View {
@@ -165,9 +158,17 @@ struct GuidedTourOverlay: View {
         .position(calloutPosition)
     }
 
+    @ViewBuilder
     private var calloutContent: some View {
-        let content = copy(for: coordinator.step)
-        return VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
+        if let content = currentCopy {
+            calloutBody(content)
+        }
+    }
+
+    private func calloutBody(
+        _ content: (eyebrow: String, title: String, message: String)
+    ) -> some View {
+        VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                     Text(content.eyebrow)
@@ -191,7 +192,7 @@ struct GuidedTourOverlay: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack {
-                if coordinator.step.rawValue > 0 {
+                if !coordinator.isFirstStep {
                     Button("Back") { coordinator.back() }
                         .buttonStyle(.bordered)
                 }
@@ -273,80 +274,38 @@ struct GuidedTourOverlay: View {
             return CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
 
-        switch coordinator.step {
-        case .appList:
+        // Several first-run steps share one anchor (both app steps point at the
+        // app list, AutoEQ points at the device list), so the pointer has to be
+        // nudged to the part of that anchor the step is actually about. Keyed by
+        // step id; any step without an entry — every What's New step — just gets
+        // the centre of its target, which is correct for a whole-control cutout.
+        switch coordinator.currentStep?.id {
+        case "appList":
             return CGPoint(x: frame.minX + frame.width * 0.34, y: frame.minY + min(72, frame.height * 0.28))
-        case .appControls:
+        case "appControls":
             return CGPoint(x: frame.maxX - 48, y: frame.minY + min(82, frame.height * 0.34))
-        case .devices:
+        case "devices":
             return CGPoint(x: frame.minX + frame.width * 0.70, y: frame.minY + min(54, frame.height * 0.30))
-        case .autoEQ:
+        case "autoEQ":
             return CGPoint(x: frame.minX + frame.width * 0.52, y: frame.minY + min(78, frame.height * 0.46))
-        case .smartAudio:
+        case "smartAudio":
             return CGPoint(x: frame.minX + frame.width * 0.80, y: frame.midY)
-        case .equalizer:
+        case "equalizer":
             return CGPoint(x: frame.maxX - 42, y: frame.minY + min(58, frame.height * 0.28))
-        case .search:
-            return CGPoint(x: frame.midX, y: frame.midY)
-        case .settings:
+        default:
             return CGPoint(x: frame.midX, y: frame.midY)
         }
     }
 
-    private func copy(for step: GuidedTourCoordinator.Step) -> (eyebrow: String, title: String, message: String) {
-        let total = GuidedTourCoordinator.Step.allCases.count
-        let number = step.rawValue + 1
-        let eyebrow = "\(number) of \(total)"
-
-        switch step {
-        case .appList:
-            return (
-                eyebrow,
-                "Each app gets its own volume",
-                "Play audio in an app, then move only that app’s slider. Other apps and your main output stay where they are."
-            )
-        case .appControls:
-            return (
-                eyebrow,
-                "More controls live inside each row",
-                "Expand an app to mute it, route it to one or several devices, raise it beyond 100%, adjust stereo balance, and open its equalizer."
-            )
-        case .devices:
-            return (
-                eyebrow,
-                "Choose speakers, displays, or headphones",
-                "Select the main output here. Melo remembers your device priority and restores preferred devices when they reconnect."
-            )
-        case .autoEQ:
-            return (
-                eyebrow,
-                "AutoEQ corrects supported headphones",
-                "The wand beside a supported output searches headphone profiles and applies measured correction. This is device correction, separate from an app’s creative EQ."
-            )
-        case .smartAudio:
-            return (
-                eyebrow,
-                "Smart Sound adapts automatically",
-                "This control can smooth loudness, protect transients, and make gentle content-aware adjustments. Start at Low or Medium and compare before using High."
-            )
-        case .equalizer:
-            return (
-                eyebrow,
-                "EQ changes the tone of one app",
-                "Use a preset or move the ten frequency bands. The switch bypasses the curve without deleting it, and custom curves can be saved as presets."
-            )
-        case .search:
-            return (
-                eyebrow,
-                "Search finds actions, not only labels",
-                "Open search with this button or ⌘K. Natural phrases such as ‘quiet apps,’ ‘headphones,’ ‘updates,’ or ‘volume keys’ lead to the relevant control."
-            )
-        case .settings:
-            return (
-                eyebrow,
-                "Settings holds the deeper options",
-                "Use Settings for themes, shortcuts, updates, accessibility, quiet-app behavior, diagnostics, and replaying this tutorial."
-            )
-        }
+    /// The eyebrow is the only per-tour framing left in the view: the copy now
+    /// arrives from the coordinator's step list, so the same overlay serves the
+    /// first-run tour and any release-notes walkthrough.
+    private var currentCopy: (eyebrow: String, title: String, message: String)? {
+        guard let step = coordinator.currentStep else { return nil }
+        return (
+            "\(coordinator.index + 1) of \(coordinator.steps.count)",
+            step.title,
+            step.message
+        )
     }
 }

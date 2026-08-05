@@ -254,8 +254,8 @@ struct MenuBarPopupView: View {
                 rescheduleQuietAppMoves()
                 syncNavOrder()
             }
-            .onChange(of: guidedTour.step) { _, newStep in
-                prepareGuidedTour(for: newStep)
+            .onChange(of: guidedTour.currentStep?.id) { _, _ in
+                prepareGuidedTour(for: guidedTour.currentStep)
             }
             .onChange(of: guidedTour.isActive) { _, active in
                 handleGuidedTourActivityChanged(active)
@@ -383,7 +383,7 @@ struct MenuBarPopupView: View {
 
     private func handleGuidedTourActivityChanged(_ active: Bool) {
         if active {
-            prepareGuidedTour(for: guidedTour.step)
+            prepareGuidedTour(for: guidedTour.currentStep)
         } else {
             expandedRowID = nil
         }
@@ -1138,21 +1138,24 @@ struct MenuBarPopupView: View {
         activeDisplayableApps.first?.id ?? inactiveDisplayableApps.first?.id
     }
 
-    private func prepareGuidedTour(for step: GuidedTourCoordinator.Step) {
-        guard guidedTour.isActive else { return }
+    /// Steps are data now rather than an enum, so this matches on the step id.
+    /// The ids are the old case names, kept precisely so this mapping survived
+    /// the refactor. An unknown id (a What's New step, say) just collapses rows.
+    private func prepareGuidedTour(for step: SpotlightStep?) {
+        guard guidedTour.isActive, let step else { return }
 
-        switch step {
-        case .devices, .autoEQ:
+        switch step.id {
+        case "devices", "autoEQ":
             areDevicesExpanded = true
             expandedRowID = nil
-        case .equalizer:
+        case "equalizer":
             guard let targetID = guidedTourEqualizerAppID else { return }
             let activeIDs = Set(activeDisplayableApps.map(\.id))
             if !activeIDs.contains(targetID) {
                 areInactiveAppsExpanded = true
             }
             expandedRowID = targetID
-        case .appList, .appControls, .smartAudio, .search, .settings:
+        default:
             expandedRowID = nil
         }
     }

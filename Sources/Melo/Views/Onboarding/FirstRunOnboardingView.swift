@@ -6,11 +6,15 @@ struct FirstRunOnboardingView: View {
     @Bindable var settings: SettingsManager
     @Bindable var accessibility: AccessibilityPermissionService
     @Bindable var audioPrimer: FirstRunAudioPrimer
+    let audioEngine: AudioEngine
+    // Sparkle predates Melo's move to @Observable and is still a Combine
+    // ObservableObject, so its toggles need @ObservedObject to refresh here.
+    @ObservedObject var sparkle: SparkleUpdateController
     let onClose: (Bool) -> Void
 
     @State private var page = 0
 
-    private let pageCount = 4
+    private let pageCount = 7
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,7 +34,10 @@ struct FirstRunOnboardingView: View {
                     switch page {
                     case 0: welcomePage
                     case 1: audioAccessPage
-                    case 2: accessibilityPage
+                    case 2: bluetoothPage
+                    case 3: accessibilityPage
+                    case 4: menuBarPage
+                    case 5: updatesPage
                     default: tourPage
                     }
                 }
@@ -119,6 +126,92 @@ struct FirstRunOnboardingView: View {
                     .buttonStyle(.bordered)
             }
         }
+    }
+
+    /// Priming page: macOS shows the system Bluetooth prompt the first time
+    /// discovery starts, and an unexplained prompt at first run reads as a grab.
+    /// Melo states the reason first and only starts scanning if asked to.
+    private var bluetoothPage: some View {
+        onboardingPage(
+            symbol: bluetoothEnabled ? "checkmark.circle.fill" : "wave.3.right.circle.fill",
+            title: bluetoothEnabled ? "Bluetooth Features Are On" : "See Your Bluetooth Devices",
+            message: "Melo can list your paired audio devices and show their battery level right in the menu bar.",
+            detail: "Nothing is scanned until you turn this on, and you can switch it off later in Settings."
+        ) {
+            if bluetoothEnabled {
+                Label("On", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(DesignTokens.Typography.Scale.headline())
+            } else {
+                Button("Turn On Bluetooth Features") { enableBluetoothFeatures() }
+                    .buttonStyle(.borderedProminent)
+                Button("Not Now") { move(to: page + 1) }
+                    .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private var menuBarPage: some View {
+        onboardingPage(
+            customIcon: AnyView(
+                Image(nsImage: MenuBarIconImage.meloMark.nsImage() ?? NSImage())
+                    .renderingMode(.template)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 54, height: 42)
+                    .foregroundStyle(.tint)
+                    .frame(width: 86, height: 86)
+                    .background(Circle().fill(.tint.opacity(0.12)))
+            ),
+            title: "Melo in the Menu Bar",
+            message: "This little mark is how you’ll find Melo. Click it any time to open the controls.",
+            detail: "The mark can also react to sound with an occasional small movement while audio plays. It stays still by default."
+        ) {
+            Toggle("React to Audio", isOn: $settings.appSettings.menuBarIconMotion)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+        }
+    }
+
+    private var updatesPage: some View {
+        onboardingPage(
+            symbol: "arrow.triangle.2.circlepath.circle.fill",
+            title: "Staying Up to Date",
+            message: "Melo can look for new versions on its own, so you don’t have to check.",
+            detail: "You can change either of these later in Settings › Updates."
+        ) {
+            if sparkle.isConfigured {
+                // Both start from Sparkle's own current values rather than being
+                // forced on: an update policy chosen for the user is exactly the
+                // kind of thing this page exists to stop doing.
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    Toggle("Check for updates automatically", isOn: $sparkle.automaticallyChecksForUpdates)
+                    Toggle("Download and install them for me", isOn: $sparkle.automaticallyDownloadsAndInstalls)
+                        .disabled(!sparkle.automaticallyChecksForUpdates)
+                }
+                .toggleStyle(.switch)
+                .controlSize(.small)
+            } else {
+                Text(sparkle.configurationProblem?.summary ?? "Automatic updates are not set up in this build.")
+                    .font(DesignTokens.Typography.Scale.caption())
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 330)
+            }
+        }
+    }
+
+    private var bluetoothEnabled: Bool {
+        settings.appSettings.bluetoothFeaturesEnabled
+    }
+
+    private func enableBluetoothFeatures() {
+        var appSettings = settings.appSettings
+        appSettings.bluetoothFeaturesEnabled = true
+        settings.appSettings = appSettings
+        // Start discovery immediately so the system prompt lands while the user
+        // is still looking at the page that explains it.
+        audioEngine.startBluetoothMonitoringIfEnabled()
     }
 
     private var tourPage: some View {

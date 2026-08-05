@@ -6,7 +6,11 @@ import AppKit
 
 
 nonisolated enum MeloExperienceVersion {
-    static let onboarding = 2
+    // Bumped only when first-run setup gains a page that asks something new, so
+    // people who finished an older version are asked once. Routine releases must
+    // leave this alone — `OnboardingWindowController.showIfNeeded()` replays the
+    // whole flow for anyone below it.
+    static let onboarding = 3
     static let guidedTour = 2
 }
 
@@ -33,11 +37,27 @@ nonisolated struct AppSettings: Codable, Equatable {
     var launchAtLogin: Bool = false
     var menuBarIconStyle: MenuBarIconStyle = .default
     var menuBarInfoStyle: MenuBarInfoStyle = .iconOnly
+    /// Off by default. The menu bar sits in peripheral vision, which is far more
+    /// motion-sensitive than the centre of the screen, so movement there is
+    /// opt-in rather than something a new user has to discover and switch off.
+    var menuBarIconMotion: Bool = false
+    /// Melo asks IOBluetooth for paired devices, and that first call is what
+    /// triggers the system Bluetooth prompt. Gating it behind a deliberate
+    /// choice keeps the prompt from ambushing a brand-new user at launch,
+    /// before the welcome window has even explained what Melo is.
+    var bluetoothFeaturesEnabled: Bool = false
     var onboardingVersionCompleted: Int = 0
     var guidedTourVersionCompleted: Int = 0
     /// Set only when a brand-new user finishes the welcome window. Existing
     /// installations are migrated as complete so updates never replay the tour.
     var guidedTourPending: Bool = false
+    /// Highest build whose release notes the user has already been shown. Zero
+    /// means "never stamped", which covers both a fresh install and anyone who
+    /// upgraded from a release that predates this key — neither should be shown
+    /// a What's New window for changes they either never missed or cannot be
+    /// told about accurately, so the first launch stamps the current build and
+    /// shows nothing.
+    var lastSeenReleaseBuild: Int = 0
     var quietMoveDelay: QuietMoveDelayOption = .never
     var showInDock: Bool = false
 
@@ -94,10 +114,13 @@ nonisolated struct AppSettings: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
         menuBarIconStyle = try c.decodeIfPresent(MenuBarIconStyle.self, forKey: .menuBarIconStyle) ?? .default
+        menuBarIconMotion = try c.decodeIfPresent(Bool.self, forKey: .menuBarIconMotion) ?? false
+        bluetoothFeaturesEnabled = try c.decodeIfPresent(Bool.self, forKey: .bluetoothFeaturesEnabled) ?? false
         menuBarInfoStyle = try c.decodeIfPresent(MenuBarInfoStyle.self, forKey: .menuBarInfoStyle) ?? .iconOnly
         onboardingVersionCompleted = try c.decodeIfPresent(Int.self, forKey: .onboardingVersionCompleted) ?? 0
         guidedTourVersionCompleted = try c.decodeIfPresent(Int.self, forKey: .guidedTourVersionCompleted) ?? 0
         guidedTourPending = try c.decodeIfPresent(Bool.self, forKey: .guidedTourPending) ?? false
+        lastSeenReleaseBuild = try c.decodeIfPresent(Int.self, forKey: .lastSeenReleaseBuild) ?? 0
         // Keep quiet apps visible unless the user deliberately chooses a delay.
         // Updates and imported older settings never introduce a new setup prompt
         // or silently move apps out of the main list.
@@ -1289,6 +1312,7 @@ final class SettingsManager {
         let hadOnboardingKey = appSettingsObject?["onboardingVersionCompleted"] != nil
         let hadGuidedTourKey = appSettingsObject?["guidedTourVersionCompleted"] != nil
         let hadQuietMoveKey = appSettingsObject?["quietMoveDelay"] != nil
+        let hadBluetoothKey = appSettingsObject?["bluetoothFeaturesEnabled"] != nil
 
         var decoded = try JSONDecoder().decode(Settings.self, from: data)
         decoded.version = max(decoded.version, 17)
@@ -1296,6 +1320,17 @@ final class SettingsManager {
         // An existing settings file proves the app was already in use. Older
         // releases did not store onboarding/tour completion, so mark those
         // experiences complete instead of replaying them after an update.
+        // Stamping the *current* version here also opts that cohort out of the
+        // version-bump replay, which is intentional: they predate the key
+        // entirely and the migration below already answers the new Bluetooth
+        // question on their behalf. Installs that do carry the key sit below the
+        // current version and get the added pages once.
+        // Someone already running Melo has already answered the Bluetooth
+        // prompt one way or the other. Turning the feature off underneath them
+        // would look like a regression, so only new installs start gated.
+        if !hadBluetoothKey {
+            decoded.appSettings.bluetoothFeaturesEnabled = true
+        }
         if !hadOnboardingKey {
             decoded.appSettings.onboardingVersionCompleted = MeloExperienceVersion.onboarding
         }

@@ -93,6 +93,7 @@ struct SettingsRootView: View {
             GeneralTab(
                 settings: settings,
                 appSupport: appSupport,
+                audioEngine: audioEngine,
                 onResetAll: {
                     audioEngine.handleSettingsReset()
                     appSupport.setDockVisible(false)
@@ -146,7 +147,7 @@ struct SettingsRootView: View {
                 .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
                 .tag(Section.updates)
 
-            AboutTab()
+            AboutTab(appSupport: appSupport)
                 .tabItem { Label("About", systemImage: "info.circle") }
                 .tag(Section.about)
         }

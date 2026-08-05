@@ -280,6 +280,22 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             destination: .general
         ),
         .init(
+            "bluetooth-features",
+            category: .general,
+            title: "Bluetooth Features",
+            summary: "Show paired audio devices and their battery level in the menu bar.",
+            keywords: ["bluetooth", "headphone battery", "paired devices", "airpods battery"],
+            destination: .general
+        ),
+        .init(
+            "menu-icon-motion",
+            category: .general,
+            title: "React to Audio",
+            summary: "Let the menu bar mark move a little now and then while audio plays.",
+            keywords: ["menu bar icon moves", "animated icon", "stop the icon moving", "bouncing icon"],
+            destination: .general
+        ),
+        .init(
             "quiet-move",
             category: .general,
             title: "Move Quiet Apps",

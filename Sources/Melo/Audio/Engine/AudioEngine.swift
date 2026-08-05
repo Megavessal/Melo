@@ -311,7 +311,11 @@ final class AudioEngine {
                 // actually plays audio.
                 self.processMonitor.start()
                 self.deviceMonitor.start()
-                self.bluetoothDeviceMonitor.start()
+                // Deliberately conditional. The monitor's first refresh calls
+                // IOBluetoothDevice.pairedDevices(), and that call is what makes
+                // macOS show the Bluetooth prompt — which used to appear about
+                // half a second before the welcome window, with no explanation.
+                self.startBluetoothMonitoringIfEnabled()
 
                 #if !APP_STORE
                 ddc.onProbeCompleted = { [weak self] in
@@ -679,6 +683,15 @@ final class AudioEngine {
             return
         }
         appListCoordinator.setSelectedDeviceUIDsForInactive(identifier: identifier, to: uids)
+    }
+
+    /// Starts paired-device discovery if the user has turned Bluetooth features
+    /// on. Safe to call repeatedly; `BluetoothDeviceMonitor.start()` is
+    /// idempotent, so onboarding can call this the moment the user opts in
+    /// without waiting for a relaunch.
+    func startBluetoothMonitoringIfEnabled() {
+        guard settingsManager.appSettings.bluetoothFeaturesEnabled else { return }
+        bluetoothDeviceMonitor.start()
     }
 
     /// Audio levels for all active apps (for VU meter visualization)

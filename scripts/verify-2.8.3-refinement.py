@@ -28,24 +28,31 @@ settings = require(
 if "?? (onboardingVersionCompleted == 0 ? .never : .fifteenSeconds)" in settings:
     failures.append("legacy fifteen-second quiet-app migration remains")
 
+# The tour is data now, so a walkthrough is a list of `SpotlightStep`s the
+# overlay renders rather than an enum it switches on. The copy moved with the
+# data into the coordinator; the overlay is still checked for the pointer and
+# for the quiet-app question never coming back.
 tour = require(
     "Sources/Melo/Views/Onboarding/GuidedTourOverlay.swift",
     "NSCursor.arrow.image",
-    "AutoEQ corrects supported headphones",
-    "Smart Sound adapts automatically",
-    "EQ changes the tone of one app",
-    "Search finds actions, not only labels",
+    "coordinator.currentStep",
 )
 if "Keep quiet apps visible?" in tour or "quietAppsCard" in tour:
     failures.append("quiet-app setup question remains in guided tour")
 
 coordinator = require(
     "Sources/Melo/Coordination/GuidedTourCoordinator.swift",
-    "case autoEQ",
-    "case smartAudio",
-    "case equalizer",
-    "case search",
-    "case settings",
+    # The first-run tour still covers every one of these, under the old case
+    # names, which are now the step ids.
+    'id: "autoEQ"',
+    'id: "smartAudio"',
+    'id: "equalizer"',
+    'id: "search"',
+    'id: "settings"',
+    "AutoEQ corrects supported headphones",
+    "Smart Sound adapts automatically",
+    "EQ changes the tone of one app",
+    "Search finds actions, not only labels",
     "func finish()",
 )
 if "finish(quietMoveDelay" in coordinator:
@@ -95,9 +102,9 @@ if "var body: some View {\n        ZStack" in main:
 
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.2":
+if info.get("CFBundleShortVersionString") != "2.9.3":
     failures.append("wrong version")
-if info.get("CFBundleVersion") != "297":
+if info.get("CFBundleVersion") != "298":
     failures.append("wrong build")
 
 if failures:

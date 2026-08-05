@@ -27,25 +27,40 @@ final class OnboardingWindowController {
     private let audioPrimer: FirstRunAudioPrimer
     private let guidedTour: GuidedTourCoordinator
     private let popupController: MenuBarPopupController
+    private let audioEngine: AudioEngine
+    private let sparkle: SparkleUpdateController
 
     init(
         settings: SettingsManager,
         accessibility: AccessibilityPermissionService,
         audioPrimer: FirstRunAudioPrimer,
         guidedTour: GuidedTourCoordinator,
-        popupController: MenuBarPopupController
+        popupController: MenuBarPopupController,
+        audioEngine: AudioEngine,
+        sparkle: SparkleUpdateController
     ) {
         self.settings = settings
         self.accessibility = accessibility
         self.audioPrimer = audioPrimer
         self.guidedTour = guidedTour
         self.popupController = popupController
+        self.audioEngine = audioEngine
+        self.sparkle = sparkle
+    }
+
+    /// Whether `showIfNeeded()` would actually put setup on screen. Exposed so
+    /// the What's New flow can stand down for this launch rather than racing
+    /// setup for the same moment.
+    var isSetupPending: Bool {
+        settings.appSettings.onboardingVersionCompleted < MeloExperienceVersion.onboarding
     }
 
     func showIfNeeded() {
-        // Completion is intentionally not compared with the current app version.
-        // Updating Melo must never replay first-run setup for an existing user.
-        guard settings.appSettings.onboardingVersionCompleted == 0 else { return }
+        // Completion is compared with the onboarding experience version, not the
+        // app version: routine updates must never replay setup, but adding pages
+        // that ask a new question (Bluetooth, update policy) has to reach people
+        // who already finished an older, shorter version of this flow.
+        guard isSetupPending else { return }
         show()
     }
 
@@ -54,7 +69,7 @@ final class OnboardingWindowController {
     /// from General settings.
     private func markCompletedIfNeeded() {
         audioPrimer.cancel()
-        guard settings.appSettings.onboardingVersionCompleted == 0 else { return }
+        guard settings.appSettings.onboardingVersionCompleted < MeloExperienceVersion.onboarding else { return }
         var appSettings = settings.appSettings
         appSettings.onboardingVersionCompleted = MeloExperienceVersion.onboarding
         appSettings.guidedTourVersionCompleted = MeloExperienceVersion.guidedTour
@@ -91,6 +106,8 @@ final class OnboardingWindowController {
             settings: settings,
             accessibility: accessibility,
             audioPrimer: audioPrimer,
+            audioEngine: audioEngine,
+            sparkle: sparkle,
             onClose: { [weak self, weak window] startTour in
                 guard let self else { return }
                 self.audioPrimer.cancel()

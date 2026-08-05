@@ -80,7 +80,7 @@ require("Sources/Melo/Audio/Engine/CrossfadeOrchestrator.swift", "equal-power", 
 settings = require("Sources/Melo/Settings/SettingsManager.swift",
                    "onboardingVersionCompleted", "quietMoveDelay", "lowerOtherAppsDuringCalls",
                    "monoAudioEnabled", "pauseOnHeadphoneDisconnect", "reduceProcessingOnBattery")
-require("Config/Info.plist", "<string>2.9.2</string>", "<string>297</string>")
+require("Config/Info.plist", "<string>2.9.3</string>", "<string>298</string>")
 
 if failures:
     print("Consumer foundation verification failed:")

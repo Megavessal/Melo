@@ -4,6 +4,8 @@ import SwiftUI
 
 @MainActor
 struct AboutTab: View {
+    @Bindable var appSupport: AppSupportCoordinator
+
     private var versionShort: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
@@ -35,6 +37,11 @@ struct AboutTab: View {
                 Text("Version \(versionShort) (\(buildNumber))")
                     .font(.system(size: 12, design: .monospaced))
                     .foregroundStyle(.secondary)
+
+                Button("What's New in Melo") { appSupport.showWhatsNew() }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(.top, DesignTokens.Spacing.xs)
             }
 
             Spacer()

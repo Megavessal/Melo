@@ -72,12 +72,14 @@
 		C6DB3BB57197D67DC8653715 /* ConsumerUndoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */; };
 		C4722DBC2ABB9AB4B66A183E /* MediaKeyStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */; };
 		CD3D058532662CB2B596820C /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */; };
+		CEE567D8B9800ED4A0BDA4E0 /* WhatsNewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDB9291050D43A6A9AE6083 /* WhatsNewCoordinator.swift */; };
 		47B1161301B8D6A7D6568359 /* PopupVisibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */; };
 		C565963592ADA5EAAC91D8A8 /* PowerSourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */; };
 		1FAD0DB5CE7144F56506B9F7 /* SleepTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */; };
 		7A58C38438A38252CCA024DB /* FineTuneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEB58AFA75F03458148A8B63 /* FineTuneApp.swift */; };
 		E62F13D1CEB4648A1290437F /* AppActivityPresentationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A69A7096C24B369C509D27 /* AppActivityPresentationPolicy.swift */; };
 		00DC2D964DE2C402C9557CAD /* AudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51556C23D96B4E028E8EA822 /* AudioApp.swift */; };
+		39C990DBD5108D154BEFEBE0 /* MeloReleaseNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30A25FF21F73FB52F4F76E49 /* MeloReleaseNotes.swift */; };
 		94D2AD63AACD4407F215BE60 /* AudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6096457BFFB8B0F32F4C0EE8 /* AudioDevice.swift */; };
 		453F9C5CDACB066BB0C0D5A8 /* AutoEQProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2733C2784777D312BE881B39 /* AutoEQProfile.swift */; };
 		9E33545CF02EF8938D64F962 /* BoostLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6991ACEE1D54924C0DA7DB6A /* BoostLevel.swift */; };
@@ -104,6 +106,7 @@
 		AC91633407D56C84D6B2BDA8 /* MoveToApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */; };
 		35094BE62DB1A29CA2B89BFD /* InstallLocationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */; };
 		7A1C4D0E2FB3419A8C55D001 /* DockIconAppearanceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */; };
+		7A1C4D0E2FB3419A8C55D101 /* MenuBarIconMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C4D0E2FB3419A8C55D102 /* MenuBarIconMotion.swift */; };
 		16D581A5553A2C8B9E893B84 /* MotionPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */; };
 		EDB4AF6DD943B4ED511DF8D7 /* NotificationAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */; };
 		7BF5DE12F26A3ADC015A5A05 /* DeviceIconResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */; };
@@ -154,6 +157,7 @@
 		46F2D40900C3E46456108C72 /* PopupKeyboardNavModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC3C0AD716C9D39588893959 /* PopupKeyboardNavModel.swift */; };
 		0AC84DCC48FEEB41CB619341 /* MenuBarPopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D95BA63A30CB3F944696BE /* MenuBarPopupView.swift */; };
 		C0BE7F19C84A98FCB3013C06 /* FirstRunOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA17E828F649C165FA4CA832 /* FirstRunOnboardingView.swift */; };
+		033D458D7E536724CC792164 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37D5A2A7376BA348B6B543F4 /* WhatsNewView.swift */; };
 		42F84416234FD512CD0E2AB0 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2ACEB41E4A8ED5D98207C4 /* MockData.swift */; };
 		7579D1478FD370D1186DB574 /* PreviewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A58A795D391394F12D7325 /* PreviewContainer.swift */; };
 		65E36282EC7DC78F78D4A88F /* AppEditRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D59A29F60A7A352787FD23B /* AppEditRow.swift */; };
@@ -280,12 +284,14 @@
 		E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/ConsumerUndoManager.swift; sourceTree = SOURCE_ROOT; };
 		BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/MediaKeyStatus.swift; sourceTree = SOURCE_ROOT; };
 		4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/OnboardingWindowController.swift; sourceTree = SOURCE_ROOT; };
+		AFDB9291050D43A6A9AE6083 /* WhatsNewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/WhatsNewCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PopupVisibilityService.swift; sourceTree = SOURCE_ROOT; };
 		CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PowerSourceMonitor.swift; sourceTree = SOURCE_ROOT; };
 		65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/SleepTimerManager.swift; sourceTree = SOURCE_ROOT; };
 		BEB58AFA75F03458148A8B63 /* FineTuneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/FineTuneApp.swift; sourceTree = SOURCE_ROOT; };
 		59A69A7096C24B369C509D27 /* AppActivityPresentationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AppActivityPresentationPolicy.swift; sourceTree = SOURCE_ROOT; };
 		51556C23D96B4E028E8EA822 /* AudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AudioApp.swift; sourceTree = SOURCE_ROOT; };
+		30A25FF21F73FB52F4F76E49 /* MeloReleaseNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/MeloReleaseNotes.swift; sourceTree = SOURCE_ROOT; };
 		6096457BFFB8B0F32F4C0EE8 /* AudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AudioDevice.swift; sourceTree = SOURCE_ROOT; };
 		2733C2784777D312BE881B39 /* AutoEQProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AutoEQProfile.swift; sourceTree = SOURCE_ROOT; };
 		6991ACEE1D54924C0DA7DB6A /* BoostLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/BoostLevel.swift; sourceTree = SOURCE_ROOT; };
@@ -312,6 +318,7 @@
 		840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/MoveToApplicationsView.swift; sourceTree = SOURCE_ROOT; };
 		1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/InstallLocationCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/DockIconAppearanceCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		7A1C4D0E2FB3419A8C55D102 /* MenuBarIconMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBar/MenuBarIconMotion.swift; sourceTree = SOURCE_ROOT; };
 		82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/MotionPreference.swift; sourceTree = SOURCE_ROOT; };
 		6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/NotificationAuthorization.swift; sourceTree = SOURCE_ROOT; };
 		EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/DeviceIconResolver.swift; sourceTree = SOURCE_ROOT; };
@@ -362,6 +369,7 @@
 		FC3C0AD716C9D39588893959 /* PopupKeyboardNavModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBar/PopupKeyboardNavModel.swift; sourceTree = SOURCE_ROOT; };
 		54D95BA63A30CB3F944696BE /* MenuBarPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBarPopupView.swift; sourceTree = SOURCE_ROOT; };
 		FA17E828F649C165FA4CA832 /* FirstRunOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		37D5A2A7376BA348B6B543F4 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/WhatsNewView.swift; sourceTree = SOURCE_ROOT; };
 		9E2ACEB41E4A8ED5D98207C4 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Previews/MockData.swift; sourceTree = SOURCE_ROOT; };
 		17A58A795D391394F12D7325 /* PreviewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Previews/PreviewContainer.swift; sourceTree = SOURCE_ROOT; };
 		2D59A29F60A7A352787FD23B /* AppEditRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/AppEditRow.swift; sourceTree = SOURCE_ROOT; };
@@ -521,12 +529,14 @@
 			E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */,
 			BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */,
 			4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */,
+			AFDB9291050D43A6A9AE6083 /* WhatsNewCoordinator.swift */,
 			74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */,
 			CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */,
 			65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */,
 			BEB58AFA75F03458148A8B63 /* FineTuneApp.swift */,
 			59A69A7096C24B369C509D27 /* AppActivityPresentationPolicy.swift */,
 			51556C23D96B4E028E8EA822 /* AudioApp.swift */,
+			30A25FF21F73FB52F4F76E49 /* MeloReleaseNotes.swift */,
 			6096457BFFB8B0F32F4C0EE8 /* AudioDevice.swift */,
 			2733C2784777D312BE881B39 /* AutoEQProfile.swift */,
 			6991ACEE1D54924C0DA7DB6A /* BoostLevel.swift */,
@@ -553,6 +563,7 @@
 			840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */,
 			1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */,
 			7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */,
+			7A1C4D0E2FB3419A8C55D102 /* MenuBarIconMotion.swift */,
 			82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */,
 			6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */,
 			EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */,
@@ -603,6 +614,7 @@
 			FC3C0AD716C9D39588893959 /* PopupKeyboardNavModel.swift */,
 			54D95BA63A30CB3F944696BE /* MenuBarPopupView.swift */,
 			FA17E828F649C165FA4CA832 /* FirstRunOnboardingView.swift */,
+			37D5A2A7376BA348B6B543F4 /* WhatsNewView.swift */,
 			9E2ACEB41E4A8ED5D98207C4 /* MockData.swift */,
 			17A58A795D391394F12D7325 /* PreviewContainer.swift */,
 			2D59A29F60A7A352787FD23B /* AppEditRow.swift */,
@@ -777,12 +789,14 @@
 			C6DB3BB57197D67DC8653715 /* ConsumerUndoManager.swift in Sources */,
 			C4722DBC2ABB9AB4B66A183E /* MediaKeyStatus.swift in Sources */,
 			CD3D058532662CB2B596820C /* OnboardingWindowController.swift in Sources */,
+			CEE567D8B9800ED4A0BDA4E0 /* WhatsNewCoordinator.swift in Sources */,
 			47B1161301B8D6A7D6568359 /* PopupVisibilityService.swift in Sources */,
 			C565963592ADA5EAAC91D8A8 /* PowerSourceMonitor.swift in Sources */,
 			1FAD0DB5CE7144F56506B9F7 /* SleepTimerManager.swift in Sources */,
 			7A58C38438A38252CCA024DB /* FineTuneApp.swift in Sources */,
 			E62F13D1CEB4648A1290437F /* AppActivityPresentationPolicy.swift in Sources */,
 			00DC2D964DE2C402C9557CAD /* AudioApp.swift in Sources */,
+			39C990DBD5108D154BEFEBE0 /* MeloReleaseNotes.swift in Sources */,
 			94D2AD63AACD4407F215BE60 /* AudioDevice.swift in Sources */,
 			453F9C5CDACB066BB0C0D5A8 /* AutoEQProfile.swift in Sources */,
 			9E33545CF02EF8938D64F962 /* BoostLevel.swift in Sources */,
@@ -809,6 +823,7 @@
 			AC91633407D56C84D6B2BDA8 /* MoveToApplicationsView.swift in Sources */,
 			35094BE62DB1A29CA2B89BFD /* InstallLocationCoordinator.swift in Sources */,
 			7A1C4D0E2FB3419A8C55D001 /* DockIconAppearanceCoordinator.swift in Sources */,
+			7A1C4D0E2FB3419A8C55D101 /* MenuBarIconMotion.swift in Sources */,
 			16D581A5553A2C8B9E893B84 /* MotionPreference.swift in Sources */,
 			EDB4AF6DD943B4ED511DF8D7 /* NotificationAuthorization.swift in Sources */,
 			7BF5DE12F26A3ADC015A5A05 /* DeviceIconResolver.swift in Sources */,
@@ -859,6 +874,7 @@
 			46F2D40900C3E46456108C72 /* PopupKeyboardNavModel.swift in Sources */,
 			0AC84DCC48FEEB41CB619341 /* MenuBarPopupView.swift in Sources */,
 			C0BE7F19C84A98FCB3013C06 /* FirstRunOnboardingView.swift in Sources */,
+			033D458D7E536724CC792164 /* WhatsNewView.swift in Sources */,
 			42F84416234FD512CD0E2AB0 /* MockData.swift in Sources */,
 			7579D1478FD370D1186DB574 /* PreviewContainer.swift in Sources */,
 			65E36282EC7DC78F78D4A88F /* AppEditRow.swift in Sources */,
@@ -930,7 +946,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 297;
+			CURRENT_PROJECT_VERSION = 298;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -941,7 +957,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.2;
+			MARKETING_VERSION = 2.9.3;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
 			PRODUCT_NAME = Melo;
@@ -960,7 +976,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 297;
+			CURRENT_PROJECT_VERSION = 298;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -971,7 +987,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.2;
+			MARKETING_VERSION = 2.9.3;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
 			PRODUCT_NAME = Melo;

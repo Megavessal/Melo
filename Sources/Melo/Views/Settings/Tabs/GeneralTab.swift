@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct GeneralTab: View {
     @Bindable var settings: SettingsManager
     @Bindable var appSupport: AppSupportCoordinator
+    let audioEngine: AudioEngine
     let onResetAll: () -> Void
     let onSettingsRestored: () -> Void
 
@@ -172,6 +173,20 @@ struct GeneralTab: View {
                         if isOn { NotificationAuthorization.requestIfNeeded() }
                     }
             }
+            SettingsRowDivider()
+            SettingsRow(
+                "Bluetooth Features",
+                description: "Show paired audio devices and their battery level"
+            ) {
+                Toggle("", isOn: $settings.appSettings.bluetoothFeaturesEnabled)
+                    .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                    .onChange(of: settings.appSettings.bluetoothFeaturesEnabled) { _, isOn in
+                        // Start discovery on the spot so the system Bluetooth
+                        // prompt arrives while the user is looking at the switch
+                        // they just flipped, rather than after a relaunch.
+                        if isOn { audioEngine.startBluetoothMonitoringIfEnabled() }
+                    }
+            }
         }
     }
 
@@ -179,6 +194,14 @@ struct GeneralTab: View {
         SettingsSection("Menu Bar") {
             SettingsRow("Icon Style", description: "How Melo appears in your menu bar") {
                 IconStyleSegmentedControl(selection: $settings.appSettings.menuBarIconStyle)
+            }
+            SettingsRowDivider()
+            SettingsRow(
+                "React to Audio",
+                description: "Let the menu bar mark move a little now and then while audio plays"
+            ) {
+                Toggle("", isOn: $settings.appSettings.menuBarIconMotion)
+                    .toggleStyle(.switch).controlSize(.small).labelsHidden()
             }
             SettingsRowDivider()
             SettingsRow("Show Beside Icon", description: "Optionally show volume, device, or a small live level") {

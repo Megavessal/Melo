@@ -29,6 +29,8 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
     private var lastObservedDeviceID: AudioDeviceID?
     private var started = false
     private var levelTimer: Timer?
+    private var motionPollTimer: Timer?
+    private let motion = MenuBarIconMotion()
 
     init(
         deviceVolumeMonitor: DeviceVolumeMonitor,
@@ -57,6 +59,7 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
         scheduleApplyTracking()
         scheduleDeviceChangeTracking()
         syncLevelTimer()
+        syncMotionTimer()
     }
 
     /// Cancel pending work and drop references. Called on app termination.
@@ -65,6 +68,9 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
         flashWorkItem = nil
         levelTimer?.invalidate()
         levelTimer = nil
+        motionPollTimer?.invalidate()
+        motionPollTimer = nil
+        motion.stop()
         if let rightMouseMonitor {
             NSEvent.removeMonitor(rightMouseMonitor)
         }
@@ -134,7 +140,7 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
     private func apply() {
         guard let button = resolveButton() else { return }
         let state = computeState()
-        guard let image = state.image.nsImage() else { return }
+        guard let image = state.image.nsImage(motionOffsetCells: motion.offsetCells) else { return }
         addFadeTransition(to: button)
         button.image = image
         let title = menuBarInfoTitle()
@@ -187,6 +193,30 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
         }
     }
 
+    /// The mark only moves while something is actually playing through Melo.
+    /// Polling once a second is enough to notice playback starting and stopping —
+    /// the animation's own timing lives in MenuBarIconMotion, and this timer does
+    /// nothing but answer "is there audio".
+    private func syncMotionTimer() {
+        let wantsMotion = settings.appSettings.menuBarIconMotion
+            && settings.appSettings.menuBarIconStyle == .default
+        guard wantsMotion else {
+            motionPollTimer?.invalidate()
+            motionPollTimer = nil
+            motion.setAudioActive(false, enabled: false)
+            return
+        }
+        guard motionPollTimer == nil else { return }
+        motionPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                // A floor rather than "greater than zero": silence between
+                // tracks still reports tiny non-zero levels.
+                self.motion.setAudioActive(self.levelProvider() > 0.01, enabled: true)
+            }
+        }
+    }
+
     private func attemptInitialApply(retriesLeft: Int) {
         if resolveButton() != nil {
             apply()
@@ -208,6 +238,9 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
             _ = deviceVolumeMonitor.muteStates[id]
             _ = settings.appSettings.menuBarIconStyle
             _ = settings.appSettings.menuBarInfoStyle
+            _ = settings.appSettings.menuBarIconMotion
+            // Redraws the button on each animation frame.
+            _ = motion.offsetCells
             _ = settings.appSettings.hudStyle
             _ = settings.devicePriorityOrder
             // Deliberate dependency so the device-style icon refreshes when the user picks a new symbol; explicit because observation granularity is per stored property.
@@ -223,6 +256,7 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
             }
             Task { @MainActor [weak self] in
                 self?.syncLevelTimer()
+                self?.syncMotionTimer()
                 self?.apply()
             }
         }

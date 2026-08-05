@@ -6,9 +6,11 @@
 import Foundation
 
 nonisolated enum MenuBarIconImage: Equatable {
-    /// Melo's own compact "m" audio mark. Drawn in AppKit so it remains a
-    /// crisp monochrome template at every menu-bar scale.
+    /// Melo's pixel-art waveform mark, matching the app icon. Drawn in AppKit
+    /// so it remains a crisp monochrome template at every menu-bar scale.
     case meloMark
+    /// The earlier smooth curve, kept selectable for anyone who prefers it.
+    case meloMarkSmooth
     case systemSymbol(String)
     case asset(String)
 }
@@ -76,6 +78,8 @@ extension MenuBarIconState {
             return .device(symbol: deviceSymbol)
         case .default:
             return .staticBaseline(.meloMark)
+        case .classicMark:
+            return .staticBaseline(.meloMarkSmooth)
         case .waveform:
             return .staticBaseline(.systemSymbol("waveform"))
         case .equalizer:

@@ -58,6 +58,13 @@ final class BluetoothDeviceMonitor {
     @ObservationIgnored private nonisolated(unsafe) var powerOnObserver: NSObjectProtocol?
     @ObservationIgnored private nonisolated(unsafe) var powerOffObserver: NSObjectProtocol?
 
+    /// Gate for the whole monitor. Every path that reaches IOBluetooth runs
+    /// through `refresh()`, and the first such call is what makes macOS show the
+    /// Bluetooth prompt — including the popup's on-appear refresh, which would
+    /// otherwise sidestep any gating done at startup. One flag here covers every
+    /// call site.
+    private(set) var isStarted = false
+
     // MARK: - Lifecycle
 
     deinit {
@@ -66,6 +73,11 @@ final class BluetoothDeviceMonitor {
     }
 
     func start() {
+        // Idempotent: onboarding calls this the moment the user opts in, and
+        // launch may have called it already. Registering the observers twice
+        // would double every refresh.
+        guard isStarted == false else { return }
+        isStarted = true
         powerOnObserver = NotificationCenter.default.addObserver(
             forName: NSNotification.Name("IOBluetoothHostControllerPoweredOnNotification"),
             object: nil,
@@ -94,6 +106,7 @@ final class BluetoothDeviceMonitor {
     /// Rebuilds `pairedDevices` from the current IOBluetooth snapshot.
     /// Call on popup-appear and after any CoreAudio device list change.
     func refresh() {
+        guard isStarted else { return }
         refreshTask?.cancel()
         refreshTask = Task {
             let powered = await Self.runOnBTQueue {

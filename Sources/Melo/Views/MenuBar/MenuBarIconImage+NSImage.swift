@@ -10,14 +10,20 @@ extension MenuBarIconImage {
     /// The status item is variable-length: icons of differing sizes resize it and shift every neighboring menu bar item.
     static let canvasSize = NSSize(width: 22, height: 18)
 
-    func nsImage(accessibilityDescription: String = "Melo") -> NSImage? {
+    func nsImage(accessibilityDescription: String = "Melo", motionOffsetCells: Int = 0) -> NSImage? {
         if self == .meloMark {
+            return Self.makePixelMeloMark(
+                accessibilityDescription: accessibilityDescription,
+                offsetCells: motionOffsetCells
+            )
+        }
+        if self == .meloMarkSmooth {
             return Self.makeMeloMark(accessibilityDescription: accessibilityDescription)
         }
 
         let source: NSImage?
         switch self {
-        case .meloMark:
+        case .meloMark, .meloMarkSmooth:
             source = nil
         case .systemSymbol(let name):
             source = NSImage(systemSymbolName: name, accessibilityDescription: accessibilityDescription)
@@ -43,9 +49,57 @@ extension MenuBarIconImage {
         return image
     }
 
-    /// A menu-bar-sized rendering of the signature mark from Melo's app icon.
-    /// Keeping this as geometry (instead of shrinking the full-colour icon)
-    /// gives macOS a true template image that follows light/dark menu bars.
+    /// The pixel-art mark, matching the app icon.
+    ///
+    /// The rows below are the same waveform silhouette that the app icon uses,
+    /// sampled onto a 20×11 grid. It is drawn as filled cells rather than
+    /// scaled from a bitmap so each cell lands exactly on a device pixel at 1x
+    /// and 2x — a shrunk PNG would blur, which is the one thing pixel art
+    /// cannot survive.
+    static let pixelMarkRows: [String] = [
+        "00000011100000000000",
+        "00000111110001100000",
+        "00000111110011110000",
+        "00000111110011110000",
+        "01100111110011110010",
+        "11111111110011111111",
+        "11111100111111011111",
+        "11111000111111001110",
+        "00111000111111000000",
+        "00000000111111000000",
+        "00000000011110000000"
+    ]
+
+    private static func makePixelMeloMark(accessibilityDescription: String, offsetCells: Int = 0) -> NSImage {
+        let rows = pixelMarkRows
+        let columns = rows[0].count
+        let image = NSImage(size: canvasSize, flipped: false) { _ in
+            // One cell per point keeps the grid aligned to the pixel grid at
+            // every backing scale factor.
+            let cell = min(canvasSize.width / CGFloat(columns), canvasSize.height / CGFloat(rows.count))
+            let originX = ((canvasSize.width - cell * CGFloat(columns)) / 2).rounded()
+            // Whole cells only. A sub-cell offset would put the artwork between
+            // device pixels and undo the point of drawing it as pixel art.
+            let originY = ((canvasSize.height - cell * CGFloat(rows.count)) / 2).rounded()
+                + CGFloat(offsetCells) * cell
+            NSColor.black.setFill()
+            for (rowIndex, row) in rows.enumerated() {
+                // NSImage draws bottom-up; the rows above read top-down.
+                let y = originY + CGFloat(rows.count - 1 - rowIndex) * cell
+                for (columnIndex, character) in row.enumerated() where character == "1" {
+                    NSRect(x: originX + CGFloat(columnIndex) * cell, y: y, width: cell, height: cell).fill()
+                }
+            }
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = accessibilityDescription
+        return image
+    }
+
+    /// The original smooth mark, kept as an option for anyone who prefers it.
+    /// Geometry rather than a shrunk icon, so it stays a true template image
+    /// that follows light and dark menu bars.
     private static func makeMeloMark(accessibilityDescription: String) -> NSImage {
         let image = NSImage(size: canvasSize, flipped: false) { _ in
             let path = NSBezierPath()

@@ -38,6 +38,7 @@ nonisolated private struct MeloDiagnosticReport: Codable, Sendable {
 final class AppSupportCoordinator {
     private let settings: SettingsManager
     private let onboarding: OnboardingWindowController
+    private let whatsNew: WhatsNewCoordinator
     private let audioEngine: AudioEngine
     private let sparkle: SparkleUpdateController
     private let logger = Logger(subsystem: "dev.local.Melo", category: "AppSupport")
@@ -52,11 +53,13 @@ final class AppSupportCoordinator {
     init(
         settings: SettingsManager,
         onboarding: OnboardingWindowController,
+        whatsNew: WhatsNewCoordinator,
         audioEngine: AudioEngine,
         sparkle: SparkleUpdateController
     ) {
         self.settings = settings
         self.onboarding = onboarding
+        self.whatsNew = whatsNew
         self.audioEngine = audioEngine
         self.sparkle = sparkle
     }
@@ -78,6 +81,10 @@ final class AppSupportCoordinator {
 
     func replayTutorial() {
         onboarding.replay()
+    }
+
+    func showWhatsNew() {
+        whatsNew.replay()
     }
 
     func checkForUpdates() {

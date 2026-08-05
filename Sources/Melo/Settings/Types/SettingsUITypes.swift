@@ -6,6 +6,7 @@ import AppKit
 
 enum MenuBarIconStyle: String, Codable, CaseIterable, Identifiable {
     case `default` = "Default"
+    case classicMark = "Classic Mark"
     case speaker = "Speaker"
     case device = "Device"
     case waveform = "Waveform"
@@ -17,6 +18,7 @@ enum MenuBarIconStyle: String, Codable, CaseIterable, Identifiable {
     var iconName: String {
         switch self {
         case .default: return "Melo mark"
+        case .classicMark: return "Melo mark (smooth)"
         case .speaker: return "speaker.wave.2.fill"
         case .device: return "headphones"
         case .waveform: return "waveform"
@@ -25,7 +27,7 @@ enum MenuBarIconStyle: String, Codable, CaseIterable, Identifiable {
     }
 
     var isSystemSymbol: Bool {
-        self != .default
+        self != .default && self != .classicMark
     }
 }
 

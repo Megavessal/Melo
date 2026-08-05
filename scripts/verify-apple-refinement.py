@@ -20,9 +20,13 @@ require("Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",
         'title: "Melo"', 'short sound', 'Show Me Around')
 require("Sources/Melo/Coordination/FirstRunAudioPrimer.swift", "runFirstRunAudioPrimer")
 require("Sources/Melo/Audio/Engine/ProcessTapController.swift", "startAudioDeviceOffMainThread")
+# Tour copy now lives beside the data in the coordinator; the overlay only
+# renders whichever step list it is handed.
+require("Sources/Melo/Coordination/GuidedTourCoordinator.swift",
+        "AutoEQ corrects supported headphones", "Search finds actions")
 tour = require("Sources/Melo/Views/Onboarding/GuidedTourOverlay.swift",
         "GuidedTourTargetPreferenceKey", "NSCursor.arrow.image",
-        "AutoEQ corrects supported headphones", "Search finds actions")
+        "coordinator.currentStep")
 if "Keep quiet apps visible?" in tour:
     failures.append("quiet-app setup question must not appear in onboarding or the guided tour")
 require("Sources/Melo/Views/Settings/Guide/SettingsGuideView.swift",
@@ -41,8 +45,8 @@ require("Resources/MeloFirstRunIntro.wav")
 
 with (root / "Config/Info.plist").open("rb") as f:
     info = plistlib.load(f)
-if info.get("CFBundleShortVersionString") != "2.9.2": failures.append("wrong version")
-if info.get("CFBundleVersion") != "297": failures.append("wrong build")
+if info.get("CFBundleShortVersionString") != "2.9.3": failures.append("wrong version")
+if info.get("CFBundleVersion") != "298": failures.append("wrong build")
 
 project = (root / "Melo.xcodeproj/project.pbxproj").read_text()
 for source in (root / "Sources/Melo").rglob("*.swift"):
