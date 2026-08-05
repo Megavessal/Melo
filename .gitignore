@@ -1,0 +1,12 @@
+# Build products
+.build-melo/
+outputs/
+*.xcuserdatad
+xcuserdata/
+
+# Sparkle release staging is kept locally, not in the repo: generate_appcast
+# rebuilds the feed from the archives it finds there, and they are already
+# published as GitHub release assets.
+outputs/sparkle-releases/
+
+.DS_Store

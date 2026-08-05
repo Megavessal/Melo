@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "version": "2.8.3",
+  "build": 283,
+  "bundleIdentifier": "dev.local.Melo",
+  "packageType": "source",
+  "minimumMacOS": "15.4",
+  "sourceSubdirectory": "Melo-macOS-2.8.3",
+  "releaseNotes": "A short, plain-language summary of this update."
+}

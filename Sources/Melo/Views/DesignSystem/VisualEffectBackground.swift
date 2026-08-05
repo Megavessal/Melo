@@ -1,0 +1,191 @@
+// Melo/Views/DesignSystem/VisualEffectBackground.swift
+import SwiftUI
+import AppKit
+
+/// A frosted glass background using NSVisualEffectView, Apple's documented
+/// translucent material primitive. The default `.popover` material renders
+/// as proper light/dark glass and matches the platform Control Center and
+/// Notification Center surfaces.
+struct VisualEffectBackground: NSViewRepresentable {
+    /// Apple's documented material for popover and menu-bar panels. Renders
+    /// vibrant translucency in both appearances. The previous `.hudWindow`
+    /// default was designed for dark floating overlays and washed out badly
+    /// in light mode.
+    var material: NSVisualEffectView.Material = .popover
+    var blendingMode: NSVisualEffectView.BlendingMode = .behindWindow
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = .active
+        return view
+    }
+
+    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
+        nsView.material = material
+        nsView.blendingMode = blendingMode
+    }
+}
+
+// MARK: - Colors
+
+extension Color {
+    /// Popup background overlay - uses theme-aware color from DesignTokens
+    /// Darker than before for more contrast with floating glass rows
+    static var popupBackgroundOverlay: Color { DesignTokens.Colors.popupOverlay }
+}
+
+// MARK: - View Extensions
+
+extension View {
+    /// Applies the popup's translucent glass background. Adapts to light and
+    /// dark via DesignTokens; the underlying NSVisualEffectView uses the
+    /// `.popover` material so it tracks system appearance natively.
+    /// Name kept for source compatibility; rename pending a follow-up sweep.
+    func darkGlassBackground() -> some View {
+        self
+            .background(Color.popupBackgroundOverlay)
+            .background(VisualEffectBackground(material: .popover, blendingMode: .behindWindow))
+    }
+
+    /// Applies the lifted-card background used by the EQ panel.
+    /// Light reads as a white card on the popup glass; dark reads as a
+    /// translucent surface on the dark glass. Replaces the prior recessed
+    /// treatment which read as a heavy gray block on whiter light glass.
+    func eqCardBackground() -> some View {
+        modifier(LiftedCardBackgroundModifier())
+    }
+
+    /// A compact elevated control surface. On macOS 26 and newer this uses
+    /// SwiftUI's native Liquid Glass compositor; older supported releases get
+    /// a closely matched material surface. Reduced Transparency always wins.
+    func meloGlassSurface(
+        cornerRadius: CGFloat = 14,
+        tint: Color? = nil,
+        interactive: Bool = false
+    ) -> some View {
+        modifier(
+            MeloGlassSurfaceModifier(
+                cornerRadius: cornerRadius,
+                tint: tint,
+                interactive: interactive
+            )
+        )
+    }
+}
+
+private struct MeloGlassSurfaceModifier: ViewModifier {
+    let cornerRadius: CGFloat
+    let tint: Color?
+    let interactive: Bool
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let increaseContrast = colorSchemeContrast == .increased
+
+        if reduceTransparency {
+            content
+                .background(Color(nsColor: .windowBackgroundColor), in: shape)
+                .overlay {
+                    shape.strokeBorder(
+                        Color(nsColor: .separatorColor).opacity(increaseContrast ? 0.9 : 0.5),
+                        lineWidth: increaseContrast ? 1 : 0.5
+                    )
+                }
+        } else if #available(macOS 26.0, *) {
+            content
+                .glassEffect(
+                    Glass.regular
+                        .tint(tint)
+                        .interactive(interactive),
+                    in: shape
+                )
+                .overlay {
+                    if increaseContrast {
+                        shape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+                    }
+                }
+        } else {
+            content
+                .background(.ultraThinMaterial, in: shape)
+                .background((tint ?? .clear).opacity(0.10), in: shape)
+                .overlay {
+                    shape.strokeBorder(
+                        Color(nsColor: .separatorColor).opacity(increaseContrast ? 0.9 : 0.35),
+                        lineWidth: increaseContrast ? 1 : 0.5
+                    )
+                }
+        }
+    }
+}
+
+// MARK: - Lifted Card Background Modifier (EQ panel)
+
+/// Lifted-card background used by the EQ panel.
+/// Light: opaque-ish white card on the popup glass with a hairline edge
+/// and a soft shadow that lifts the card off the surface. Dark: translucent
+/// white on the dark glass with a slightly stronger hairline. Tokens come
+/// from `DesignTokens.Colors.eqCardBackground` and `eqCardBorder`.
+///
+/// Elevation comes from `DesignTokens.Elevation.card`, which is a two-layer
+/// shadow. The previous single `radius: 1.5, y: 0.5` shadow was a contact
+/// shadow only — it anchored the card to the glass but gave it no height, so
+/// the card read as printed on the surface rather than resting above it. The
+/// token adds the wide, very low-alpha ambient layer that supplies height.
+///
+/// Both layers are pure black at low alpha. Shadows are a depth cue, not a
+/// chromatic surface, and remain readable in both appearances without an
+/// appearance-aware token.
+struct LiftedCardBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .background {
+                RoundedRectangle(cornerRadius: DesignTokens.Dimensions.rowRadius)
+                    .fill(DesignTokens.Colors.eqCardBackground)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: DesignTokens.Dimensions.rowRadius)
+                    .strokeBorder(DesignTokens.Colors.eqCardBorder, lineWidth: 0.5)
+            }
+            .meloElevation(DesignTokens.Elevation.card)
+    }
+}
+
+// MARK: - Previews
+
+#Preview("Dark Glass Popup Background") {
+    VStack(spacing: 16) {
+        Text("OUTPUT DEVICES")
+            .sectionHeaderStyle()
+        Text("Dark frosted glass background")
+            .foregroundStyle(.primary)
+    }
+    .padding(DesignTokens.Spacing.lg)
+    .frame(width: 300)
+    .darkGlassBackground()
+    .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Dimensions.cornerRadius))
+    .environment(\.colorScheme, .dark)
+}
+
+#Preview("EQ Card - Lifted") {
+    VStack(spacing: 8) {
+        Text("EQ Card - Lifted")
+            .foregroundStyle(.secondary)
+        HStack {
+            ForEach(0..<5) { _ in
+                Rectangle()
+                    .fill(.secondary.opacity(0.3))
+                    .frame(width: 20, height: 60)
+            }
+        }
+    }
+    .padding()
+    .eqCardBackground()
+    .padding()
+    .darkGlassBackground()
+}

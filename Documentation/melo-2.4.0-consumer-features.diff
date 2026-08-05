@@ -1,0 +1,2839 @@
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/BUILD_STATUS.md /mnt/data/melo_consumer/Melo-macOS-2.3.1/BUILD_STATUS.md
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/BUILD_STATUS.md	2026-08-03 15:20:24.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/BUILD_STATUS.md	2026-08-03 18:54:59.807878983 +0000
+@@ -4,18 +4,23 @@
+ 
+ ## Completed in the preparation environment
+ 
+-- Reconstructed a complete Swift Package around the patched source
+-- Added the missing `Haptics.swift` file to the executable target automatically
+-- Restored bundle metadata, icon, asset catalog, entitlements, licenses, and notices
+-- Added universal arm64/x86_64 release assembly
+-- Added ad-hoc code signing and post-build verification
+-- Parsed all 164 Swift source files successfully with Swift 6.2.1
+-- Ran Claude's premium-pass static verifier successfully
+-- Validated the package manifest successfully
++- Built Melo 2.4.0 on top of the complete 2.3.1 source and Claude premium pass
++- Added consumer Scenes that save the complete mixer, routing, sound, device, AutoEQ, and effects setup
++- Added simple app-open, device-connect, and time-of-day automations
++- Added Find an Action (including ⌘K while the popup is open)
++- Added session-based Undo and Recent Changes, including output-device volume and mute changes
++- Added consumer-safe Fix Audio teardown/rebuild and optional diagnostics
++- Added Scene comparison, JSON sharing/import, menu-bar information modes, and friendly device summaries
++- Preserved the full advanced controls behind the existing interface and optional technical disclosures
++- Added the missing Swift package/build wrapper, universal arm64/x86_64 assembly, assets, metadata, entitlements, and notices
++- Fixed ad-hoc signing failures caused by Finder resource forks and extended attributes
++- Parsed all 169 Swift source files successfully with Swift 6.2
++- Ran Claude's premium-pass verifier and the Melo 2.4 feature verifier
++- Validated the Swift package manifest and all shell-script syntax
+ 
+ ## Native compilation status
+ 
+ The preparation runtime is Linux. It cannot link Apple's AppKit, SwiftUI,
+ Core Audio, IOKit, or IOBluetooth frameworks and therefore cannot emit the
+ final macOS Mach-O executable. Run `Build Melo.command` on a Mac with full
+-Xcode 26 to perform the native compile and create the installable ZIP.
++Xcode 26 to compile, sign, verify, and create the installable ZIP.
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Config/Info.plist /mnt/data/melo_consumer/Melo-macOS-2.3.1/Config/Info.plist
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Config/Info.plist	2026-08-03 15:20:24.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Config/Info.plist	2026-08-03 18:46:18.963860357 +0000
+@@ -19,9 +19,9 @@
+     <key>CFBundlePackageType</key>
+     <string>APPL</string>
+     <key>CFBundleShortVersionString</key>
+-    <string>2.3.1</string>
++    <string>2.4.0</string>
+     <key>CFBundleVersion</key>
+-    <string>231</string>
++    <string>240</string>
+     <key>CFBundleURLTypes</key>
+     <array>
+         <dict>
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Documentation/MELO-2.4-EVERYDAY-PREMIUM.md /mnt/data/melo_consumer/Melo-macOS-2.3.1/Documentation/MELO-2.4-EVERYDAY-PREMIUM.md
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Documentation/MELO-2.4-EVERYDAY-PREMIUM.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Documentation/MELO-2.4-EVERYDAY-PREMIUM.md	2026-08-03 18:54:59.811878984 +0000
+@@ -0,0 +1,60 @@
++# Melo 2.4 — Everyday Premium design
++
++Melo 2.4 does not replace the advanced audio engine. It adds a simpler layer
++that lets a normal Mac user benefit from it without understanding routing,
++process taps, Audio Units, sample rates, latency, or loudness terminology.
++
++## Consumer features
++
++### Scenes
++
++A Scene saves the complete current setup: app volume and mute state, boost,
++routing, multi-output choices, EQ, balance, default and system-sound outputs,
++device volume/mute, AutoEQ, Smart Sound settings, privacy processing, and Audio
++Unit effect chains. Scene cards use familiar names and one clear “Use This
++Scene” action.
++
++### Automations
++
++The editor offers only three triggers:
++
++- when an app opens
++- when speakers or headphones connect
++- at a chosen time each day
++
++Each trigger applies one Scene. Existing open apps and connected devices are
++used as the startup baseline so rules do not unexpectedly fire at launch.
++
++### Find an Action
++
++The menu-bar popup includes search for Scenes, output devices, Smart Sound,
++Undo, Fix Audio, and Settings. The wording describes outcomes rather than
++internal audio operations. Command-K opens it while the popup is active.
++
++### Recent Changes
++
++Melo keeps up to twelve private, in-memory snapshots. Repeated slider/key
++changes are combined into a single undo step. The history covers per-app and
++output-device volume, mute, EQ, balance, routing, global sound options, output
++selection, Scene application, and repair.
++
++### Fix Audio
++
++Fix Audio snapshots the current setup, safely invalidates Melo's active routes,
++cleans up leftovers, refreshes devices, reapplies saved settings, rebuilds only
++needed routes, and rescans effects. It does not erase settings. Technical facts
++remain in an optional “Show Details” disclosure.
++
++### Compare and sharing
++
++The Everyday tab can switch between two Scenes for a simple A/B comparison.
++Scenes export as readable `.melo-scene.json` files and can be imported on
++another Melo installation. Missing third-party effects remain safely bypassed
++by the existing effect host.
++
++### Menu bar and devices
++
++The menu bar can remain icon-only or show volume, current device, or a small
++live level. Device details lead with Connection, Sound, Quality, and Response;
++sample rate, format, latency, clock source, and device ID stay under Technical
++details.
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Package.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Package.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Package.swift	2026-08-03 15:21:35.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Package.swift	2026-08-03 18:46:18.963860357 +0000
+@@ -28,6 +28,7 @@
+                 .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts")
+             ],
+             path: "Sources/Melo",
++            exclude: ["Assets.xcassets"],
+             swiftSettings: [
+                 .swiftLanguageMode(.v6)
+             ],
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/README.md /mnt/data/melo_consumer/Melo-macOS-2.3.1/README.md
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/README.md	2026-08-03 15:20:24.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/README.md	2026-08-03 18:46:18.963860357 +0000
+@@ -1,24 +1,27 @@
+-# Melo 2.3.1 — Premium Pass
++# Melo 2.4.0 — Everyday Premium
+ 
+ Melo is a macOS menu-bar audio mixer derived from the GPL-3.0 FineTune project.
+-This source tree combines the complete Melo 2.3.0 source with Claude's August 3,
+-2026 premium interface pass.
++This build keeps Melo’s advanced audio engine while adding a simpler consumer layer
++that organizes the app around familiar tasks instead of audio-engine terminology.
+ 
+-## Included premium-pass changes
++## New in 2.4.0
+ 
+-- Centralized, Reduce Motion-aware animation tokens
+-- Layered elevation shadows for cards and floating panels
+-- Refined slider groove, fill, thumb elevation, and unity/end-point haptics
+-- Monospaced digits without switching the interface to SF Mono
+-- Native-feeling hover lift and gentler press feedback
+-- More legible keyboard-navigation scrolling
++- **Scenes** save the complete setup: app volumes, routing, EQ, balance, Smart Sound, and effects
++- **Simple automations** apply a Scene when an app opens, a device connects, or a chosen time arrives
++- **Find an Action** searches Scenes, devices, common controls, settings, Undo, and audio repair
++- **Recent Changes** provides session-based Undo for volume, routing, EQ, balance, devices, and Scenes
++- **Fix Audio** refreshes Melo’s connections without erasing settings
++- **Compare** switches between two Scenes for a straightforward A/B listening test
++- **Scene sharing** exports and imports complete portable Scene files
++- **Menu-bar details** can show volume, the current device, or a compact live level
++- **Friendly device summaries** explain connection, channel layout, quality, and responsiveness, with technical facts hidden behind a disclosure
++- Claude’s motion, accessibility, haptic, slider, elevation, typography, and keyboard-navigation refinements remain included
+ 
+ ## Requirements
+ 
+ - macOS 15.4 or newer to run the built app
+ - Full Xcode with the macOS 26 SDK to build it
+-- Internet access on the first build so Swift Package Manager can obtain the two
+-  MIT-licensed dependencies
++- Internet access on the first build so Swift Package Manager can obtain the two MIT-licensed dependencies
+ 
+ ## Build
+ 
+@@ -32,12 +35,12 @@
+ 
+ ```text
+ outputs/Melo.app
+-outputs/Melo-macOS-2.3.1.zip
++outputs/Melo-macOS-2.4.0.zip
+ ```
+ 
+-The result is a universal Apple silicon + Intel app and is ad-hoc signed for
+-local installation. Move `Melo.app` to `/Applications` before approving System
+-Audio Recording access so macOS sees a stable installation path.
++The result is a universal Apple silicon + Intel app and is ad-hoc signed for local installation.
++Move `Melo.app` to `/Applications` before approving System Audio Recording access so macOS
++sees a stable installation path.
+ 
+ ## Test
+ 
+@@ -47,9 +50,9 @@
+ 
+ ## Privacy permission
+ 
+-Melo requests System Audio Recording only when per-app capture or processing is
+-needed. Rebuilding or re-signing an ad-hoc app can cause macOS to request access
+-again because the app's signing identity changed.
++Melo requests System Audio Recording only when per-app capture or processing is needed.
++Rebuilding or re-signing an ad-hoc app can cause macOS to request access again because the
++app’s signing identity changed.
+ 
+ ## License
+ 
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioEngine.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioEngine.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioEngine.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioEngine.swift	2026-08-03 18:53:30.187875778 +0000
+@@ -17,12 +17,14 @@
+     let autoEQProfileManager: AutoEQProfileManager
+     let permission: AudioRecordingPermission
+     let appListCoordinator: AppListCoordinator
++    let consumerUndoManager: ConsumerUndoManager
+ 
+     #if !APP_STORE
+     let ddcController: DDCController
+     #endif
+ 
+     private var taps: [pid_t: any ProcessTapControlling] = [:]
++    private var isApplyingConsumerState = false
+ 
+     private struct AudioUnitRebuildKey: Hashable {
+         let pid: pid_t
+@@ -203,6 +205,7 @@
+         self.settingsManager = manager
+         self.audioUnitHost = AudioUnitHost()
+         self.appListCoordinator = AppListCoordinator(settingsManager: manager)
++        self.consumerUndoManager = ConsumerUndoManager()
+         self.autoEQProfileManager = autoEQProfileManager
+         self.volumeState = VolumeState(settingsManager: manager)
+         self.isAliveCheck = isAlive ?? { $0.isDeviceAlive() }
+@@ -542,6 +545,7 @@
+     }
+ 
+     func setVolumeForInactive(identifier: String, to volume: Float) {
++        recordConsumerUndo(label: "Changed saved app volume", key: "volume:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setVolume(for: app, to: volume)
+             return
+@@ -557,6 +561,7 @@
+     }
+ 
+     func setBoostForInactive(identifier: String, to boost: BoostLevel) {
++        recordConsumerUndo(label: "Changed saved app boost", key: "boost:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setBoost(for: app, to: boost)
+             return
+@@ -572,6 +577,7 @@
+     }
+ 
+     func setMuteForInactive(identifier: String, to muted: Bool) {
++        recordConsumerUndo(label: muted ? "Muted saved app" : "Unmuted saved app", key: "mute:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setMute(for: app, to: muted)
+             return
+@@ -587,6 +593,7 @@
+     }
+ 
+     func setEQSettingsForInactive(_ settings: EQSettings, identifier: String) {
++        recordConsumerUndo(label: "Changed saved app sound", key: "eq:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setEQSettings(settings, for: app)
+             return
+@@ -602,6 +609,7 @@
+     }
+ 
+     func setStereoFieldSettingsForInactive(_ settings: StereoFieldSettings, identifier: String) {
++        recordConsumerUndo(label: "Changed saved app balance", key: "balance:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setStereoFieldSettings(settings, for: app)
+             return
+@@ -617,6 +625,7 @@
+     }
+ 
+     func setDeviceRoutingForInactive(identifier: String, deviceUID: String?) {
++        recordConsumerUndo(label: "Changed where saved app plays", key: "route:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setDevice(for: app, deviceUID: deviceUID)
+             return
+@@ -639,6 +648,7 @@
+     }
+ 
+     func setDeviceSelectionModeForInactive(identifier: String, to mode: DeviceSelectionMode) {
++        recordConsumerUndo(label: "Changed where saved app plays", key: "route-mode:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setDeviceSelectionMode(for: app, to: mode)
+             return
+@@ -654,6 +664,7 @@
+     }
+ 
+     func setSelectedDeviceUIDsForInactive(identifier: String, to uids: Set<String>) {
++        recordConsumerUndo(label: "Changed where saved app plays", key: "route-devices:\(identifier)")
+         if let app = retainedTapApp(for: identifier) {
+             setSelectedDeviceUIDs(for: app, to: uids)
+             return
+@@ -717,6 +728,232 @@
+         logger.info("AudioEngine shutdown complete")
+     }
+ 
++    // MARK: - Consumer Scenes, Undo & Repair
++
++    func captureConsumerScene(
++        name: String = "Current Setup",
++        symbolName: String = "slider.horizontal.3"
++    ) -> ConsumerScene {
++        let names = Dictionary(
++            uniqueKeysWithValues: displayableApps.map { ($0.id, $0.displayName) }
++        )
++        let volumeMonitor = deviceVolumeMonitor as? DeviceVolumeMonitor
++        let volumeByUID = Dictionary(uniqueKeysWithValues: outputDevices.map {
++            ($0.uid, deviceVolumeMonitor.volumes[$0.id] ?? 1.0)
++        })
++        let muteByUID = Dictionary(uniqueKeysWithValues: outputDevices.map {
++            ($0.uid, deviceVolumeMonitor.muteStates[$0.id] ?? false)
++        })
++        return settingsManager.makeConsumerScene(
++            name: name,
++            symbolName: symbolName,
++            defaultOutputDeviceUID: deviceVolumeMonitor.defaultDeviceUID,
++            systemOutputDeviceUID: volumeMonitor?.systemDeviceUID,
++            deviceVolumes: volumeByUID,
++            deviceMutes: muteByUID,
++            appNames: names,
++            audioUnitProfiles: audioUnitHost.consumerSceneProfiles()
++        )
++    }
++
++    @discardableResult
++    func saveCurrentConsumerScene(name: String, symbolName: String) -> ConsumerScene {
++        let scene = captureConsumerScene(name: name, symbolName: symbolName)
++        return settingsManager.saveScene(scene)
++    }
++
++    @discardableResult
++    func updateConsumerScene(id: UUID) -> ConsumerScene? {
++        guard let existing = settingsManager.scene(id: id) else { return nil }
++        var replacement = captureConsumerScene(name: existing.name, symbolName: existing.symbolName)
++        replacement.id = existing.id
++        replacement.createdAt = existing.createdAt
++        return settingsManager.saveScene(replacement)
++    }
++
++    func applyConsumerScene(
++        _ scene: ConsumerScene,
++        recordUndo: Bool = true,
++        reason: String? = nil
++    ) {
++        if recordUndo && !isApplyingConsumerState {
++            let previous = captureConsumerScene(
++                name: "Before \(scene.name)",
++                symbolName: "arrow.uturn.backward"
++            )
++            consumerUndoManager.record(
++                label: reason.map { "\($0): \(scene.name)" } ?? "Applied \(scene.name)",
++                key: "scene:\(scene.id.uuidString)",
++                snapshot: previous
++            )
++        }
++
++        isApplyingConsumerState = true
++        defer { isApplyingConsumerState = false }
++
++        settingsManager.replaceConsumerAudioSettings(with: scene)
++        audioUnitHost.replaceProfilesForConsumerScene(scene.audioUnitProfiles)
++
++        if let uid = scene.defaultOutputDeviceUID,
++           let device = outputDevices.first(where: { $0.uid == uid }) {
++            _ = setDefaultOutputDevice(device.id)
++        }
++
++        for device in outputDevices {
++            if let volume = scene.deviceVolumes[device.uid] {
++                deviceVolumeMonitor.setVolume(for: device.id, to: volume)
++            }
++            if let muted = scene.deviceMutes[device.uid] {
++                deviceVolumeMonitor.setMute(for: device.id, to: muted)
++            }
++        }
++
++        setAutoEQPreampEnabled(scene.autoEQPreampEnabled)
++        for uid in scene.deviceAutoEQ.keys {
++            applyAutoEQToTaps(for: uid)
++        }
++
++        if let volumeMonitor = deviceVolumeMonitor as? DeviceVolumeMonitor {
++            if scene.systemSoundsFollowsDefault {
++                volumeMonitor.setSystemFollowDefault()
++            } else if let uid = scene.systemOutputDeviceUID,
++                      let device = outputDevices.first(where: { $0.uid == uid }) {
++                volumeMonitor.setSystemDeviceExplicit(device.id)
++            }
++        }
++
++        // Rebuild the in-memory mirrors from the newly installed Scene.
++        volumeState.resetAll()
++        appliedPIDs.removeAll()
++        appDeviceRouting.removeAll()
++        followsDefault.removeAll()
++
++        for app in apps {
++            let identifier = app.persistenceIdentifier
++            let volume = settingsManager.getVolume(for: identifier)
++                ?? settingsManager.appSettings.defaultNewAppVolume
++            let boost = settingsManager.getBoost(for: identifier) ?? .x1
++            let muted = settingsManager.getMute(for: identifier) ?? false
++            let eq = settingsManager.getEQSettings(for: identifier)
++            let stereo = settingsManager.getStereoFieldSettings(for: identifier)
++            let mode = settingsManager.getDeviceSelectionMode(for: identifier) ?? .single
++
++            setVolume(for: app, to: volume)
++            setBoost(for: app, to: boost)
++            setMute(for: app, to: muted)
++            setEQSettings(eq, for: app)
++            setStereoFieldSettings(stereo, for: app)
++            setDeviceSelectionMode(for: app, to: mode)
++
++            if mode == .multi {
++                setSelectedDeviceUIDs(
++                    for: app,
++                    to: settingsManager.getSelectedDeviceUIDs(for: identifier) ?? []
++                )
++            } else if settingsManager.isFollowingDefault(for: identifier) {
++                setDevice(for: app, deviceUID: nil)
++            } else {
++                setDevice(for: app, deviceUID: settingsManager.getDeviceRouting(for: identifier))
++            }
++        }
++
++        setLoudnessCompensationEnabled(scene.globalAudio.loudnessCompensationEnabled)
++        setLoudnessEqualizationEnabled(scene.globalAudio.loudnessEqualizationEnabled)
++        setAdaptiveAudioSettings(scene.globalAudio.adaptiveAudio)
++        setPrivacyFriendlyProcessingEnabled(scene.globalAudio.privacyFriendlyProcessingEnabled)
++        applyPersistedSettings()
++        reconcileTapRequirements()
++    }
++
++    func undoLastConsumerChange() {
++        guard let record = consumerUndoManager.takeLatest() else { return }
++        applyConsumerScene(record.snapshot, recordUndo: false, reason: "Undo")
++    }
++
++    func repairConsumerAudio() {
++        let previous = captureConsumerScene(
++            name: "Before Audio Repair",
++            symbolName: "arrow.uturn.backward"
++        )
++        consumerUndoManager.record(
++            label: "Fixed common audio problems",
++            key: "repair-audio",
++            snapshot: previous
++        )
++
++        // Tear down Melo's live routes first. Orphan cleanup is intentionally
++        // designed for devices left by a previous process, so running it while
++        // current taps still own aggregate devices could invalidate them behind
++        // their backs. This short reset is safer and lets the normal reconciler
++        // rebuild only the routes that are still needed.
++        for task in audioUnitRebuildTasks.values { task.cancel() }
++        audioUnitRebuildTasks.removeAll()
++        audioUnitRebuildTokens.removeAll()
++        for tap in taps.values { tap.invalidate() }
++        taps.removeAll()
++        OrphanedTapCleanup.destroyOrphanedDevices()
++        deviceVolumeMonitor.refreshOutputDeviceStates()
++        appliedPIDs.removeAll()
++        applyPersistedSettings()
++        reconcileTapRequirements()
++        audioUnitHost.refreshCatalog()
++    }
++
++    var consumerDiagnosticText: String {
++        let permissionText: String
++        switch permission.status {
++        case .authorized: permissionText = "Audio access: Ready"
++        case .unknown: permissionText = "Audio access: Not checked yet"
++        case .denied: permissionText = "Audio access: Needs permission"
++        case .unavailable: permissionText = "Audio access: Unavailable"
++        }
++        let defaultName = outputDevices.first(where: { $0.uid == deviceVolumeMonitor.defaultDeviceUID })?.name
++            ?? "No output selected"
++        let pluginText = audioUnitHost.lastError.map { "Effects: \($0)" } ?? "Effects: Ready"
++        return [
++            permissionText,
++            "Current output: \(defaultName)",
++            "Connected outputs: \(outputDevices.count)",
++            "Apps available to Melo: \(displayableApps.count)",
++            "Active audio controls: \(taps.count)",
++            pluginText
++        ].joined(separator: "\n")
++    }
++
++    private func recordConsumerUndo(label: String, key: String) {
++        guard !isApplyingConsumerState else { return }
++        consumerUndoManager.record(
++            label: label,
++            key: key,
++            snapshot: captureConsumerScene(
++                name: "Before \(label)",
++                symbolName: "arrow.uturn.backward"
++            )
++        )
++    }
++
++    /// Consumer-facing output volume entry point. Centralizing this lets the
++    /// Recent Changes feature cover sliders, keyboard control, and the HUD
++    /// without changing the device monitor's lower-level responsibilities.
++    func setOutputDeviceVolume(for deviceID: AudioDeviceID, to volume: Float) {
++        let device = outputDevices.first { $0.id == deviceID }
++        let name = device?.name ?? "output"
++        let key = device?.uid ?? String(deviceID)
++        recordConsumerUndo(label: "Changed \(name) volume", key: "device-volume:\(key)")
++        deviceVolumeMonitor.setVolume(for: deviceID, to: volume)
++    }
++
++    func setOutputDeviceMute(for deviceID: AudioDeviceID, to muted: Bool) {
++        let device = outputDevices.first { $0.id == deviceID }
++        let name = device?.name ?? "output"
++        let key = device?.uid ?? String(deviceID)
++        recordConsumerUndo(
++            label: muted ? "Muted \(name)" : "Unmuted \(name)",
++            key: "device-mute:\(key)"
++        )
++        deviceVolumeMonitor.setMute(for: deviceID, to: muted)
++    }
++
+     // MARK: - Settings Reset
+ 
+     /// Resets all persisted settings and synchronizes in-memory engine state.
+@@ -755,6 +992,7 @@
+     }
+ 
+     func setVolume(for app: AudioApp, to volume: Float) {
++        recordConsumerUndo(label: "Changed \(app.name) volume", key: "volume:\(app.persistenceIdentifier)")
+         volumeState.setVolume(for: app.id, to: volume, identifier: app.persistenceIdentifier)
+         if let tap = taps[app.id] {
+             tap.volume = effectiveVolume(for: app.id, deviceUIDs: tap.currentDeviceUIDs)
+@@ -775,6 +1013,7 @@
+     // MARK: - Boost
+ 
+     func setBoost(for app: AudioApp, to boost: BoostLevel) {
++        recordConsumerUndo(label: "Changed \(app.name) boost", key: "boost:\(app.persistenceIdentifier)")
+         volumeState.setBoost(for: app.id, to: boost, identifier: app.persistenceIdentifier)
+         if let tap = taps[app.id] {
+             tap.volume = effectiveVolume(for: app.id, deviceUIDs: tap.currentDeviceUIDs)
+@@ -853,6 +1092,7 @@
+     }
+ 
+     func setMute(for app: AudioApp, to muted: Bool) {
++        recordConsumerUndo(label: muted ? "Muted \(app.name)" : "Unmuted \(app.name)", key: "mute:\(app.persistenceIdentifier)")
+         volumeState.setMute(for: app.id, to: muted, identifier: app.persistenceIdentifier)
+         taps[app.id]?.isMuted = muted
+         reconcileTapRequirement(for: app)
+@@ -864,6 +1104,7 @@
+ 
+     /// Update EQ settings for an app
+     func setEQSettings(_ settings: EQSettings, for app: AudioApp) {
++        recordConsumerUndo(label: "Changed \(app.name) sound", key: "eq:\(app.persistenceIdentifier)")
+         // Save first even if capture has not started yet. The app may be open but
+         // not currently rendering, or permission/device setup may still be pending.
+         // tapInitialState(forApp:) will apply this state on the first later activation.
+@@ -880,6 +1121,7 @@
+     /// Update and persist per-app stereo balance. Persistence does not depend on
+     /// a currently active tap, so pinned/inactive state remains consistent.
+     func setStereoFieldSettings(_ settings: StereoFieldSettings, for app: AudioApp) {
++        recordConsumerUndo(label: "Changed \(app.name) balance", key: "balance:\(app.persistenceIdentifier)")
+         let normalized = settings.normalized
+         settingsManager.setStereoFieldSettings(normalized, for: app.persistenceIdentifier)
+         taps[app.id]?.updateStereoFieldSettings(normalized)
+@@ -931,6 +1173,7 @@
+     }
+ 
+     func setLoudnessCompensationEnabled(_ enabled: Bool) {
++        recordConsumerUndo(label: "Changed Sound Balance", key: "global:loudness-compensation")
+         reconcileTapRequirements()
+         for tap in taps.values {
+             tap.updateLoudnessCompensation(volume: effectiveLoudnessVolume(for: tap), enabled: enabled)
+@@ -938,6 +1181,7 @@
+     }
+ 
+     func setLoudnessEqualizationEnabled(_ enabled: Bool) {
++        recordConsumerUndo(label: "Changed Sound Balance", key: "global:loudness-equalization")
+         _ = enabled // The persisted settings snapshot is the source of truth.
+         reconcileTapRequirements()
+         let settings = makeLoudnessEqualizerSettings()
+@@ -947,6 +1191,7 @@
+     }
+ 
+     func setAdaptiveAudioSettings(_ adaptiveAudio: AdaptiveAudioSettings) {
++        recordConsumerUndo(label: "Changed Smart Sound", key: "global:adaptive-audio")
+         if settingsManager.appSettings.adaptiveAudio != adaptiveAudio {
+             var appSettings = settingsManager.appSettings
+             appSettings.adaptiveAudio = adaptiveAudio
+@@ -971,6 +1216,7 @@
+     /// Applies the user's privacy preference after its binding has persisted.
+     /// Untouched apps are returned to Core Audio's normal path immediately.
+     func setPrivacyFriendlyProcessingEnabled(_ enabled: Bool) {
++        recordConsumerUndo(label: "Changed audio privacy", key: "global:privacy")
+         if settingsManager.appSettings.privacyFriendlyProcessingEnabled != enabled {
+             var updated = settingsManager.appSettings
+             updated.privacyFriendlyProcessingEnabled = enabled
+@@ -1186,6 +1432,7 @@
+     /// UI code should call this instead of `deviceVolumeMonitor.setDefaultDevice` directly.
+     @discardableResult
+     func setDefaultOutputDevice(_ deviceID: AudioDeviceID) -> Bool {
++        recordConsumerUndo(label: "Changed speakers or headphones", key: "default-output")
+         guard deviceVolumeMonitor.setDefaultDevice(deviceID) else { return false }
+         if let uid = deviceMonitor.outputDevices.first(where: { $0.id == deviceID })?.uid {
+             outputEchoTracker.increment(uid)
+@@ -1200,6 +1447,7 @@
+     ///   - app: The app to route
+     ///   - deviceUID: The device UID to route to, or nil to follow system default
+     func setDevice(for app: AudioApp, deviceUID: String?) {
++        recordConsumerUndo(label: "Changed where \(app.name) plays", key: "route:\(app.persistenceIdentifier)")
+         if let deviceUID = deviceUID {
+             // Explicit device selection - stop following default
+             followsDefault.remove(app.id)
+@@ -1285,6 +1533,7 @@
+     /// Sets the device selection mode for an app.
+     /// Triggers tap reconfiguration when mode changes.
+     func setDeviceSelectionMode(for app: AudioApp, to mode: DeviceSelectionMode) {
++        recordConsumerUndo(label: "Changed where \(app.name) plays", key: "route-mode:\(app.persistenceIdentifier)")
+         let previousMode = volumeState.getDeviceSelectionMode(for: app.id)
+         volumeState.setDeviceSelectionMode(for: app.id, to: mode, identifier: app.persistenceIdentifier)
+ 
+@@ -1303,6 +1552,7 @@
+     /// Sets the selected device UIDs for multi-mode.
+     /// Triggers tap reconfiguration when in multi mode.
+     func setSelectedDeviceUIDs(for app: AudioApp, to uids: Set<String>) {
++        recordConsumerUndo(label: "Changed where \(app.name) plays", key: "route-devices:\(app.persistenceIdentifier)")
+         let previousUIDs = volumeState.getSelectedDeviceUIDs(for: app.id)
+         volumeState.setSelectedDeviceUIDs(for: app.id, to: uids, identifier: app.persistenceIdentifier)
+ 
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioUnitHost.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioUnitHost.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioUnitHost.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Engine/AudioUnitHost.swift	2026-08-03 18:37:20.143841087 +0000
+@@ -222,6 +222,37 @@
+         }
+     }
+ 
++    /// Snapshot used by consumer Scenes. Capturing the existing Codable profile
++    /// documents keeps plug-in choices and their saved state together with the rest
++    /// of a Scene without exposing plug-in terminology in the Scene UI.
++    func consumerSceneProfiles() -> [AudioUnitProfile] {
++        profiles.values.sorted { $0.id < $1.id }
++    }
++
++    /// Replaces all saved chains when a Scene is applied. Missing plug-ins remain
++    /// safely bypassed by the existing runtime builder.
++    func replaceProfilesForConsumerScene(_ newProfiles: [AudioUnitProfile]) {
++        let oldIDs = Set(profiles.keys)
++        var replacement = Dictionary(
++            newProfiles.map { ($0.id, $0) },
++            uniquingKeysWith: { _, latest in latest }
++        )
++        if replacement[Self.systemProfileID] == nil {
++            replacement[Self.systemProfileID] = AudioUnitProfile(
++                id: Self.systemProfileID,
++                displayName: "All Captured Apps",
++                slots: []
++            )
++        }
++        editorUnits.removeAll()
++        profiles = replacement
++        runtimeRevision &+= 1
++        persistProfiles()
++        for profileID in oldIDs.union(replacement.keys) {
++            onProfileRuntimeChanged?(profileID)
++        }
++    }
++
+     func slots(for profileID: String) -> [AudioUnitSlot] {
+         profiles[profileID]?.slots ?? []
+     }
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Extensions/AudioDeviceID+Info.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Extensions/AudioDeviceID+Info.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Extensions/AudioDeviceID+Info.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Extensions/AudioDeviceID+Info.swift	2026-08-03 18:47:44.119863402 +0000
+@@ -46,3 +46,33 @@
+         try? readString(kAudioProcessPropertyBundleID)
+     }
+ }
++
++// MARK: - Consumer Device Details
++
++nonisolated extension AudioDeviceID {
++    /// Best-effort output delay reported by Core Audio. Drivers may omit one or
++    /// more pieces, so this deliberately returns nil rather than inventing data.
++    func readEstimatedOutputLatencyMilliseconds(sampleRate: Double) -> Double? {
++        guard sampleRate > 0 else { return nil }
++        let latency: UInt32 = (try? read(kAudioDevicePropertyLatency, scope: .output, defaultValue: UInt32(0))) ?? 0
++        let safety: UInt32 = (try? read(kAudioDevicePropertySafetyOffset, scope: .output, defaultValue: UInt32(0))) ?? 0
++        let buffer: UInt32 = (try? read(kAudioDevicePropertyBufferFrameSize, scope: .global, defaultValue: UInt32(0))) ?? 0
++        let totalFrames = latency + safety + buffer
++        guard totalFrames > 0 else { return nil }
++        return (Double(totalFrames) / sampleRate) * 1000
++    }
++
++    func readClockSourceName() -> String? {
++        let sourceID: UInt32 = (try? read(
++            kAudioDevicePropertyClockSource,
++            scope: .global,
++            defaultValue: UInt32(0)
++        )) ?? 0
++        guard sourceID != 0 else { return nil }
++        return readStringWithQualifier(
++            kAudioDevicePropertyClockSourceNameForIDCFString,
++            scope: .global,
++            qualifier: sourceID
++        )
++    }
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Keys/MediaKeyMonitor.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Keys/MediaKeyMonitor.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Audio/Keys/MediaKeyMonitor.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Audio/Keys/MediaKeyMonitor.swift	2026-08-03 18:53:31.535875827 +0000
+@@ -238,8 +238,8 @@
+             deviceName: deviceName,
+             currentVolume: volumeMonitor.volumes[deviceID] ?? 0,
+             currentMute: volumeMonitor.muteStates[deviceID] ?? false,
+-            setVolume: { id, vol in volumeMonitor.setVolume(for: id, to: vol) },
+-            setMute:   { id, mute in volumeMonitor.setMute(for: id, to: mute) },
++            setVolume: { id, vol in self.audioEngine.setOutputDeviceVolume(for: id, to: vol) },
++            setMute:   { id, mute in self.audioEngine.setOutputDeviceMute(for: id, to: mute) },
+             playFeedback: { gain in
+                 self.feedbackPlayer?.requestFeedback(
+                     gain: gain,
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerAutomationManager.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerAutomationManager.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerAutomationManager.swift	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerAutomationManager.swift	2026-08-03 18:55:45.167880606 +0000
+@@ -0,0 +1,92 @@
++import Foundation
++
++/// Runs the deliberately small automation system used by the Everyday tab.
++/// It supports only three understandable triggers: an app opens, headphones or
++/// speakers connect, or a chosen time arrives.
++@Observable
++@MainActor
++final class ConsumerAutomationManager {
++    private unowned let audioEngine: AudioEngine
++    private var task: Task<Void, Never>?
++    private var knownOpenApps = Set<String>()
++    private var knownOutputDevices = Set<String>()
++    private var hasSeededPresenceBaseline = false
++    private var dailyFireKeys: [UUID: String] = [:]
++
++    private(set) var lastRunText: String?
++    private(set) var isRunning = false
++
++    init(audioEngine: AudioEngine) {
++        self.audioEngine = audioEngine
++    }
++
++    func start() {
++        guard task == nil else { return }
++        isRunning = true
++        task = Task { @MainActor [weak self] in
++            while !Task.isCancelled {
++                self?.checkNow()
++                try? await Task.sleep(for: .seconds(2))
++            }
++        }
++    }
++
++    func stop() {
++        task?.cancel()
++        task = nil
++        isRunning = false
++        hasSeededPresenceBaseline = false
++    }
++
++    func checkNow(now: Date = .now) {
++        let openApps = Set(audioEngine.processMonitor.openApps.map(\.persistenceIdentifier))
++        let outputDevices = Set(audioEngine.outputDevices.map(\.uid))
++        // The engine discovers apps and devices asynchronously. The first poll
++        // therefore establishes a baseline even if the sets were empty when
++        // the manager was constructed, preventing startup from looking like a
++        // wave of fresh connection/open events.
++        let newlyOpened = hasSeededPresenceBaseline
++            ? openApps.subtracting(knownOpenApps)
++            : []
++        let newlyConnected = hasSeededPresenceBaseline
++            ? outputDevices.subtracting(knownOutputDevices)
++            : []
++        hasSeededPresenceBaseline = true
++
++        defer {
++            knownOpenApps = openApps
++            knownOutputDevices = outputDevices
++        }
++
++        let calendar = Calendar.current
++        let hour = calendar.component(.hour, from: now)
++        let minute = calendar.component(.minute, from: now)
++        let dayParts = calendar.dateComponents([.year, .month, .day], from: now)
++        let dayKey = String(
++            format: "%04d-%02d-%02d",
++            dayParts.year ?? 0,
++            dayParts.month ?? 0,
++            dayParts.day ?? 0
++        )
++
++        for automation in audioEngine.settingsManager.consumerAutomations where automation.isEnabled {
++            guard let scene = audioEngine.settingsManager.scene(id: automation.sceneID) else { continue }
++
++            let shouldRun: Bool
++            switch automation.trigger {
++            case let .appOpens(identifier, _):
++                shouldRun = newlyOpened.contains(identifier)
++            case let .deviceConnects(uid, _):
++                shouldRun = newlyConnected.contains(uid)
++            case let .daily(targetHour, targetMinute):
++                let reachedTime = hour > targetHour || (hour == targetHour && minute >= targetMinute)
++                shouldRun = reachedTime && dailyFireKeys[automation.id] != dayKey
++                if shouldRun { dailyFireKeys[automation.id] = dayKey }
++            }
++
++            guard shouldRun else { continue }
++            audioEngine.applyConsumerScene(scene, recordUndo: true, reason: automation.trigger.title)
++            lastRunText = "Applied \(scene.name) — \(automation.trigger.title)"
++        }
++    }
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerUndoManager.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerUndoManager.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerUndoManager.swift	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Coordination/ConsumerUndoManager.swift	2026-08-03 18:53:52.195876565 +0000
+@@ -0,0 +1,53 @@
++import Foundation
++
++/// Small, consumer-facing change history. It stores complete Melo snapshots so
++/// Undo can safely restore a volume, route, EQ, Scene, or output change without
++/// teaching the user which low-level setting moved.
++@Observable
++@MainActor
++final class ConsumerUndoManager {
++    private(set) var entries: [ConsumerChangeRecord] = []
++    private var lastKey: String?
++    private var lastRecordDate: Date?
++    private let coalescingWindow: TimeInterval = 1.0
++    private let maximumEntries = 12
++
++    var canUndo: Bool { !entries.isEmpty }
++    var latest: ConsumerChangeRecord? { entries.first }
++
++    func record(label: String, key: String, snapshot: ConsumerScene) {
++        let now = Date()
++        if lastKey == key,
++           let lastRecordDate,
++           now.timeIntervalSince(lastRecordDate) < coalescingWindow {
++            // Extend the quiet-period window while a slider or repeated keypress
++            // is still active, but keep the original pre-change snapshot.
++            self.lastRecordDate = now
++            return
++        }
++
++        entries.insert(ConsumerChangeRecord(label: label, date: now, snapshot: snapshot), at: 0)
++        if entries.count > maximumEntries {
++            entries.removeLast(entries.count - maximumEntries)
++        }
++        lastKey = key
++        self.lastRecordDate = now
++    }
++
++    func takeLatest() -> ConsumerChangeRecord? {
++        guard !entries.isEmpty else { return nil }
++        lastKey = nil
++        lastRecordDate = nil
++        return entries.removeFirst()
++    }
++
++    func remove(id: UUID) {
++        entries.removeAll { $0.id == id }
++    }
++
++    func clear() {
++        entries.removeAll()
++        lastKey = nil
++        lastRecordDate = nil
++    }
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/FineTuneApp.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/FineTuneApp.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/FineTuneApp.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/FineTuneApp.swift	2026-08-03 18:53:32.183875850 +0000
+@@ -54,6 +54,7 @@
+     @State private var iconCoordinator: MenuBarIconCoordinator
+     @State private var menuBarPopupController: MenuBarPopupController
+     @State private var shortcutsRegistry: ShortcutsRegistry
++    @State private var consumerAutomationManager: ConsumerAutomationManager
+     @State private var resolver: TargetAppResolver
+     @StateObject private var updateManager = UpdateManager()
+     @State private var showMenuBarExtra = true
+@@ -75,7 +76,8 @@
+                 mediaKeyStatus: mediaKeyStatus,
+                 mediaKeyMonitor: mediaKeyMonitor,
+                 shortcutsRegistry: shortcutsRegistry,
+-                updateManager: updateManager
++                updateManager: updateManager,
++                consumerAutomationManager: consumerAutomationManager
+             )
+         }
+         FluidMenuBarExtra("Melo", image: launchIconImage, isInserted: $showMenuBarExtra) {
+@@ -102,6 +104,7 @@
+         .task {
+             // Idempotent: subsequent task runs (popup re-open) are no-ops inside start().
+             shortcutsRegistry.start()
++            consumerAutomationManager.start()
+         }
+     }
+ 
+@@ -116,6 +119,9 @@
+         let permission = AudioRecordingPermission()
+         let engine = AudioEngine(permission: permission, settingsManager: settings, autoEQProfileManager: profileManager)
+         _audioEngine = State(initialValue: engine)
++        let automationManager = ConsumerAutomationManager(audioEngine: engine)
++        _consumerAutomationManager = State(initialValue: automationManager)
++        DispatchQueue.main.async { automationManager.start() }
+ 
+         // Media keys / HUD services — instantiated at app scope so the tap
+         // and HUD panel outlive popup open/close cycles.
+@@ -138,12 +144,12 @@
+             let currentMute = volumeMonitor.muteStates[deviceID] ?? false
+             let willBeSilent = sliderFraction <= 0.001
+             if currentMute && !willBeSilent {
+-                volumeMonitor.setMute(for: deviceID, to: false)
++                engine.setOutputDeviceMute(for: deviceID, to: false)
+             } else if !currentMute && willBeSilent {
+-                volumeMonitor.setMute(for: deviceID, to: true)
++                engine.setOutputDeviceMute(for: deviceID, to: true)
+             }
+             let gain = VolumeMapping.systemGain(forSliderFraction: sliderFraction, tier: tier)
+-            volumeMonitor.setVolume(for: deviceID, to: gain)
++            engine.setOutputDeviceVolume(for: deviceID, to: gain)
+             feedbackPlayer.requestFeedback(
+                 gain: VolumeFeedback.gain(tier: tier, sliderFraction: sliderFraction)
+             )
+@@ -169,7 +175,8 @@
+         let coordinator = MenuBarIconCoordinator(
+             deviceVolumeMonitor: engine.deviceVolumeMonitor as! DeviceVolumeMonitor,
+             deviceProvider: engine.deviceMonitor,
+-            settings: settings
++            settings: settings,
++            levelProvider: { engine.audioLevels.values.max() ?? 0 }
+         )
+         monitor.iconCoordinator = coordinator
+         // Defer start() so NSApplication.shared is fully bootstrapped before we walk NSApp.windows.
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Models/ConsumerExperience.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Models/ConsumerExperience.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Models/ConsumerExperience.swift	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Models/ConsumerExperience.swift	2026-08-03 18:48:45.867865610 +0000
+@@ -0,0 +1,232 @@
++import Foundation
++
++/// A complete, shareable snapshot of the parts of Melo a typical person changes.
++/// The model intentionally stores existing Melo settings rather than inventing a
++/// second audio system, so applying a Scene is predictable and reversible.
++nonisolated struct ConsumerScene: Codable, Identifiable, Equatable {
++    var id: UUID
++    var name: String
++    var symbolName: String
++    var createdAt: Date
++    var updatedAt: Date
++    var defaultOutputDeviceUID: String?
++    var appNames: [String: String]
++
++    var appVolumes: [String: Float]
++    var appDeviceRouting: [String: String]
++    var appMutes: [String: Bool]
++    var appBoosts: [String: Float]
++    var appEQSettings: [String: EQSettings]
++    var appStereoFieldSettings: [String: StereoFieldSettings]
++    var appDeviceSelectionMode: [String: DeviceSelectionMode]
++    var appSelectedDeviceUIDs: [String: [String]]
++
++    var systemSoundsFollowsDefault: Bool
++    var systemOutputDeviceUID: String?
++    var deviceVolumes: [String: Float]
++    var deviceMutes: [String: Bool]
++    var deviceAutoEQ: [String: AutoEQSelection]
++    var autoEQPreampEnabled: Bool
++    var globalAudio: ConsumerGlobalAudioSnapshot
++    var audioUnitProfiles: [AudioUnitProfile]
++
++    init(
++        id: UUID = UUID(),
++        name: String,
++        symbolName: String = "slider.horizontal.3",
++        createdAt: Date = .now,
++        updatedAt: Date = .now,
++        defaultOutputDeviceUID: String? = nil,
++        appNames: [String: String] = [:],
++        appVolumes: [String: Float] = [:],
++        appDeviceRouting: [String: String] = [:],
++        appMutes: [String: Bool] = [:],
++        appBoosts: [String: Float] = [:],
++        appEQSettings: [String: EQSettings] = [:],
++        appStereoFieldSettings: [String: StereoFieldSettings] = [:],
++        appDeviceSelectionMode: [String: DeviceSelectionMode] = [:],
++        appSelectedDeviceUIDs: [String: [String]] = [:],
++        systemSoundsFollowsDefault: Bool = true,
++        systemOutputDeviceUID: String? = nil,
++        deviceVolumes: [String: Float] = [:],
++        deviceMutes: [String: Bool] = [:],
++        deviceAutoEQ: [String: AutoEQSelection] = [:],
++        autoEQPreampEnabled: Bool = true,
++        globalAudio: ConsumerGlobalAudioSnapshot = .init(),
++        audioUnitProfiles: [AudioUnitProfile] = []
++    ) {
++        self.id = id
++        self.name = name
++        self.symbolName = symbolName
++        self.createdAt = createdAt
++        self.updatedAt = updatedAt
++        self.defaultOutputDeviceUID = defaultOutputDeviceUID
++        self.appNames = appNames
++        self.appVolumes = appVolumes
++        self.appDeviceRouting = appDeviceRouting
++        self.appMutes = appMutes
++        self.appBoosts = appBoosts
++        self.appEQSettings = appEQSettings
++        self.appStereoFieldSettings = appStereoFieldSettings
++        self.appDeviceSelectionMode = appDeviceSelectionMode
++        self.appSelectedDeviceUIDs = appSelectedDeviceUIDs
++        self.systemSoundsFollowsDefault = systemSoundsFollowsDefault
++        self.systemOutputDeviceUID = systemOutputDeviceUID
++        self.deviceVolumes = deviceVolumes
++        self.deviceMutes = deviceMutes
++        self.deviceAutoEQ = deviceAutoEQ
++        self.autoEQPreampEnabled = autoEQPreampEnabled
++        self.globalAudio = globalAudio
++        self.audioUnitProfiles = audioUnitProfiles
++    }
++
++    enum CodingKeys: String, CodingKey {
++        case id, name, symbolName, createdAt, updatedAt, defaultOutputDeviceUID, appNames
++        case appVolumes, appDeviceRouting, appMutes, appBoosts, appEQSettings
++        case appStereoFieldSettings, appDeviceSelectionMode, appSelectedDeviceUIDs
++        case systemSoundsFollowsDefault, systemOutputDeviceUID, deviceVolumes, deviceMutes
++        case deviceAutoEQ, autoEQPreampEnabled, globalAudio, audioUnitProfiles
++    }
++
++    init(from decoder: Decoder) throws {
++        let c = try decoder.container(keyedBy: CodingKeys.self)
++        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
++        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Imported Scene"
++        symbolName = try c.decodeIfPresent(String.self, forKey: .symbolName) ?? "slider.horizontal.3"
++        createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? .now
++        updatedAt = try c.decodeIfPresent(Date.self, forKey: .updatedAt) ?? createdAt
++        defaultOutputDeviceUID = try c.decodeIfPresent(String.self, forKey: .defaultOutputDeviceUID)
++        appNames = try c.decodeIfPresent([String: String].self, forKey: .appNames) ?? [:]
++        appVolumes = try c.decodeIfPresent([String: Float].self, forKey: .appVolumes) ?? [:]
++        appDeviceRouting = try c.decodeIfPresent([String: String].self, forKey: .appDeviceRouting) ?? [:]
++        appMutes = try c.decodeIfPresent([String: Bool].self, forKey: .appMutes) ?? [:]
++        appBoosts = try c.decodeIfPresent([String: Float].self, forKey: .appBoosts) ?? [:]
++        appEQSettings = try c.decodeIfPresent([String: EQSettings].self, forKey: .appEQSettings) ?? [:]
++        appStereoFieldSettings = try c.decodeIfPresent(
++            [String: StereoFieldSettings].self,
++            forKey: .appStereoFieldSettings
++        ) ?? [:]
++        appDeviceSelectionMode = try c.decodeIfPresent(
++            [String: DeviceSelectionMode].self,
++            forKey: .appDeviceSelectionMode
++        ) ?? [:]
++        appSelectedDeviceUIDs = try c.decodeIfPresent(
++            [String: [String]].self,
++            forKey: .appSelectedDeviceUIDs
++        ) ?? [:]
++        systemSoundsFollowsDefault = try c.decodeIfPresent(
++            Bool.self,
++            forKey: .systemSoundsFollowsDefault
++        ) ?? true
++        systemOutputDeviceUID = try c.decodeIfPresent(String.self, forKey: .systemOutputDeviceUID)
++        deviceVolumes = try c.decodeIfPresent([String: Float].self, forKey: .deviceVolumes) ?? [:]
++        deviceMutes = try c.decodeIfPresent([String: Bool].self, forKey: .deviceMutes) ?? [:]
++        deviceAutoEQ = try c.decodeIfPresent([String: AutoEQSelection].self, forKey: .deviceAutoEQ) ?? [:]
++        autoEQPreampEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoEQPreampEnabled) ?? true
++        globalAudio = try c.decodeIfPresent(
++            ConsumerGlobalAudioSnapshot.self,
++            forKey: .globalAudio
++        ) ?? .init()
++        audioUnitProfiles = try c.decodeIfPresent([AudioUnitProfile].self, forKey: .audioUnitProfiles) ?? []
++    }
++
++    var appCount: Int {
++        Set(appVolumes.keys)
++            .union(appDeviceRouting.keys)
++            .union(appMutes.keys)
++            .union(appBoosts.keys)
++            .union(appEQSettings.keys)
++            .union(appStereoFieldSettings.keys)
++            .union(appDeviceSelectionMode.keys)
++            .union(appSelectedDeviceUIDs.keys)
++            .count
++    }
++}
++
++nonisolated struct ConsumerGlobalAudioSnapshot: Codable, Equatable {
++    var loudnessCompensationEnabled: Bool
++    var loudnessEqualizationEnabled: Bool
++    var adaptiveAudio: AdaptiveAudioSettings
++    var privacyFriendlyProcessingEnabled: Bool
++
++    init(
++        loudnessCompensationEnabled: Bool = false,
++        loudnessEqualizationEnabled: Bool = false,
++        adaptiveAudio: AdaptiveAudioSettings = .init(),
++        privacyFriendlyProcessingEnabled: Bool = true
++    ) {
++        self.loudnessCompensationEnabled = loudnessCompensationEnabled
++        self.loudnessEqualizationEnabled = loudnessEqualizationEnabled
++        self.adaptiveAudio = adaptiveAudio
++        self.privacyFriendlyProcessingEnabled = privacyFriendlyProcessingEnabled
++    }
++}
++
++nonisolated enum ConsumerAutomationTrigger: Codable, Equatable {
++    case appOpens(identifier: String, displayName: String)
++    case deviceConnects(uid: String, displayName: String)
++    case daily(hour: Int, minute: Int)
++
++    var title: String {
++        switch self {
++        case let .appOpens(_, displayName):
++            return "When \(displayName) opens"
++        case let .deviceConnects(_, displayName):
++            return "When \(displayName) connects"
++        case let .daily(hour, minute):
++            let date = Calendar.current.date(from: DateComponents(hour: hour, minute: minute)) ?? .now
++            return "Every day at \(date.formatted(date: .omitted, time: .shortened))"
++        }
++    }
++
++    var symbolName: String {
++        switch self {
++        case .appOpens: return "app.badge"
++        case .deviceConnects: return "headphones"
++        case .daily: return "clock"
++        }
++    }
++}
++
++nonisolated struct ConsumerAutomation: Codable, Identifiable, Equatable {
++    var id: UUID
++    var isEnabled: Bool
++    var sceneID: UUID
++    var trigger: ConsumerAutomationTrigger
++    var createdAt: Date
++
++    init(
++        id: UUID = UUID(),
++        isEnabled: Bool = true,
++        sceneID: UUID,
++        trigger: ConsumerAutomationTrigger,
++        createdAt: Date = .now
++    ) {
++        self.id = id
++        self.isEnabled = isEnabled
++        self.sceneID = sceneID
++        self.trigger = trigger
++        self.createdAt = createdAt
++    }
++}
++
++nonisolated struct ConsumerChangeRecord: Identifiable, Equatable {
++    let id: UUID
++    let label: String
++    let date: Date
++    let snapshot: ConsumerScene
++
++    init(id: UUID = UUID(), label: String, date: Date = .now, snapshot: ConsumerScene) {
++        self.id = id
++        self.label = label
++        self.date = date
++        self.snapshot = snapshot
++    }
++}
++
++nonisolated enum ConsumerCommandCategory: String, CaseIterable {
++    case scenes = "Scenes"
++    case devices = "Speakers & Headphones"
++    case controls = "Quick Controls"
++    case help = "Help"
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Settings/SettingsManager.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Settings/SettingsManager.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Settings/SettingsManager.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Settings/SettingsManager.swift	2026-08-03 18:47:10.051862184 +0000
+@@ -26,6 +26,7 @@
+     // General
+     var launchAtLogin: Bool = false
+     var menuBarIconStyle: MenuBarIconStyle = .default
++    var menuBarInfoStyle: MenuBarInfoStyle = .iconOnly
+ 
+     // Audio
+     var defaultNewAppVolume: Float = 1.0      // 100% (unity gain)
+@@ -74,6 +75,7 @@
+         let c = try decoder.container(keyedBy: CodingKeys.self)
+         launchAtLogin = try c.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false
+         menuBarIconStyle = try c.decodeIfPresent(MenuBarIconStyle.self, forKey: .menuBarIconStyle) ?? .default
++        menuBarInfoStyle = try c.decodeIfPresent(MenuBarInfoStyle.self, forKey: .menuBarInfoStyle) ?? .iconOnly
+         defaultNewAppVolume = try c.decodeIfPresent(Float.self, forKey: .defaultNewAppVolume) ?? 1.0
+         lockInputDevice = try c.decodeIfPresent(Bool.self, forKey: .lockInputDevice) ?? true
+         showDeviceDisconnectAlerts = try c.decodeIfPresent(Bool.self, forKey: .showDeviceDisconnectAlerts) ?? true
+@@ -112,7 +114,7 @@
+     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "Melo", category: "SettingsManager")
+ 
+     struct Settings: Codable {
+-        var version: Int = 14
++        var version: Int = 15
+         var appVolumes: [String: Float] = [:]
+         var appDeviceRouting: [String: String] = [:]  // bundleID → deviceUID
+         var appMutes: [String: Bool] = [:]  // bundleID → isMuted
+@@ -162,6 +164,10 @@
+         // User-created EQ presets (named EQ curves)
+         var userEQPresets: [UserEQPreset] = []
+ 
++        // Consumer-friendly Scenes and simple trigger-based automations.
++        var consumerScenes: [ConsumerScene] = []
++        var consumerAutomations: [ConsumerAutomation] = []
++
+         init() {}
+ 
+         init(from decoder: Decoder) throws {
+@@ -211,6 +217,8 @@
+             favoriteAutoEQProfiles = try c.decodeIfPresent(Set<String>.self, forKey: .favoriteAutoEQProfiles) ?? []
+             autoEQPreampEnabled = try c.decodeIfPresent(Bool.self, forKey: .autoEQPreampEnabled) ?? true
+             userEQPresets = try c.decodeIfPresent([UserEQPreset].self, forKey: .userEQPresets) ?? []
++            consumerScenes = try c.decodeIfPresent([ConsumerScene].self, forKey: .consumerScenes) ?? []
++            consumerAutomations = try c.decodeIfPresent([ConsumerAutomation].self, forKey: .consumerAutomations) ?? []
+         }
+     }
+ 
+@@ -829,6 +837,136 @@
+         scheduleSave()
+     }
+ 
++    // MARK: - Scenes & Simple Automations
++
++    var consumerScenes: [ConsumerScene] {
++        settings.consumerScenes.sorted { $0.updatedAt > $1.updatedAt }
++    }
++
++    var consumerAutomations: [ConsumerAutomation] {
++        settings.consumerAutomations
++    }
++
++    func scene(id: UUID) -> ConsumerScene? {
++        settings.consumerScenes.first { $0.id == id }
++    }
++
++    @discardableResult
++    func saveScene(_ scene: ConsumerScene) -> ConsumerScene {
++        var saved = scene
++        let trimmed = saved.name.trimmingCharacters(in: .whitespacesAndNewlines)
++        saved.name = trimmed.isEmpty ? "My Scene" : trimmed
++        saved.updatedAt = .now
++        if let index = settings.consumerScenes.firstIndex(where: { $0.id == saved.id }) {
++            settings.consumerScenes[index] = saved
++        } else {
++            saved.name = uniqueSceneName(saved.name)
++            settings.consumerScenes.append(saved)
++        }
++        scheduleSave()
++        return saved
++    }
++
++    func deleteScene(id: UUID) {
++        settings.consumerScenes.removeAll { $0.id == id }
++        settings.consumerAutomations.removeAll { $0.sceneID == id }
++        scheduleSave()
++    }
++
++    func importScene(_ scene: ConsumerScene) -> ConsumerScene {
++        var imported = scene
++        imported.id = UUID()
++        imported.createdAt = .now
++        imported.updatedAt = .now
++        imported.name = uniqueSceneName(imported.name)
++        settings.consumerScenes.append(imported)
++        scheduleSave()
++        return imported
++    }
++
++    func setAutomation(_ automation: ConsumerAutomation) {
++        if let index = settings.consumerAutomations.firstIndex(where: { $0.id == automation.id }) {
++            settings.consumerAutomations[index] = automation
++        } else {
++            settings.consumerAutomations.append(automation)
++        }
++        scheduleSave()
++    }
++
++    func deleteAutomation(id: UUID) {
++        settings.consumerAutomations.removeAll { $0.id == id }
++        scheduleSave()
++    }
++
++    func makeConsumerScene(
++        name: String,
++        symbolName: String,
++        defaultOutputDeviceUID: String?,
++        systemOutputDeviceUID: String?,
++        deviceVolumes: [String: Float],
++        deviceMutes: [String: Bool],
++        appNames: [String: String],
++        audioUnitProfiles: [AudioUnitProfile]
++    ) -> ConsumerScene {
++        ConsumerScene(
++            name: name,
++            symbolName: symbolName,
++            defaultOutputDeviceUID: defaultOutputDeviceUID,
++            appNames: appNames,
++            appVolumes: settings.appVolumes,
++            appDeviceRouting: settings.appDeviceRouting,
++            appMutes: settings.appMutes,
++            appBoosts: settings.appBoosts,
++            appEQSettings: settings.appEQSettings,
++            appStereoFieldSettings: settings.appStereoFieldSettings,
++            appDeviceSelectionMode: settings.appDeviceSelectionMode,
++            appSelectedDeviceUIDs: settings.appSelectedDeviceUIDs,
++            systemSoundsFollowsDefault: settings.systemSoundsFollowsDefault,
++            systemOutputDeviceUID: systemOutputDeviceUID,
++            deviceVolumes: deviceVolumes,
++            deviceMutes: deviceMutes,
++            deviceAutoEQ: settings.deviceAutoEQ,
++            autoEQPreampEnabled: settings.autoEQPreampEnabled,
++            globalAudio: ConsumerGlobalAudioSnapshot(
++                loudnessCompensationEnabled: settings.appSettings.loudnessCompensationEnabled,
++                loudnessEqualizationEnabled: settings.appSettings.loudnessEqualizationEnabled,
++                adaptiveAudio: settings.appSettings.adaptiveAudio,
++                privacyFriendlyProcessingEnabled: settings.appSettings.privacyFriendlyProcessingEnabled
++            ),
++            audioUnitProfiles: audioUnitProfiles
++        )
++    }
++
++    func replaceConsumerAudioSettings(with scene: ConsumerScene) {
++        settings.appVolumes = scene.appVolumes
++        settings.appDeviceRouting = scene.appDeviceRouting
++        settings.appMutes = scene.appMutes
++        settings.appBoosts = scene.appBoosts
++        settings.appEQSettings = scene.appEQSettings
++        settings.appStereoFieldSettings = scene.appStereoFieldSettings
++        settings.appDeviceSelectionMode = scene.appDeviceSelectionMode
++        settings.appSelectedDeviceUIDs = scene.appSelectedDeviceUIDs
++        settings.systemSoundsFollowsDefault = scene.systemSoundsFollowsDefault
++        settings.deviceAutoEQ = scene.deviceAutoEQ
++        settings.autoEQPreampEnabled = scene.autoEQPreampEnabled
++
++        settings.appSettings.loudnessCompensationEnabled = scene.globalAudio.loudnessCompensationEnabled
++        settings.appSettings.loudnessEqualizationEnabled = scene.globalAudio.loudnessEqualizationEnabled
++        settings.appSettings.adaptiveAudio = scene.globalAudio.adaptiveAudio
++        settings.appSettings.privacyFriendlyProcessingEnabled = scene.globalAudio.privacyFriendlyProcessingEnabled
++        scheduleSave()
++    }
++
++    private func uniqueSceneName(_ requested: String) -> String {
++        let trimmed = requested.trimmingCharacters(in: .whitespacesAndNewlines)
++        let base = trimmed.isEmpty ? "My Scene" : trimmed
++        let existing = Set(settings.consumerScenes.map(\.name))
++        guard existing.contains(base) else { return base }
++        var counter = 2
++        while existing.contains("\(base) (\(counter))") { counter += 1 }
++        return "\(base) (\(counter))"
++    }
++
+     // MARK: - App-Wide Settings
+ 
+     var appSettings: AppSettings {
+@@ -900,6 +1038,8 @@
+         settings.appDeviceSelectionMode.removeAll()
+         settings.appSelectedDeviceUIDs.removeAll()
+         settings.userEQPresets.removeAll()
++        settings.consumerScenes.removeAll()
++        settings.consumerAutomations.removeAll()
+ 
+         // Also unregister from launch at login
+         try? SMAppService.mainApp.unregister()
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Settings/Types/SettingsUITypes.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Settings/Types/SettingsUITypes.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Settings/Types/SettingsUITypes.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Settings/Types/SettingsUITypes.swift	2026-08-03 18:36:38.011839580 +0000
+@@ -190,3 +190,34 @@
+         }
+     }
+ }
++
++// MARK: - Menu Bar Information
++
++/// Optional plain-language information shown beside Melo's menu bar icon.
++/// The default remains icon-only so existing installations do not change shape.
++enum MenuBarInfoStyle: String, Codable, CaseIterable, Identifiable, CustomStringConvertible {
++    case iconOnly
++    case volume
++    case device
++    case level
++
++    var id: String { rawValue }
++
++    var description: String {
++        switch self {
++        case .iconOnly: return "Icon Only"
++        case .volume: return "Volume"
++        case .device: return "Device"
++        case .level: return "Live Level"
++        }
++    }
++
++    var symbolName: String {
++        switch self {
++        case .iconOnly: return "circle"
++        case .volume: return "percent"
++        case .device: return "headphones"
++        case .level: return "waveform"
++        }
++    }
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Components/ConsumerCommandPalette.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Components/ConsumerCommandPalette.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Components/ConsumerCommandPalette.swift	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Components/ConsumerCommandPalette.swift	2026-08-03 18:42:12.243851533 +0000
+@@ -0,0 +1,179 @@
++import SwiftUI
++
++@MainActor
++struct ConsumerCommandPalette: View {
++    @Bindable var audioEngine: AudioEngine
++    let onOpenSettings: () -> Void
++
++    @Environment(\.dismiss) private var dismiss
++    @State private var searchText = ""
++
++    private struct Command: Identifiable {
++        let id: String
++        let title: String
++        let subtitle: String
++        let symbol: String
++        let category: ConsumerCommandCategory
++        let action: () -> Void
++    }
++
++    var body: some View {
++        VStack(spacing: 0) {
++            HStack(spacing: 10) {
++                Image(systemName: "magnifyingglass")
++                    .foregroundStyle(.secondary)
++                TextField("What would you like Melo to do?", text: $searchText)
++                    .textFieldStyle(.plain)
++                    .font(.system(size: 15))
++            }
++            .padding(14)
++            .background(.regularMaterial)
++
++            Divider()
++
++            ScrollView {
++                LazyVStack(alignment: .leading, spacing: 4) {
++                    ForEach(ConsumerCommandCategory.allCases, id: \.self) { category in
++                        let categoryCommands = filteredCommands.filter { $0.category == category }
++                        if !categoryCommands.isEmpty {
++                            Text(category.rawValue.uppercased())
++                                .font(.system(size: 9, weight: .bold))
++                                .foregroundStyle(.tertiary)
++                                .padding(.horizontal, 14)
++                                .padding(.top, 12)
++                                .padding(.bottom, 3)
++
++                            ForEach(categoryCommands) { command in
++                                Button {
++                                    command.action()
++                                    dismiss()
++                                } label: {
++                                    HStack(spacing: 11) {
++                                        Image(systemName: command.symbol)
++                                            .font(.system(size: 14, weight: .semibold))
++                                            .foregroundStyle(.tint)
++                                            .frame(width: 28, height: 28)
++                                            .background(Circle().fill(.tint.opacity(0.12)))
++                                        VStack(alignment: .leading, spacing: 2) {
++                                            Text(command.title)
++                                                .font(.system(size: 12, weight: .medium))
++                                                .foregroundStyle(.primary)
++                                            Text(command.subtitle)
++                                                .font(.system(size: 10))
++                                                .foregroundStyle(.secondary)
++                                                .lineLimit(1)
++                                        }
++                                        Spacer()
++                                        Image(systemName: "return")
++                                            .font(.system(size: 9))
++                                            .foregroundStyle(.tertiary)
++                                    }
++                                    .padding(.horizontal, 12)
++                                    .padding(.vertical, 7)
++                                    .contentShape(Rectangle())
++                                }
++                                .buttonStyle(.plain)
++                            }
++                        }
++                    }
++
++                    if filteredCommands.isEmpty {
++                        VStack(spacing: 8) {
++                            Image(systemName: "magnifyingglass")
++                                .font(.system(size: 24))
++                                .foregroundStyle(.tertiary)
++                            Text("No matching action")
++                                .font(.system(size: 12, weight: .medium))
++                            Text("Try a Scene name, device, volume, undo, or help.")
++                                .font(.system(size: 10))
++                                .foregroundStyle(.secondary)
++                        }
++                        .frame(maxWidth: .infinity)
++                        .padding(.vertical, 40)
++                    }
++                }
++                .padding(.bottom, 12)
++            }
++        }
++        .frame(width: 520, height: 460)
++    }
++
++    private var filteredCommands: [Command] {
++        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
++        guard !query.isEmpty else { return commands }
++        return commands.filter {
++            $0.title.localizedCaseInsensitiveContains(query)
++                || $0.subtitle.localizedCaseInsensitiveContains(query)
++                || $0.category.rawValue.localizedCaseInsensitiveContains(query)
++        }
++    }
++
++    private var commands: [Command] {
++        var result: [Command] = []
++
++        for scene in audioEngine.settingsManager.consumerScenes {
++            result.append(Command(
++                id: "scene-\(scene.id.uuidString)",
++                title: "Use \(scene.name)",
++                subtitle: "Restore its volumes, devices, sound, and effects",
++                symbol: scene.symbolName,
++                category: .scenes,
++                action: { audioEngine.applyConsumerScene(scene) }
++            ))
++        }
++
++        for device in audioEngine.outputDevices {
++            result.append(Command(
++                id: "device-\(device.uid)",
++                title: "Play through \(device.name)",
++                subtitle: "Make this the main output",
++                symbol: "speaker.wave.2.fill",
++                category: .devices,
++                action: { _ = audioEngine.setDefaultOutputDevice(device.id) }
++            ))
++        }
++
++        result.append(Command(
++            id: "undo",
++            title: "Undo Last Change",
++            subtitle: audioEngine.consumerUndoManager.latest?.label ?? "Nothing recent to undo",
++            symbol: "arrow.uturn.backward",
++            category: .controls,
++            action: { audioEngine.undoLastConsumerChange() }
++        ))
++
++        let smartSoundEnabled = audioEngine.settingsManager.appSettings.adaptiveAudio.enabled
++        result.append(Command(
++            id: "smart-sound",
++            title: smartSoundEnabled ? "Turn Off Smart Sound" : "Turn On Smart Sound",
++            subtitle: "Keeps volume changes comfortable and speech easier to hear",
++            symbol: "ear.badge.waveform",
++            category: .controls,
++            action: {
++                var adaptive = audioEngine.settingsManager.appSettings.adaptiveAudio
++                adaptive.enabled.toggle()
++                audioEngine.setAdaptiveAudioSettings(adaptive)
++            }
++        ))
++
++        result.append(Command(
++            id: "repair",
++            title: "Fix Audio",
++            subtitle: "Refresh Melo’s audio connections without erasing settings",
++            symbol: "wrench.and.screwdriver.fill",
++            category: .help,
++            action: { audioEngine.repairConsumerAudio() }
++        ))
++
++        result.append(Command(
++            id: "settings",
++            title: "Open Melo Settings",
++            subtitle: "Scenes, automations, appearance, audio, and shortcuts",
++            symbol: "gearshape.fill",
++            category: .help,
++            action: onOpenSettings
++        ))
++
++        return result
++    }
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift	2026-08-03 18:45:38.999858927 +0000
+@@ -14,6 +14,7 @@
+     private let deviceVolumeMonitor: DeviceVolumeMonitor
+     private let deviceProvider: any AudioDeviceProviding
+     private let settings: SettingsManager
++    private let levelProvider: @MainActor () -> Float
+     private let logger = Logger(subsystem: "dev.local.Melo", category: "MenuBarIconCoordinator")
+ 
+     private weak var cachedButton: NSStatusBarButton?
+@@ -22,15 +23,18 @@
+     private var flashActiveSymbol: String?
+     private var lastObservedDeviceID: AudioDeviceID?
+     private var started = false
++    private var levelTimer: Timer?
+ 
+     init(
+         deviceVolumeMonitor: DeviceVolumeMonitor,
+         deviceProvider: any AudioDeviceProviding,
+-        settings: SettingsManager
++        settings: SettingsManager,
++        levelProvider: @escaping @MainActor () -> Float = { 0 }
+     ) {
+         self.deviceVolumeMonitor = deviceVolumeMonitor
+         self.deviceProvider = deviceProvider
+         self.settings = settings
++        self.levelProvider = levelProvider
+         super.init()
+     }
+ 
+@@ -43,12 +47,15 @@
+         attemptInitialApply(retriesLeft: 20)
+         scheduleApplyTracking()
+         scheduleDeviceChangeTracking()
++        startLevelTimer()
+     }
+ 
+     /// Cancel pending work and drop references. Called on app termination.
+     func stop() {
+         flashWorkItem?.cancel()
+         flashWorkItem = nil
++        levelTimer?.invalidate()
++        levelTimer = nil
+         if let button = cachedButton, let recognizer = rightClickRecognizer {
+             button.removeGestureRecognizer(recognizer)
+         }
+@@ -117,6 +124,45 @@
+         guard let image = state.image.nsImage() else { return }
+         addFadeTransition(to: button)
+         button.image = image
++        let title = menuBarInfoTitle()
++        button.title = title
++        button.imagePosition = title.isEmpty ? .imageOnly : .imageLeading
++        button.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
++        button.toolTip = title.isEmpty ? "Melo" : "Melo — \(title)"
++    }
++
++    private func menuBarInfoTitle() -> String {
++        let style = settings.appSettings.menuBarInfoStyle
++        let id = deviceVolumeMonitor.defaultDeviceID
++        switch style {
++        case .iconOnly:
++            return ""
++        case .volume:
++            let muted = deviceVolumeMonitor.muteStates[id] ?? false
++            if muted { return "Muted" }
++            let volume = deviceVolumeMonitor.volumes[id] ?? 0
++            return "\(Int((max(0, min(1, volume)) * 100).rounded()))%"
++        case .device:
++            let name = deviceProvider.outputDevices.first(where: { $0.id == id })?.name ?? "No Output"
++            return name.count > 18 ? String(name.prefix(17)) + "…" : name
++        case .level:
++            let level = max(0, min(1, levelProvider()))
++            let count = Int((level * 4).rounded(.up))
++            let filled = String(repeating: "▮", count: count)
++            let empty = String(repeating: "▯", count: max(0, 4 - count))
++            return filled + empty
++        }
++    }
++
++    private func startLevelTimer() {
++        levelTimer?.invalidate()
++        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.16, repeats: true) { [weak self] _ in
++            MainActor.assumeIsolated {
++                guard let self,
++                      self.settings.appSettings.menuBarInfoStyle == .level else { return }
++                self.apply()
++            }
++        }
+     }
+ 
+     private func attemptInitialApply(retriesLeft: Int) {
+@@ -139,6 +185,7 @@
+             _ = deviceVolumeMonitor.volumes[id]
+             _ = deviceVolumeMonitor.muteStates[id]
+             _ = settings.appSettings.menuBarIconStyle
++            _ = settings.appSettings.menuBarInfoStyle
+             _ = settings.appSettings.hudStyle
+             _ = settings.devicePriorityOrder
+             // Deliberate dependency so the device-style icon refreshes when the user picks a new symbol; explicit because observation granularity is per stored property.
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBarPopupView.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBarPopupView.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBarPopupView.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/MenuBarPopupView.swift	2026-08-03 18:54:59.051878956 +0000
+@@ -116,6 +116,7 @@
+     /// Owns keyboard percentage entry (buffer + commit/restore signals), broadcast to
+     /// rows via the environment. First responder stays on the nav anchor throughout.
+     @State private var textEntry = PopupTextEntryCoordinator()
++    @State private var showCommandPalette = false
+ 
+     @Environment(\.openSettings) private var openSettings
+ 
+@@ -166,6 +167,12 @@
+             customAccentHex: audioEngine.settingsManager.appSettings.customAccentHex
+         )
+         .tint(themeAccent)
++        .sheet(isPresented: $showCommandPalette) {
++            ConsumerCommandPalette(
++                audioEngine: audioEngine,
++                onOpenSettings: openSettingsWindow
++            )
++        }
+         .preferredColorScheme(
+             visualTheme.resolvedColorScheme(appearance: audioEngine.settingsManager.appSettings.appearance)
+         )
+@@ -363,6 +370,7 @@
+             }
+ 
+             Spacer(minLength: 4)
++            commandPaletteButton
+             editPriorityButton
+             settingsButton
+         }
+@@ -391,6 +399,25 @@
+ 
+     // MARK: - Header Actions
+ 
++    private var commandPaletteButton: some View {
++        Button("Find an action", systemImage: "magnifyingglass") {
++            exitEditModeSaving()
++            showCommandPalette = true
++        }
++        .labelStyle(.iconOnly)
++        .buttonStyle(.meloHover)
++        .font(.system(size: 12))
++        .symbolRenderingMode(.hierarchical)
++        .foregroundStyle(DesignTokens.Colors.interactiveDefault)
++        .frame(
++            minWidth: DesignTokens.Dimensions.minTouchTarget,
++            minHeight: DesignTokens.Dimensions.minTouchTarget
++        )
++        .keyboardShortcut("k", modifiers: [.command])
++        .contentShape(Rectangle())
++        .help("Find an action (⌘K)")
++    }
++
+     private var editPriorityButton: some View {
+         Button(isEditingDevicePriority ? "Done reordering" : "Reorder devices",
+                systemImage: isEditingDevicePriority ? "checkmark" : "pencil") {
+@@ -465,6 +492,51 @@
+         openSettings()
+     }
+ 
++    private var quickScenesSection: some View {
++        VStack(alignment: .leading, spacing: 7) {
++            HStack {
++                Label("Scenes", systemImage: "square.stack.3d.up.fill")
++                    .font(.system(size: 10, weight: .semibold))
++                    .foregroundStyle(DesignTokens.Colors.textSecondary)
++                Spacer()
++                if audioEngine.consumerUndoManager.canUndo {
++                    Button("Undo", systemImage: "arrow.uturn.backward") {
++                        audioEngine.undoLastConsumerChange()
++                    }
++                    .buttonStyle(.meloHover)
++                    .font(.system(size: 10, weight: .medium))
++                    .help(audioEngine.consumerUndoManager.latest?.label ?? "Undo last change")
++                }
++            }
++
++            ScrollView(.horizontal) {
++                HStack(spacing: 7) {
++                    ForEach(audioEngine.settingsManager.consumerScenes) { scene in
++                        Button {
++                            audioEngine.applyConsumerScene(scene)
++                        } label: {
++                            Label(scene.name, systemImage: scene.symbolName)
++                                .font(.system(size: 10, weight: .medium))
++                                .padding(.horizontal, 9)
++                                .padding(.vertical, 6)
++                                .background(
++                                    Capsule()
++                                        .fill(themeAccent.opacity(0.13))
++                                )
++                                .overlay(
++                                    Capsule()
++                                        .strokeBorder(themeAccent.opacity(0.22), lineWidth: 0.5)
++                                )
++                        }
++                        .buttonStyle(.plain)
++                        .help("Use \(scene.name)")
++                    }
++                }
++            }
++            .scrollIndicators(.never)
++        }
++    }
++
+     // MARK: - Main Content
+ 
+     @ViewBuilder
+@@ -478,6 +550,13 @@
+                     .padding(.vertical, DesignTokens.Spacing.xs)
+             }
+ 
++            if !audioEngine.settingsManager.consumerScenes.isEmpty {
++                quickScenesSection
++
++                Divider()
++                    .padding(.vertical, DesignTokens.Spacing.xs)
++            }
++
+             // Apps section (active + pinned inactive + hidden in edit mode)
+             appsSection(scrollProxy: scrollProxy)
+ 
+@@ -661,11 +740,11 @@
+                             audioEngine.setDefaultOutputDevice(device.id)
+                         },
+                         onVolumeChange: { volume in
+-                            deviceVolumeMonitor.setVolume(for: device.id, to: volume)
++                            audioEngine.setOutputDeviceVolume(for: device.id, to: volume)
+                         },
+                         onMuteToggle: {
+                             let currentMute = deviceVolumeMonitor.muteStates[device.id] ?? false
+-                            deviceVolumeMonitor.setMute(for: device.id, to: !currentMute)
++                            audioEngine.setOutputDeviceMute(for: device.id, to: !currentMute)
+                         },
+                         autoEQProfileName: profileName,
+                         autoEQEnabled: selection?.isEnabled ?? false,
+@@ -1728,7 +1807,7 @@
+                 }
+                 let current = Double(deviceVolumeMonitor.volumes[device.id] ?? 1.0)
+                 let next = Float(max(0.0, min(1.0, current + delta)))
+-                deviceVolumeMonitor.setVolume(for: device.id, to: next)
++                audioEngine.setOutputDeviceVolume(for: device.id, to: next)
+             }
+             return .handled
+         }
+@@ -1843,7 +1922,7 @@
+                     return .ignored
+                 }
+                 let current = deviceVolumeMonitor.muteStates[device.id] ?? false
+-                deviceVolumeMonitor.setMute(for: device.id, to: !current)
++                audioEngine.setOutputDeviceMute(for: device.id, to: !current)
+             }
+             return .handled
+         }
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfo.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfo.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfo.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfo.swift	2026-08-03 18:44:00.967855421 +0000
+@@ -12,6 +12,9 @@
+     let availableSampleRates: [Double]
+     let sampleRateSettable: Bool
+     let formatLabel: String?
++    let outputChannelCount: Int
++    let estimatedLatencyMilliseconds: Double?
++    let clockSourceName: String?
+     let hogModeOwner: pid_t
+     let uid: String
+ 
+@@ -21,6 +24,9 @@
+         availableSampleRates: [],
+         sampleRateSettable: false,
+         formatLabel: nil,
++        outputChannelCount: 0,
++        estimatedLatencyMilliseconds: nil,
++        clockSourceName: nil,
+         hogModeOwner: -1,
+         uid: ""
+     )
+@@ -48,6 +54,35 @@
+         return "\(asbd.mBitsPerChannel)-bit PCM"
+     }
+ 
++    var channelSummary: String {
++        switch outputChannelCount {
++        case 0: return "Not reported"
++        case 1: return "Mono"
++        case 2: return "Stereo"
++        default: return "\(outputChannelCount) channels"
++        }
++    }
++
++    var responsivenessSummary: String {
++        guard let latency = estimatedLatencyMilliseconds else {
++            return transportLabel.contains("Bluetooth") ? "Normal wireless delay" : "Not reported"
++        }
++        if latency < 15 { return "Very responsive" }
++        if latency < 40 { return "Responsive" }
++        if latency < 100 { return "Normal" }
++        return "Noticeable delay"
++    }
++
++    var everydayQualitySummary: String {
++        if sampleRate >= 48_000, formatLabel?.contains("24-bit") == true {
++            return "High-quality audio"
++        }
++        if sampleRate >= 44_100 {
++            return "Great for everyday listening"
++        }
++        return "Standard audio"
++    }
++
+     /// Human-readable hog-mode owner string for the inline row.
+     /// Returns nil when the device is not held exclusively by another process.
+     static func formatHogModeOwner(_ owner: pid_t, processName: String?) -> String? {
+@@ -68,6 +103,9 @@
+         case transport(String)
+         case sampleRate(display: String, isPicker: Bool, options: [Double])
+         case format(String)
++        case channels(String)
++        case latency(String)
++        case clock(String)
+         case deviceID(String)
+     }
+ 
+@@ -91,6 +129,14 @@
+             rows.append(.format(formatLabel))
+         }
+ 
++        rows.append(.channels(info.channelSummary))
++        if let latency = info.estimatedLatencyMilliseconds {
++            rows.append(.latency(String(format: "%.1f ms", latency)))
++        }
++        if let clockSourceName = info.clockSourceName, !clockSourceName.isEmpty {
++            rows.append(.clock(clockSourceName))
++        }
++
+         rows.append(.deviceID(info.uid))
+ 
+         self.rows = rows
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfoGrid.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfoGrid.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfoGrid.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfoGrid.swift	2026-08-03 18:44:00.967855421 +0000
+@@ -49,6 +49,21 @@
+                 labelCell("Format")
+                 valueCell(value)
+             }
++        case .channels(let value):
++            GridRow {
++                labelCell("Channels")
++                valueCell(value)
++            }
++        case .latency(let value):
++            GridRow {
++                labelCell("Estimated delay")
++                valueCell(value)
++            }
++        case .clock(let value):
++            GridRow {
++                labelCell("Clock")
++                valueCell(value)
++            }
+         case .deviceID(let uid):
+             GridRow {
+                 labelCell("Device ID")
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorViewModel.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorViewModel.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorViewModel.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorViewModel.swift	2026-08-03 18:43:35.883854524 +0000
+@@ -93,6 +93,9 @@
+             availableSampleRates: available,
+             sampleRateSettable: settable,
+             formatLabel: DeviceInspectorInfo.formatPhysicalFormat(asbd),
++            outputChannelCount: deviceID.outputChannelCount(),
++            estimatedLatencyMilliseconds: deviceID.readEstimatedOutputLatencyMilliseconds(sampleRate: sampleRate),
++            clockSourceName: deviceID.readClockSourceName(),
+             hogModeOwner: hogOwner,
+             uid: uid
+         )
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/SettingsRootView.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/SettingsRootView.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/SettingsRootView.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/SettingsRootView.swift	2026-08-03 18:41:29.851850017 +0000
+@@ -11,16 +11,25 @@
+     let mediaKeyMonitor: MediaKeyMonitor
+     let shortcutsRegistry: ShortcutsRegistry
+     @ObservedObject var updateManager: UpdateManager
++    @Bindable var consumerAutomationManager: ConsumerAutomationManager
+ 
+     enum Section: String, Hashable, CaseIterable, Identifiable {
+-        case general, audio, effects, shortcuts, updates, about
++        case everyday, general, audio, effects, shortcuts, updates, about
+         var id: Self { self }
+     }
+ 
+-    @State private var selection: Section = .general
++    @State private var selection: Section = .everyday
+ 
+     var body: some View {
+         TabView(selection: $selection) {
++            EverydayTab(
++                settings: settings,
++                audioEngine: audioEngine,
++                automationManager: consumerAutomationManager
++            )
++            .tabItem { Label("Everyday", systemImage: "sparkles") }
++            .tag(Section.everyday)
++
+             GeneralTab(
+                 settings: settings,
+                 onResetAll: {
+@@ -64,7 +73,7 @@
+                 .tabItem { Label("About", systemImage: "info.circle") }
+                 .tag(Section.about)
+         }
+-        .frame(width: 720, height: 560)
++        .frame(width: 800, height: 620)
+         .tint(settings.appSettings.visualTheme.accentColor(customHex: settings.appSettings.customAccentHex))
+         .preferredColorScheme(
+             settings.appSettings.visualTheme.resolvedColorScheme(appearance: settings.appSettings.appearance)
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/EverydayTab.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/EverydayTab.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/EverydayTab.swift	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/EverydayTab.swift	2026-08-03 18:53:32.795875872 +0000
+@@ -0,0 +1,607 @@
++import AppKit
++import SwiftUI
++import UniformTypeIdentifiers
++
++@MainActor
++struct EverydayTab: View {
++    @Bindable var settings: SettingsManager
++    @Bindable var audioEngine: AudioEngine
++    @Bindable var automationManager: ConsumerAutomationManager
++
++    @State private var showCreateScene = false
++    @State private var showCreateAutomation = false
++    @State private var showDiagnostics = false
++    @State private var statusMessage: String?
++    @State private var compareA: UUID?
++    @State private var compareB: UUID?
++
++    var body: some View {
++        ScrollView {
++            VStack(alignment: .leading, spacing: 24) {
++                intro
++                scenesSection
++                compareSection
++                automationsSection
++                recentChangesSection
++                helpSection
++            }
++            .padding(.horizontal, 20)
++            .padding(.vertical, 20)
++            .frame(maxWidth: .infinity, alignment: .leading)
++        }
++        .scrollIndicators(.never)
++        .sheet(isPresented: $showCreateScene) {
++            CreateConsumerSceneSheet { name, symbol in
++                let scene = audioEngine.saveCurrentConsumerScene(name: name, symbolName: symbol)
++                compareA = compareA ?? scene.id
++                statusMessage = "Saved \(scene.name)"
++            }
++        }
++        .sheet(isPresented: $showCreateAutomation) {
++            CreateConsumerAutomationSheet(
++                scenes: settings.consumerScenes,
++                apps: audioEngine.displayableApps,
++                devices: audioEngine.outputDevices
++            ) { automation in
++                settings.setAutomation(automation)
++                automationManager.checkNow()
++                statusMessage = "Automation added"
++            }
++        }
++        .onAppear {
++            automationManager.start()
++            seedCompareSelection()
++        }
++        .onChange(of: settings.consumerScenes.map(\.id)) { _, _ in
++            seedCompareSelection()
++        }
++    }
++
++    private var intro: some View {
++        VStack(alignment: .leading, spacing: 4) {
++            Text("Everyday")
++                .font(.system(size: 22, weight: .semibold, design: .rounded))
++            Text("Save how everything sounds, switch setups in one click, and let Melo handle simple routines for you.")
++                .font(.system(size: 12))
++                .foregroundStyle(.secondary)
++            if let statusMessage {
++                Label(statusMessage, systemImage: "checkmark.circle.fill")
++                    .font(.system(size: 11, weight: .medium))
++                    .foregroundStyle(.green)
++                    .padding(.top, 4)
++            }
++        }
++    }
++
++    private var scenesSection: some View {
++        SettingsSection("Scenes") {
++            VStack(alignment: .leading, spacing: 10) {
++                HStack {
++                    VStack(alignment: .leading, spacing: 2) {
++                        Text("Save your whole setup")
++                            .font(.system(size: 13, weight: .semibold))
++                        Text("A Scene remembers app volumes, where sound plays, sound shaping, and effects.")
++                            .font(.system(size: 11))
++                            .foregroundStyle(.secondary)
++                    }
++                    Spacer()
++                    Button("Import") { importScene() }
++                        .buttonStyle(.bordered)
++                        .controlSize(.small)
++                    Button("Save Current") { showCreateScene = true }
++                        .buttonStyle(.borderedProminent)
++                        .controlSize(.small)
++                }
++
++                if settings.consumerScenes.isEmpty {
++                    friendlyEmptyState(
++                        symbol: "square.stack.3d.up",
++                        title: "No Scenes yet",
++                        message: "Set Melo how you like it, then choose Save Current."
++                    )
++                } else {
++                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 10)], spacing: 10) {
++                        ForEach(settings.consumerScenes) { scene in
++                            sceneCard(scene)
++                        }
++                    }
++                }
++            }
++            .padding(12)
++        }
++    }
++
++    private func sceneCard(_ scene: ConsumerScene) -> some View {
++        VStack(alignment: .leading, spacing: 10) {
++            HStack(alignment: .top) {
++                Image(systemName: scene.symbolName)
++                    .font(.system(size: 17, weight: .semibold))
++                    .frame(width: 28, height: 28)
++                    .background(Circle().fill(.tint.opacity(0.14)))
++                VStack(alignment: .leading, spacing: 2) {
++                    Text(scene.name)
++                        .font(.system(size: 13, weight: .semibold))
++                        .lineLimit(1)
++                    Text(sceneSummary(scene))
++                        .font(.system(size: 10))
++                        .foregroundStyle(.secondary)
++                        .lineLimit(2)
++                }
++                Spacer()
++                Menu {
++                    Button("Update with Current Setup", systemImage: "arrow.triangle.2.circlepath") {
++                        _ = audioEngine.updateConsumerScene(id: scene.id)
++                        statusMessage = "Updated \(scene.name)"
++                    }
++                    Button("Share Scene…", systemImage: "square.and.arrow.up") {
++                        exportScene(scene)
++                    }
++                    Divider()
++                    Button(role: .destructive) {
++                        settings.deleteScene(id: scene.id)
++                    } label: {
++                        Label("Delete", systemImage: "trash")
++                    }
++                } label: {
++                    Image(systemName: "ellipsis.circle")
++                }
++                .menuStyle(.borderlessButton)
++                .fixedSize()
++            }
++
++            Button {
++                audioEngine.applyConsumerScene(scene)
++                statusMessage = "Applied \(scene.name)"
++            } label: {
++                Label("Use This Scene", systemImage: "play.fill")
++                    .frame(maxWidth: .infinity)
++            }
++            .buttonStyle(.borderedProminent)
++            .controlSize(.small)
++        }
++        .padding(12)
++        .background(
++            RoundedRectangle(cornerRadius: 12)
++                .fill(DesignTokens.Colors.glassFill)
++        )
++        .overlay(
++            RoundedRectangle(cornerRadius: 12)
++                .strokeBorder(DesignTokens.Colors.glassRowBorder, lineWidth: 0.5)
++        )
++    }
++
++    @ViewBuilder
++    private var compareSection: some View {
++        if settings.consumerScenes.count >= 2 {
++            SettingsSection("Compare") {
++                VStack(alignment: .leading, spacing: 10) {
++                    Text("Quickly switch between two Scenes to decide which sounds better.")
++                        .font(.system(size: 11))
++                        .foregroundStyle(.secondary)
++
++                    HStack(spacing: 12) {
++                        sceneComparePicker(title: "A", selection: $compareA)
++                        sceneComparePicker(title: "B", selection: $compareB)
++                    }
++
++                    HStack(spacing: 10) {
++                        Button("Listen to A") { applyComparedScene(compareA) }
++                            .buttonStyle(.borderedProminent)
++                        Button("Listen to B") { applyComparedScene(compareB) }
++                            .buttonStyle(.bordered)
++                    }
++                    .controlSize(.small)
++                }
++                .padding(12)
++            }
++        }
++    }
++
++    private func sceneComparePicker(title: String, selection: Binding<UUID?>) -> some View {
++        HStack(spacing: 8) {
++            Text(title)
++                .font(.system(size: 12, weight: .bold, design: .rounded))
++                .frame(width: 22, height: 22)
++                .background(Circle().fill(.tint.opacity(0.14)))
++            Picker("Scene \(title)", selection: selection) {
++                ForEach(settings.consumerScenes) { scene in
++                    Text(scene.name).tag(Optional(scene.id))
++                }
++            }
++            .labelsHidden()
++            .frame(maxWidth: .infinity)
++        }
++        .padding(8)
++        .background(RoundedRectangle(cornerRadius: 10).fill(DesignTokens.Colors.recessedBackground))
++    }
++
++    private var automationsSection: some View {
++        SettingsSection("Automations") {
++            VStack(alignment: .leading, spacing: 10) {
++                HStack {
++                    VStack(alignment: .leading, spacing: 2) {
++                        Text("Let Melo switch Scenes for you")
++                            .font(.system(size: 13, weight: .semibold))
++                        Text("Choose an app, a device, or a time. No scripting required.")
++                            .font(.system(size: 11))
++                            .foregroundStyle(.secondary)
++                    }
++                    Spacer()
++                    Button("Add Automation") { showCreateAutomation = true }
++                        .buttonStyle(.borderedProminent)
++                        .controlSize(.small)
++                        .disabled(settings.consumerScenes.isEmpty)
++                }
++
++                if settings.consumerScenes.isEmpty {
++                    Text("Save a Scene before adding an automation.")
++                        .font(.system(size: 11))
++                        .foregroundStyle(.secondary)
++                } else if settings.consumerAutomations.isEmpty {
++                    friendlyEmptyState(
++                        symbol: "wand.and.stars",
++                        title: "Nothing automatic yet",
++                        message: "Example: use Movie Night when your TV connects."
++                    )
++                } else {
++                    ForEach(settings.consumerAutomations) { automation in
++                        automationRow(automation)
++                    }
++                }
++
++                if let lastRun = automationManager.lastRunText {
++                    Label(lastRun, systemImage: "clock.arrow.circlepath")
++                        .font(.system(size: 10))
++                        .foregroundStyle(.secondary)
++                }
++            }
++            .padding(12)
++        }
++    }
++
++    private func automationRow(_ automation: ConsumerAutomation) -> some View {
++        HStack(spacing: 10) {
++            Image(systemName: automation.trigger.symbolName)
++                .frame(width: 24)
++                .foregroundStyle(.tint)
++            VStack(alignment: .leading, spacing: 2) {
++                Text(automation.trigger.title)
++                    .font(.system(size: 12, weight: .medium))
++                Text("Use \(settings.scene(id: automation.sceneID)?.name ?? "Missing Scene")")
++                    .font(.system(size: 10))
++                    .foregroundStyle(.secondary)
++            }
++            Spacer()
++            Toggle("", isOn: Binding(
++                get: { automation.isEnabled },
++                set: { enabled in
++                    var copy = automation
++                    copy.isEnabled = enabled
++                    settings.setAutomation(copy)
++                }
++            ))
++            .labelsHidden()
++            .toggleStyle(.switch)
++            .controlSize(.small)
++            Button(role: .destructive) {
++                settings.deleteAutomation(id: automation.id)
++            } label: {
++                Image(systemName: "trash")
++            }
++            .buttonStyle(.borderless)
++            .help("Delete automation")
++        }
++        .padding(9)
++        .background(RoundedRectangle(cornerRadius: 10).fill(DesignTokens.Colors.recessedBackground))
++    }
++
++    private var recentChangesSection: some View {
++        SettingsSection("Recent Changes") {
++            VStack(alignment: .leading, spacing: 10) {
++                HStack {
++                    VStack(alignment: .leading, spacing: 2) {
++                        Text("Made a mistake?")
++                            .font(.system(size: 13, weight: .semibold))
++                        Text("Melo keeps a short, private history during this session.")
++                            .font(.system(size: 11))
++                            .foregroundStyle(.secondary)
++                    }
++                    Spacer()
++                    Button("Undo Last") {
++                        audioEngine.undoLastConsumerChange()
++                        statusMessage = "Last change undone"
++                    }
++                    .buttonStyle(.borderedProminent)
++                    .controlSize(.small)
++                    .disabled(!audioEngine.consumerUndoManager.canUndo)
++                }
++
++                if audioEngine.consumerUndoManager.entries.isEmpty {
++                    Text("No recent changes to undo.")
++                        .font(.system(size: 11))
++                        .foregroundStyle(.secondary)
++                } else {
++                    ForEach(audioEngine.consumerUndoManager.entries.prefix(5)) { entry in
++                        HStack {
++                            Image(systemName: "arrow.uturn.backward.circle")
++                                .foregroundStyle(.secondary)
++                            Text(entry.label)
++                                .font(.system(size: 11))
++                            Spacer()
++                            Text(entry.date, style: .time)
++                                .font(.system(size: 10))
++                                .foregroundStyle(.tertiary)
++                        }
++                    }
++                }
++            }
++            .padding(12)
++        }
++    }
++
++    private var helpSection: some View {
++        SettingsSection("Audio Help") {
++            VStack(alignment: .leading, spacing: 10) {
++                HStack {
++                    VStack(alignment: .leading, spacing: 2) {
++                        Text("Sound not behaving correctly?")
++                            .font(.system(size: 13, weight: .semibold))
++                        Text("Melo can refresh its audio connections without erasing your settings.")
++                            .font(.system(size: 11))
++                            .foregroundStyle(.secondary)
++                    }
++                    Spacer()
++                    Button("Fix Audio") {
++                        audioEngine.repairConsumerAudio()
++                        statusMessage = "Audio connections refreshed"
++                    }
++                    .buttonStyle(.borderedProminent)
++                    .controlSize(.small)
++                }
++
++                DisclosureGroup("Show Details", isExpanded: $showDiagnostics) {
++                    VStack(alignment: .leading, spacing: 8) {
++                        Text(audioEngine.consumerDiagnosticText)
++                            .font(.system(size: 10, design: .monospaced))
++                            .textSelection(.enabled)
++                            .frame(maxWidth: .infinity, alignment: .leading)
++                            .padding(10)
++                            .background(RoundedRectangle(cornerRadius: 8).fill(DesignTokens.Colors.recessedBackground))
++                        Button("Copy Details") {
++                            NSPasteboard.general.clearContents()
++                            NSPasteboard.general.setString(audioEngine.consumerDiagnosticText, forType: .string)
++                            statusMessage = "Details copied"
++                        }
++                        .controlSize(.small)
++                    }
++                    .padding(.top, 8)
++                }
++                .font(.system(size: 11, weight: .medium))
++            }
++            .padding(12)
++        }
++    }
++
++    private func friendlyEmptyState(symbol: String, title: String, message: String) -> some View {
++        HStack(spacing: 10) {
++            Image(systemName: symbol)
++                .font(.system(size: 18))
++                .foregroundStyle(.secondary)
++            VStack(alignment: .leading, spacing: 2) {
++                Text(title).font(.system(size: 12, weight: .medium))
++                Text(message).font(.system(size: 10)).foregroundStyle(.secondary)
++            }
++            Spacer()
++        }
++        .padding(12)
++        .background(RoundedRectangle(cornerRadius: 10).fill(DesignTokens.Colors.recessedBackground))
++    }
++
++    private func sceneSummary(_ scene: ConsumerScene) -> String {
++        let appText = scene.appCount == 1 ? "1 app" : "\(scene.appCount) apps"
++        let effects = scene.audioUnitProfiles.reduce(0) { $0 + $1.slots.count }
++        if effects > 0 {
++            return "\(appText) · \(effects) saved effect\(effects == 1 ? "" : "s")"
++        }
++        return appText
++    }
++
++    private func seedCompareSelection() {
++        let ids = settings.consumerScenes.map(\.id)
++        if compareA == nil || !ids.contains(compareA!) { compareA = ids.first }
++        if compareB == nil || !ids.contains(compareB!) { compareB = ids.dropFirst().first }
++        if compareA == compareB { compareB = ids.first { $0 != compareA } }
++    }
++
++    private func applyComparedScene(_ id: UUID?) {
++        guard let id, let scene = settings.scene(id: id) else { return }
++        audioEngine.applyConsumerScene(scene)
++        statusMessage = "Listening to \(scene.name)"
++    }
++
++    private func exportScene(_ scene: ConsumerScene) {
++        let panel = NSSavePanel()
++        panel.title = "Share Melo Scene"
++        panel.nameFieldStringValue = scene.name.replacingOccurrences(of: "/", with: "-") + ".melo-scene.json"
++        panel.allowedContentTypes = [.json]
++        guard panel.runModal() == .OK, let url = panel.url else { return }
++        do {
++            let encoder = JSONEncoder()
++            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
++            encoder.dateEncodingStrategy = .iso8601
++            try encoder.encode(scene).write(to: url, options: .atomic)
++            statusMessage = "Scene exported"
++        } catch {
++            statusMessage = "Couldn’t export the Scene"
++        }
++    }
++
++    private func importScene() {
++        let panel = NSOpenPanel()
++        panel.title = "Import Melo Scene"
++        panel.allowedContentTypes = [.json]
++        panel.allowsMultipleSelection = false
++        guard panel.runModal() == .OK, let url = panel.url else { return }
++        do {
++            let decoder = JSONDecoder()
++            decoder.dateDecodingStrategy = .iso8601
++            let scene = try decoder.decode(ConsumerScene.self, from: Data(contentsOf: url))
++            let imported = settings.importScene(scene)
++            statusMessage = "Imported \(imported.name)"
++        } catch {
++            statusMessage = "That file isn’t a valid Melo Scene"
++        }
++    }
++}
++
++private struct CreateConsumerSceneSheet: View {
++    let onSave: (String, String) -> Void
++    @Environment(\.dismiss) private var dismiss
++    @State private var name = ""
++    @State private var symbol = "slider.horizontal.3"
++
++    private let symbols = [
++        "slider.horizontal.3", "film.fill", "gamecontroller.fill", "moon.stars.fill",
++        "music.note", "person.wave.2.fill", "briefcase.fill", "headphones"
++    ]
++
++    var body: some View {
++        VStack(alignment: .leading, spacing: 18) {
++            Text("Save a Scene")
++                .font(.system(size: 20, weight: .semibold, design: .rounded))
++            Text("Give this setup a familiar name, such as Movie Night or Work.")
++                .font(.system(size: 12))
++                .foregroundStyle(.secondary)
++
++            TextField("Scene name", text: $name)
++                .textFieldStyle(.roundedBorder)
++
++            Text("Choose an icon")
++                .font(.system(size: 12, weight: .medium))
++            HStack(spacing: 8) {
++                ForEach(symbols, id: \.self) { item in
++                    Button {
++                        symbol = item
++                    } label: {
++                        Image(systemName: item)
++                            .frame(width: 28, height: 28)
++                            .background(Circle().fill(symbol == item ? Color.accentColor.opacity(0.22) : Color.clear))
++                    }
++                    .buttonStyle(.plain)
++                }
++            }
++
++            HStack {
++                Spacer()
++                Button("Cancel") { dismiss() }
++                Button("Save Scene") {
++                    onSave(name, symbol)
++                    dismiss()
++                }
++                .buttonStyle(.borderedProminent)
++                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
++            }
++        }
++        .padding(22)
++        .frame(width: 460)
++    }
++}
++
++private struct CreateConsumerAutomationSheet: View {
++    private enum TriggerChoice: String, CaseIterable, Identifiable {
++        case app = "App Opens"
++        case device = "Device Connects"
++        case time = "Time of Day"
++        var id: String { rawValue }
++    }
++
++    let scenes: [ConsumerScene]
++    let apps: [DisplayableApp]
++    let devices: [AudioDevice]
++    let onSave: (ConsumerAutomation) -> Void
++
++    @Environment(\.dismiss) private var dismiss
++    @State private var sceneID: UUID?
++    @State private var triggerChoice: TriggerChoice = .app
++    @State private var appID: String?
++    @State private var deviceUID: String?
++    @State private var time = Calendar.current.date(from: DateComponents(hour: 21, minute: 0)) ?? .now
++
++    var body: some View {
++        VStack(alignment: .leading, spacing: 18) {
++            Text("Add Automation")
++                .font(.system(size: 20, weight: .semibold, design: .rounded))
++            Text("Choose what happens and which Scene Melo should use.")
++                .font(.system(size: 12))
++                .foregroundStyle(.secondary)
++
++            Picker("When", selection: $triggerChoice) {
++                ForEach(TriggerChoice.allCases) { choice in
++                    Text(choice.rawValue).tag(choice)
++                }
++            }
++            .pickerStyle(.segmented)
++
++            triggerEditor
++
++            Picker("Use Scene", selection: $sceneID) {
++                ForEach(scenes) { scene in
++                    Text(scene.name).tag(Optional(scene.id))
++                }
++            }
++
++            HStack {
++                Spacer()
++                Button("Cancel") { dismiss() }
++                Button("Add") {
++                    guard let sceneID, let trigger = makeTrigger() else { return }
++                    onSave(ConsumerAutomation(sceneID: sceneID, trigger: trigger))
++                    dismiss()
++                }
++                .buttonStyle(.borderedProminent)
++                .disabled(sceneID == nil || makeTrigger() == nil)
++            }
++        }
++        .padding(22)
++        .frame(width: 500)
++        .onAppear {
++            sceneID = sceneID ?? scenes.first?.id
++            appID = appID ?? apps.first?.id
++            deviceUID = deviceUID ?? devices.first?.uid
++        }
++    }
++
++    @ViewBuilder
++    private var triggerEditor: some View {
++        switch triggerChoice {
++        case .app:
++            Picker("App", selection: $appID) {
++                ForEach(apps, id: \.id) { app in
++                    Text(app.displayName).tag(Optional(app.id))
++                }
++            }
++        case .device:
++            Picker("Speakers or Headphones", selection: $deviceUID) {
++                ForEach(devices) { device in
++                    Text(device.name).tag(Optional(device.uid))
++                }
++            }
++        case .time:
++            DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
++        }
++    }
++
++    private func makeTrigger() -> ConsumerAutomationTrigger? {
++        switch triggerChoice {
++        case .app:
++            guard let appID, let app = apps.first(where: { $0.id == appID }) else { return nil }
++            return .appOpens(identifier: appID, displayName: app.displayName)
++        case .device:
++            guard let deviceUID, let device = devices.first(where: { $0.uid == deviceUID }) else { return nil }
++            return .deviceConnects(uid: deviceUID, displayName: device.name)
++        case .time:
++            let components = Calendar.current.dateComponents([.hour, .minute], from: time)
++            return .daily(hour: components.hour ?? 21, minute: components.minute ?? 0)
++        }
++    }
++}
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/GeneralTab.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/GeneralTab.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/GeneralTab.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Settings/Tabs/GeneralTab.swift	2026-08-03 18:41:41.439850432 +0000
+@@ -107,6 +107,19 @@
+             }
+             SettingsRowDivider()
+             SettingsRow(
++                "Show Beside Icon",
++                description: "Optionally show volume, device, or a small live level"
++            ) {
++                Picker("Show Beside Icon", selection: $settings.appSettings.menuBarInfoStyle) {
++                    ForEach(MenuBarInfoStyle.allCases) { style in
++                        Text(style.description).tag(style)
++                    }
++                }
++                .labelsHidden()
++                .frame(width: 150)
++            }
++            SettingsRowDivider()
++            SettingsRow(
+                 "Popup Size",
+                 description: "Smaller fits more on screen; larger leaves more breathing room."
+             ) {
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Sheets/DeviceDetailSheet.swift /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Sheets/DeviceDetailSheet.swift
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/Sources/Melo/Views/Sheets/DeviceDetailSheet.swift	2026-08-03 15:05:49.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/Sources/Melo/Views/Sheets/DeviceDetailSheet.swift	2026-08-03 18:44:00.967855421 +0000
+@@ -12,6 +12,7 @@
+     let onDismiss: () -> Void
+ 
+     @State private var viewModel: DeviceInspectorViewModel
++    @State private var showTechnicalDetails = false
+ 
+     private static let logger = Logger(subsystem: "dev.local.Melo", category: "DeviceDetailSheet")
+ 
+@@ -40,12 +41,18 @@
+ 
+     var body: some View {
+         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+-            DeviceInspectorInfoGrid(
+-                info: viewModel.info,
+-                onSampleRateSelected: { rate in
+-                    viewModel.selectSampleRate(rate)
+-                }
+-            )
++            consumerSummary
++
++            DisclosureGroup("Technical details", isExpanded: $showTechnicalDetails) {
++                DeviceInspectorInfoGrid(
++                    info: viewModel.info,
++                    onSampleRateSelected: { rate in
++                        viewModel.selectSampleRate(rate)
++                    }
++                )
++                .padding(.top, DesignTokens.Spacing.xs)
++            }
++            .font(DesignTokens.Typography.pickerText)
+ 
+             if let error = viewModel.sampleRateError {
+                 errorBanner(error)
+@@ -78,6 +85,47 @@
+         .onDisappear { viewModel.stop() }
+     }
+ 
++    private var consumerSummary: some View {
++        VStack(alignment: .leading, spacing: 7) {
++            consumerSummaryRow(
++                symbol: "cable.connector",
++                title: "Connection",
++                value: viewModel.info.transportLabel
++            )
++            consumerSummaryRow(
++                symbol: "speaker.wave.2",
++                title: "Sound",
++                value: viewModel.info.channelSummary
++            )
++            consumerSummaryRow(
++                symbol: "checkmark.seal",
++                title: "Quality",
++                value: viewModel.info.everydayQualitySummary
++            )
++            consumerSummaryRow(
++                symbol: "bolt",
++                title: "Response",
++                value: viewModel.info.responsivenessSummary
++            )
++        }
++    }
++
++    private func consumerSummaryRow(symbol: String, title: String, value: String) -> some View {
++        HStack(spacing: 8) {
++            Image(systemName: symbol)
++                .font(.system(size: 10, weight: .semibold))
++                .foregroundStyle(DesignTokens.Colors.interactiveDefault)
++                .frame(width: 16)
++            Text(title)
++                .font(DesignTokens.Typography.pickerText)
++                .foregroundStyle(DesignTokens.Colors.textSecondary)
++            Spacer()
++            Text(value)
++                .font(DesignTokens.Typography.pickerText)
++                .foregroundStyle(DesignTokens.Colors.textPrimary)
++        }
++    }
++
+     // MARK: - Auto badge
+ 
+     private var autoBadge: some View {
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/scripts/build-app.sh /mnt/data/melo_consumer/Melo-macOS-2.3.1/scripts/build-app.sh
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/scripts/build-app.sh	2026-08-03 15:20:24.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/scripts/build-app.sh	2026-08-03 18:46:18.963860357 +0000
+@@ -5,8 +5,8 @@
+ cd "$ROOT"
+ 
+ APP_NAME="Melo"
+-VERSION="2.3.1"
+-BUILD_NUMBER="231"
++VERSION="2.4.0"
++BUILD_NUMBER="240"
+ MIN_MACOS="15.4"
+ BUILD_ROOT="$ROOT/.build-melo"
+ OUTPUT_ROOT="$ROOT/outputs"
+@@ -92,6 +92,11 @@
+ cp "$ROOT/Resources/KeyboardShortcuts-LICENSE.txt" "$APP_BUNDLE/Contents/Resources/KeyboardShortcuts-LICENSE.txt"
+ cp "$ROOT/Resources/FluidMenuBarExtra-LICENSE.txt" "$APP_BUNDLE/Contents/Resources/FluidMenuBarExtra-LICENSE.txt"
+ 
++# Finder and archive tools can attach extended attributes that codesign rejects.
++# Remove them from the generated bundle without touching the source tree.
++xattr -cr "$APP_BUNDLE" 2>/dev/null || true
++find "$APP_BUNDLE" \( -name ".DS_Store" -o -name "._*" \) -delete
++
+ # Ad-hoc signing is appropriate for a local build. A stable Developer ID should replace
+ # this for distribution and to minimize renewed privacy prompts after future rebuilds.
+ codesign --force --deep --sign - \
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/scripts/test.sh /mnt/data/melo_consumer/Melo-macOS-2.3.1/scripts/test.sh
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/scripts/test.sh	2026-08-03 15:20:24.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/scripts/test.sh	2026-08-03 18:54:59.699878980 +0000
+@@ -4,16 +4,36 @@
+ cd "$ROOT"
+ 
+ python3 scripts/verify-premium-pass.py Sources/Melo
++python3 scripts/verify-everyday-features.py
+ 
+-# Parse all source files before the package build to catch malformed Swift quickly.
+-find Sources/Melo -name '*.swift' -print0 | xargs -0 xcrun swiftc -parse
++# Parse every source file before attempting the native build. On macOS use the
++# Xcode-selected compiler; on other systems use the installed Swift compiler so
++# source-only validation remains available.
++if command -v xcrun >/dev/null 2>&1; then
++    SWIFTC=(xcrun swiftc)
++elif command -v swiftc >/dev/null 2>&1; then
++    SWIFTC=(swiftc)
++else
++    echo "error: Swift compiler not found" >&2
++    exit 1
++fi
++find Sources/Melo -name '*.swift' -print0 | xargs -0 "${SWIFTC[@]}" -frontend -parse
++
++# Apple frameworks and app signing are available only on macOS. A Mac run
++# continues through the complete build and bundle checks; other systems stop
++# after source and package validation.
++swift package dump-package >/dev/null
++if [[ "$(uname -s)" != "Darwin" ]]; then
++    echo "Source and package checks passed. Native app build skipped outside macOS."
++    exit 0
++fi
+ 
+ ./scripts/build-app.sh
+ 
+ APP="$ROOT/outputs/Melo.app"
+ [[ -d "$APP" ]]
+-[[ "$(defaults read "$APP/Contents/Info" CFBundleShortVersionString)" == "2.3.1" ]]
+-[[ "$(defaults read "$APP/Contents/Info" CFBundleVersion)" == "231" ]]
++[[ "$(defaults read "$APP/Contents/Info" CFBundleShortVersionString)" == "2.4.0" ]]
++[[ "$(defaults read "$APP/Contents/Info" CFBundleVersion)" == "240" ]]
+ [[ "$(defaults read "$APP/Contents/Info" CFBundleIdentifier)" == "dev.local.Melo" ]]
+ 
+ codesign --verify --deep --strict --verbose=2 "$APP"
+diff -ruN '--exclude=.gitkeep' '--exclude=__pycache__' '--exclude=melo-2.4.0-consumer-features.diff' /mnt/data/melo_base_231/Melo-macOS-2.3.1/scripts/verify-everyday-features.py /mnt/data/melo_consumer/Melo-macOS-2.3.1/scripts/verify-everyday-features.py
+--- /mnt/data/melo_base_231/Melo-macOS-2.3.1/scripts/verify-everyday-features.py	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/melo_consumer/Melo-macOS-2.3.1/scripts/verify-everyday-features.py	2026-08-03 18:55:12.559879439 +0000
+@@ -0,0 +1,41 @@
++#!/usr/bin/env python3
++"""Small release guard for Melo's consumer-facing 2.4 additions.
++
++This is intentionally structural rather than a Swift compiler replacement. It
++prevents packaging a source tree that accidentally omitted one of the new
++feature entry points or reverted the user-facing wording to technical jargon.
++"""
++from pathlib import Path
++import sys
++
++root = Path(__file__).resolve().parents[1]
++checks = {
++    "Scenes model": ("Sources/Melo/Models/ConsumerExperience.swift", "struct ConsumerScene"),
++    "Automations": ("Sources/Melo/Coordination/ConsumerAutomationManager.swift", "final class ConsumerAutomationManager"),
++    "Undo history": ("Sources/Melo/Coordination/ConsumerUndoManager.swift", "final class ConsumerUndoManager"),
++    "Everyday settings": ("Sources/Melo/Views/Settings/Tabs/EverydayTab.swift", 'SettingsSection("Scenes")'),
++    "Command search": ("Sources/Melo/Views/Components/ConsumerCommandPalette.swift", 'TextField("What would you like Melo to do?"'),
++    "Audio repair": ("Sources/Melo/Audio/Engine/AudioEngine.swift", "func repairConsumerAudio()"),
++    "Scene import/export": ("Sources/Melo/Views/Settings/Tabs/EverydayTab.swift", ".melo-scene.json"),
++    "Menu bar details": ("Sources/Melo/Settings/Types/SettingsUITypes.swift", "enum MenuBarInfoStyle"),
++    "Friendly device summary": ("Sources/Melo/Views/Sheets/DeviceDetailSheet.swift", 'title: "Quality"'),
++    "Safe signing cleanup": ("scripts/build-app.sh", 'xattr -cr "$APP_BUNDLE"'),
++    "Release version": ("Config/Info.plist", "<string>2.4.0</string>"),
++}
++
++failures = []
++for label, (relative, needle) in checks.items():
++    path = root / relative
++    if not path.is_file():
++        failures.append(f"{label}: missing {relative}")
++        continue
++    if needle not in path.read_text(errors="replace"):
++        failures.append(f"{label}: expected marker not found in {relative}")
++
++if failures:
++    print("Everyday feature verification failed:")
++    for failure in failures:
++        print(f"  - {failure}")
++    sys.exit(1)
++
++print(f"Everyday feature verification passed ({len(checks)} checks).")

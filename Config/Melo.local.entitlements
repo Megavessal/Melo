@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.device.bluetooth</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <!-- Local ad-hoc builds need this to load the embedded Sparkle framework under Hardened Runtime. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

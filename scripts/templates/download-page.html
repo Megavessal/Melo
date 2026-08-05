@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Melo — per-app volume for macOS</title>
+<meta name="description" content="Melo gives every app its own volume slider, its own output device, and its own sound — from the menu bar.">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0b0f;
+    --surface: rgba(255,255,255,0.045);
+    --border: rgba(255,255,255,0.09);
+    --text: #f2f2f7;
+    --muted: rgba(235,235,245,0.6);
+    --dim: rgba(235,235,245,0.35);
+    --accent: #6e7bf2;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(900px 500px at 50% -12%, rgba(110,123,242,0.18), transparent 70%);
+  }
+  .wrap { max-width: 660px; margin: 0 auto; padding: 96px 24px 72px; }
+  header { text-align: center; }
+  h1 {
+    font: 600 46px/1.1 -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    letter-spacing: -0.022em;
+    margin: 0 0 12px;
+  }
+  .tagline { font-size: 19px; color: var(--muted); margin: 0 auto 34px; max-width: 460px; letter-spacing: -0.01em; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 9px;
+    background: var(--accent); color: #fff; text-decoration: none;
+    padding: 13px 26px; border-radius: 11px;
+    font-size: 16px; font-weight: 600; letter-spacing: -0.01em;
+    transition: transform .16s cubic-bezier(.2,.7,.3,1), filter .16s;
+  }
+  .cta:hover { filter: brightness(1.08); transform: translateY(-1px); }
+  .meta { margin-top: 14px; font-size: 13px; color: var(--dim); }
+  h2 {
+    font: 600 21px/1.3 -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    letter-spacing: -0.015em;
+    margin: 0 0 14px;
+  }
+  section { margin-top: 56px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  ol { margin: 0; padding-left: 20px; }
+  ol li { margin-bottom: 11px; color: var(--muted); }
+  ol li:last-child { margin-bottom: 0; }
+  ol li strong { color: var(--text); font-weight: 600; }
+  ul.features { list-style: none; margin: 0; padding: 0; }
+  ul.features li {
+    padding: 13px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+  }
+  ul.features li:last-child { border-bottom: 0; }
+  ul.features strong { color: var(--text); font-weight: 600; }
+  code {
+    font: 13px/1.4 ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 6px;
+  }
+  .note { font-size: 14px; color: var(--dim); margin-top: 14px; }
+  footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--dim);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+  }
+  a { color: var(--accent); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+  @media (max-width: 520px) {
+    .wrap { padding: 64px 20px 56px; }
+    h1 { font-size: 36px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Melo</h1>
+    <p class="tagline">Give every app its own volume, its own output device, and its own sound — from the menu bar.</p>
+    <a class="cta" href="__RELEASES_URL__/latest">Download Melo __VERSION__</a>
+    <p class="meta">Requires macOS 15.4 or later · Apple silicon · Free</p>
+  </header>
+
+  <section>
+    <h2>First launch</h2>
+    <div class="card">
+      <ol>
+        <li>Unzip the download and drag <strong>Melo</strong> to your Applications folder.</li>
+        <li>Open it. macOS will say it <strong>can't verify the developer</strong> — that is expected, and it appears for every app not distributed through Apple's paid program.</li>
+        <li>Open <strong>System&nbsp;Settings → Privacy &amp; Security</strong>, scroll down, and click <strong>Open Anyway</strong> next to Melo.</li>
+      </ol>
+      <p class="note">
+        You only do this once. After that Melo opens normally and updates itself.
+        If you prefer the Terminal, <code>xattr -cr /Applications/Melo.app</code> does the same thing in one step.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>What it does</h2>
+    <ul class="features">
+      <li><strong>Per-app volume.</strong> Turn down a browser tab without touching your music.</li>
+      <li><strong>Per-app output.</strong> Send one app to your headphones and another to your speakers.</li>
+      <li><strong>Sound shaping.</strong> An equalizer, headphone profiles, and Smart Sound that adapts as you listen.</li>
+      <li><strong>Scenes.</strong> Save a whole setup and bring it back in one click.</li>
+      <li><strong>Stays out of the way.</strong> Lives in the menu bar, follows your volume keys.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Melo is free and open source, licensed GPL-3.0.</span>
+    <span>
+      <a href="https://github.com/__OWNER__/__REPO__">Source</a> ·
+      <a href="__RELEASES_URL__">All versions</a>
+    </span>
+  </footer>
+
+</div>
+</body>
+</html>

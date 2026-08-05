@@ -1,0 +1,1005 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		70B7557D2725375AD2F3B76B /* AutoEQFetcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F92DC93D0C44DA293A3472D3 /* AutoEQFetcher.swift */; };
+		AA7B8D6EFE694F6AD63F45E3 /* AutoEQParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51252B6795CB3685C3108C66 /* AutoEQParser.swift */; };
+		F69359A86D4706E1BDE5F299 /* AutoEQProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7485F7919685F50B9DB10D /* AutoEQProcessor.swift */; };
+		DF0B81778EC0EFD8CA4197BC /* AutoEQProfileLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2472C9D32B44100143654289 /* AutoEQProfileLoader.swift */; };
+		5F230465C32F4FB433A72DD7 /* AutoEQProfileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C6F6E5A2F0DE14A1673C062 /* AutoEQProfileManager.swift */; };
+		96515FE2D784CEC233857D8C /* DDCController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29CC7DE3FD9F0012482D1F5 /* DDCController.swift */; };
+		1A822FF64C2248B565B1A0DA /* DDCService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F9A8FAAD1DA1DAF076DE438 /* DDCService.swift */; };
+		FF18ABC5A1610F186BC3D901 /* BiquadMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1957443ABFF775C4FF35775 /* BiquadMath.swift */; };
+		38372C52B2F48023E5A7D3BC /* BiquadProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CDB28734262346A1CB3BA3F /* BiquadProcessor.swift */; };
+		BCA32C08903100D6291D7849 /* EQProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C92BF7FE614099E0A11E83A /* EQProcessor.swift */; };
+		5FE5C0407DF9D0EB207AC64E /* AppListCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5D43562FC24D2145FCFE22 /* AppListCoordinator.swift */; };
+		672BF34CF3411249695960B5 /* AudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDC85A379CC49AB753D377FB /* AudioEngine.swift */; };
+		2BC54CA449092D89C479EF4C /* AudioUnitHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B4C9E3B6F3B456231441EA /* AudioUnitHost.swift */; };
+		343EF69B674FA03873EA5FB2 /* CrashGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CDA2BB35267B1AB21FCCDFE /* CrashGuard.swift */; };
+		15AC1EAA719D86E25A5CD704 /* CrossfadeOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF10D646A6872066362E41E /* CrossfadeOrchestrator.swift */; };
+		60907596FB83162C22924387 /* CrossfadeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F97F5DDD90B039058F2E7E /* CrossfadeState.swift */; };
+		35DC375AA73BFDD4763C06DC /* EchoTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 666C7EC8D05ACA1C3FAEDADD /* EchoTracker.swift */; };
+		9F2CE00BDF0B6838749A46C3 /* OrphanedTapCleanup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3775B1B9712EED007CA3C238 /* OrphanedTapCleanup.swift */; };
+		2C555FC67A162E0BD23EBC1D /* ProcessTapController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADBCD4CE886479A6BF73F0A4 /* ProcessTapController.swift */; };
+		D1944C23084FF2F7BA561DD1 /* ProcessTapControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACA207D24F19F1BA23911E8C /* ProcessTapControlling.swift */; };
+		2B0D6FAED2041D051042E475 /* RealtimeAudioUnitChainSlot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCCB8C315D66ECBE3480FBC /* RealtimeAudioUnitChainSlot.swift */; };
+		20D213E8AE41605FC2BF9CEF /* SoftLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48E7068E2CE1C8E4F645DCD6 /* SoftLimiter.swift */; };
+		568D69ADC1212E753BB56955 /* StereoAudioUnitEffectChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD8F09D50F9C54FD159A6954 /* StereoAudioUnitEffectChain.swift */; };
+		4538CEF7057BCC9EDFE15E7D /* TapActivationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59B1E2BDBA84F2AF7236297 /* TapActivationPolicy.swift */; };
+		44D2480A5F2A74A64C461F0F /* TapInitialState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8A004CA454AACF3250A9F8E /* TapInitialState.swift */; };
+		45BB674E465868EEBB685B57 /* TapResources.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5B6C644C0AA3AA9D63CD4D /* TapResources.swift */; };
+		AA9D29321DE8DFE34187CE53 /* AudioDeviceID+Classification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8006F71D1F9651A9BDD4741C /* AudioDeviceID+Classification.swift */; };
+		A9A9DD7781EC2044E702C309 /* AudioDeviceID+Info.swift in Sources */ = {isa = PBXBuildFile; fileRef = 998C8F05C9574662E85C8BEA /* AudioDeviceID+Info.swift */; };
+		BC6A6BE08C6233957193130E /* AudioDeviceID+Inspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D4FA83EC8BE13C490588A4E /* AudioDeviceID+Inspector.swift */; };
+		30C517882FD5551C698B7838 /* AudioDeviceID+Streams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8158D46AB27D59BF8F926DC1 /* AudioDeviceID+Streams.swift */; };
+		BBCDBB45D267CB47D2303DA7 /* AudioDeviceID+Volume.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC44EC3090A4CA38E5573A36 /* AudioDeviceID+Volume.swift */; };
+		93A62DDBDDADAB6C28E4CD35 /* AudioObjectID+Properties.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D2796762872768D6FEA202B /* AudioObjectID+Properties.swift */; };
+		E881ABED699F2EDF900782CB /* AudioObjectID+Readiness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397AE7A7E7D8B58A3EEAFA81 /* AudioObjectID+Readiness.swift */; };
+		574C8894946F6C39AD314769 /* AudioObjectID+System.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E0F3E98DB323130F8051FE2 /* AudioObjectID+System.swift */; };
+		E830F6E22C882932C9C2F488 /* VolumeFeedbackPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87EEEBCC69916773091B027F /* VolumeFeedbackPlayer.swift */; };
+		7F6CE727DB491CA1F8E4FAFA /* MediaKeyEventDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00FE186312AF63BFE5B1450D /* MediaKeyEventDecoder.swift */; };
+		73387B38BF99E259596C5583 /* MediaKeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A49D04272814E537CA2D54E /* MediaKeyMonitor.swift */; };
+		D3F49245EF8626DFA3A3CE47 /* PlaybackPauseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE2E769B2E94E92301FD98B9 /* PlaybackPauseService.swift */; };
+		058BA65E0652CA5E8AEA30DF /* AdaptiveAudioProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C476EAF29A976FE7183BA23 /* AdaptiveAudioProcessor.swift */; };
+		5ACFD5AF2F403F23701A7141 /* AdaptiveAudioSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65F059EA13CBC7F34D0287F /* AdaptiveAudioSettings.swift */; };
+		F4AED72AE9255A4B3532AF2E /* GainComputer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8189F014027C23A28BF6DACB /* GainComputer.swift */; };
+		445A38600D812D95134AC460 /* GainSmoother.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED2698E7D3F0E1A721EA0E16 /* GainSmoother.swift */; };
+		2628534F512CDCCAD26401C9 /* ISO226Contours.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBE5F8F4B25355CB93492750 /* ISO226Contours.swift */; };
+		12081FF7A392D32553039BE3 /* KWeightingFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0A5EDA63EF9840179B2387 /* KWeightingFilter.swift */; };
+		7551DEA5B8257079C719D658 /* LoudnessCompensator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137BC6CB8500F259B0890D15 /* LoudnessCompensator.swift */; };
+		E351BEE093F2E36AC43B56A3 /* LoudnessDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8004731CCD0807E2DFFB7C15 /* LoudnessDetector.swift */; };
+		2527CD268C213AAA4F00D78C /* LoudnessEqualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF30A34DE061CD0E5092509F /* LoudnessEqualizer.swift */; };
+		EDB3DE7ED4C584CEF31F085C /* LoudnessEqualizerMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A3608AB649BA7C6FF67E04 /* LoudnessEqualizerMath.swift */; };
+		C1396A1AC7F5C927A7488893 /* LoudnessEqualizerSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B6D9EC8A1CCB02AD9B86255 /* LoudnessEqualizerSettings.swift */; };
+		DCCE39CA8A35C82304F9E544 /* AudioDeviceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E63219FC60328E155F1163E1 /* AudioDeviceMonitor.swift */; };
+		247D7153A1FCE89E7F0AFDC9 /* AudioDeviceProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFAC742CE2804F170FAD632D /* AudioDeviceProviding.swift */; };
+		B089F58C05455749B36E3A23 /* AudioProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B8E8208BE5EF17F7FCE0FBB /* AudioProcessMonitor.swift */; };
+		FECC0CF531B01802EEBA59E1 /* AudioProcessMonitoring.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F36D4BA238E820451489ED9 /* AudioProcessMonitoring.swift */; };
+		BF4644B0FC6A947228C3118D /* BluetoothDeviceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D231A2FD82602ABB29D9445B /* BluetoothDeviceMonitor.swift */; };
+		A839AC8D77A6EECEE64D8E5D /* DeviceVolumeMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1A39F9B22541558085822A /* DeviceVolumeMonitor.swift */; };
+		CF8C309DE2684CD0E1A2C725 /* DeviceVolumeProviding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BEEB8770CF02064C9D6263E /* DeviceVolumeProviding.swift */; };
+		E19249A686F64E244A29805F /* AudioRecordingPermission.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2032A2E010B3180BC5B4561C /* AudioRecordingPermission.swift */; };
+		31F86C9564CEFD0D13F93D5C /* AudioScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF71C2EB76B05D7DC19C95E3 /* AudioScope.swift */; };
+		27EBA48754BEE3BD6CD20319 /* BiquadProcessable.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */; };
+		EAABA0E8236CCF7E03F47C78 /* TransportType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE7F06B980C7D37F64538B5 /* TransportType.swift */; };
+		C08E08449A7B63141B752DF8 /* AccessibilityPermissionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */; };
+		FED3B832113C783C0543C040 /* CallDuckingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC30BBD341C272738383CFC /* CallDuckingManager.swift */; };
+		CD5B61A6ADB8F540DF5A7ECD /* ConsumerAutomationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8B32EC58A69AD17559242A /* ConsumerAutomationManager.swift */; };
+		C6DB3BB57197D67DC8653715 /* ConsumerUndoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */; };
+		C4722DBC2ABB9AB4B66A183E /* MediaKeyStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */; };
+		CD3D058532662CB2B596820C /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */; };
+		47B1161301B8D6A7D6568359 /* PopupVisibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */; };
+		C565963592ADA5EAAC91D8A8 /* PowerSourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */; };
+		1FAD0DB5CE7144F56506B9F7 /* SleepTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */; };
+		7A58C38438A38252CCA024DB /* FineTuneApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEB58AFA75F03458148A8B63 /* FineTuneApp.swift */; };
+		E62F13D1CEB4648A1290437F /* AppActivityPresentationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A69A7096C24B369C509D27 /* AppActivityPresentationPolicy.swift */; };
+		00DC2D964DE2C402C9557CAD /* AudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51556C23D96B4E028E8EA822 /* AudioApp.swift */; };
+		94D2AD63AACD4407F215BE60 /* AudioDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6096457BFFB8B0F32F4C0EE8 /* AudioDevice.swift */; };
+		453F9C5CDACB066BB0C0D5A8 /* AutoEQProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2733C2784777D312BE881B39 /* AutoEQProfile.swift */; };
+		9E33545CF02EF8938D64F962 /* BoostLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6991ACEE1D54924C0DA7DB6A /* BoostLevel.swift */; };
+		382D2A6BC53AD84B3E1417C0 /* ConsumerExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B0747D76B5723D09B370C64 /* ConsumerExperience.swift */; };
+		CB42C1BF5140DF0A27D6C977 /* DeviceIconCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B39E7876CA9B99AA179B63 /* DeviceIconCatalog.swift */; };
+		3E131F0ACE10D7C5128F26BB /* DisplayableApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800C834A7D4B7C43D97499A7 /* DisplayableApp.swift */; };
+		4A4DEB10EA221066A1846FF9 /* EQPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A6066371CD665711A3EAB14 /* EQPreset.swift */; };
+		2A72011FCD947654A7BAA19D /* EQSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 128E1772597D4A12DD96D92F /* EQSettings.swift */; };
+		226110870C6231EA02B682B0 /* PairedBluetoothDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42179BB9AA37DCFABC0B8945 /* PairedBluetoothDevice.swift */; };
+		3512D819EA6128E44D938F3F /* SettingsGuide.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39FF3A33EA7E1297E4208B76 /* SettingsGuide.swift */; };
+		00BE9CB7C2CE0904562ACCBE /* StereoFieldSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2641A038DA5B6D6AEDB7154 /* StereoFieldSettings.swift */; };
+		167B4597F3268DF6709C35B0 /* UserEQPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EAEE417851245B77EE6662 /* UserEQPreset.swift */; };
+		914F92E6F785DE7463B4782C /* VolumeMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEBD409BEE8268179B1541F /* VolumeMapping.swift */; };
+		96124848CD77ADF215C85920 /* VolumeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390294C0E0048C37CDBEA5A6 /* VolumeState.swift */; };
+		F884FD292C3E27B34B16D1D4 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEB50D9F59D20AD668AB030B /* SettingsManager.swift */; };
+		28A5B007D4E18BE5547527B6 /* SettingsUITypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C39AD3D95C39AFB95A734CA2 /* SettingsUITypes.swift */; };
+		F3A31FE6A93DF978BEB52443 /* MeloAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2380E3CD2E8700FC09E064E0 /* MeloAppIntents.swift */; };
+		EAD744EAB03E87E2B202B4DA /* MenuBarPopupController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7677F534E889E254F14D98 /* MenuBarPopupController.swift */; };
+		C4CEBC27D807DF0C273DA40F /* ShortcutAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D2B0B9BBF97802D2691D0DE /* ShortcutAction.swift */; };
+		37CF38FC0F5F8DA66F0762D4 /* ShortcutCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58D0278160725280B0F477E2 /* ShortcutCodable.swift */; };
+		1667F428972ECCB5AF55D86E /* ShortcutsRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDEC4D1AF95BF62C5556252E /* ShortcutsRegistry.swift */; };
+		3BB045B0AD560ADC0C6538DF /* TargetAppResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7874A2FEACC9129601503D71 /* TargetAppResolver.swift */; };
+		B70D0E487D69CB35DCF954EE /* DeviceIconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */; };
+		AC91633407D56C84D6B2BDA8 /* MoveToApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */; };
+		35094BE62DB1A29CA2B89BFD /* InstallLocationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */; };
+		16D581A5553A2C8B9E893B84 /* MotionPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */; };
+		EDB4AF6DD943B4ED511DF8D7 /* NotificationAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */; };
+		7BF5DE12F26A3ADC015A5A05 /* DeviceIconResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */; };
+		F765B87AA8FC409D188877DE /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D303AB7DD19FA3BE391B75BC /* Haptics.swift */; };
+		B1CE075BBF0BF179CFEF391D /* ProcessNameLookup.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7441087600AEDDF3F5D3E3E /* ProcessNameLookup.swift */; };
+		FB2F8D9913F2F0E102E87921 /* URLHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE78F282E1881791D0A9493A /* URLHandler.swift */; };
+		7B6631775D426A1E1279D228 /* AutoEQPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 013367D5043CD191185F4537 /* AutoEQPicker.swift */; };
+		5CDE4242BBDE3865C2CF137B /* AutoEQSearchPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B157EA690962D7B76D84C3C0 /* AutoEQSearchPanel.swift */; };
+		67081A414E5792CE0124E029 /* BoostChevrons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B776EA46FA82677D2439FB /* BoostChevrons.swift */; };
+		4D1FD24A2042984E18FCC6F9 /* ClickOutsideCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D734BA16EAF53EE7BCC0C235 /* ClickOutsideCoordinator.swift */; };
+		0E996390D060334F13068E5B /* ConsumerCommandPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C0BC5690D8A5A7C5D64301F /* ConsumerCommandPalette.swift */; };
+		04D93DFB4E3E3CA22FC0129B /* DeviceBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B687EE6A44F9C2C62A3A8F9 /* DeviceBadge.swift */; };
+		5206872F51F1FF0194E85824 /* DeviceIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101AF94506B12E7AF791DC00 /* DeviceIconPicker.swift */; };
+		1EA4B703C2EDDFB88A2EC9AD /* DevicePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52940F601F0EEC7CBFABAD21 /* DevicePicker.swift */; };
+		CBF95432BA39210DC2B4A10F /* DropdownMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49230E6539EE22EDD37A968C /* DropdownMenu.swift */; };
+		E6851198107B4C4079648FAF /* EQPresetPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178DAC268F6053B9FDAF114F /* EQPresetPicker.swift */; };
+		39A81BBB39D94E5818890F6B /* EditablePercentage.swift in Sources */ = {isa = PBXBuildFile; fileRef = D51EEFE6E80D0CABA592E51F /* EditablePercentage.swift */; };
+		C8412C5B4B76AA4179D72F98 /* ExpandableGlassRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B693E17BEA40D0F79FF3AB18 /* ExpandableGlassRow.swift */; };
+		1004A63A3CB1F2CF9E1045E5 /* LiquidGlassSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC738E84F5EA5C26FDAC9902 /* LiquidGlassSlider.swift */; };
+		93A92F60BB90FBEB169CAC85 /* ModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A72762A75892360C32E62148 /* ModeToggle.swift */; };
+		A3E3E10F01E3D6B4DB73643F /* MouseInsideModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7502BB7B1F5BC9FA96C25EAE /* MouseInsideModifier.swift */; };
+		0B1439ACE8D73CA8BA331DA3 /* MuteButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8A3E8FE8810B1B4BC815E53 /* MuteButton.swift */; };
+		18531A8E843132DC3D2A421A /* PermissionBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC3F666C3EDF096104C30A93 /* PermissionBannerView.swift */; };
+		3821EAAB372DEC119FF6E58B /* PopoverHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED7480D860717F74D66A06C2 /* PopoverHost.swift */; };
+		31BA0BC38395DB0DB82EA300 /* RadioButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C8F273AA2F4B9F68B4761C /* RadioButton.swift */; };
+		2AB4C73769BD72F2F0E09F9A /* ScrollWheelStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = C51D397986825280B12EF1C7 /* ScrollWheelStep.swift */; };
+		C25CFEB07040A1B9F0C01CD6 /* ScrollWheelStepModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 185F6E9A5B2E60DDF90AF0B2 /* ScrollWheelStepModifier.swift */; };
+		25502D7B72C6B81EF7F87D05 /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F679BF9C08FD4C5F0E0FE579 /* SectionHeader.swift */; };
+		B8B1445747978B43CAF5D63E /* SmartAutoEQControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A03CC06A3E7B111D67FE293 /* SmartAutoEQControl.swift */; };
+		C15C97FC04A2AD7F1D721BAC /* StereoFieldControlView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5DA17D9810BBB2E053AC1D /* StereoFieldControlView.swift */; };
+		891076C66B30F2235B381572 /* VUMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDD06BA0856A21295EE8A956 /* VUMeter.swift */; };
+		910302BD1EE18A23FE0B6AFE /* AppearancePreference+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEAB2F2906915624A242594A /* AppearancePreference+SwiftUI.swift */; };
+		985EBA306B8A4A86DBF3560E /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED26D5D87B8180C9027F166 /* DesignTokens.swift */; };
+		AC1C4DF95E2164587CEB99AF /* MeloVisualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2231E375469E336CBC18FDA0 /* MeloVisualTheme.swift */; };
+		A1698DC03454B641E29A1F94 /* ViewModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CAA2BFAA4E92F45DE2BF77B /* ViewModifiers.swift */; };
+		57607F7DDEEF0B77124B9867 /* VisualEffectBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F91E4A1D828D6E1C34987F /* VisualEffectBackground.swift */; };
+		A521C4695153416A7029096C /* WindowAppearanceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B899A76AEBCB0C93FB5D1E /* WindowAppearanceBridge.swift */; };
+		50C465EDECBE5F24B7E40F75 /* WindowTitleBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F87ECDA15066E3300571308 /* WindowTitleBridge.swift */; };
+		B0ED671739C1FE935D3D3971 /* EQPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB87F445EA22134EAC6CC76 /* EQPanelView.swift */; };
+		9293F56B490023957C550CA5 /* EQSliderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE3705B5969DE11150C3D2C7 /* EQSliderView.swift */; };
+		7261B5727A41A7E3D6D23194 /* ClassicStyleHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C33EC1C1515175B333371FE /* ClassicStyleHUD.swift */; };
+		F11BC4EDFD3B3FC49AFF7E8C /* HUDWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0236A7197ECE0866C1101048 /* HUDWindowController.swift */; };
+		51AFEBEEF76C459581E2659E /* TahoeStyleHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = A64336582ED5C2BC064FB7C5 /* TahoeStyleHUD.swift */; };
+		922A131D4F17581905AF11E5 /* MenuBarDeviceIconResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74069ED61AADAA7771F424E2 /* MenuBarDeviceIconResolver.swift */; };
+		DE2420FA86B0CEF1D9446EAD /* MenuBarIconCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 429ADA3426346A9B279CE1AA /* MenuBarIconCoordinator.swift */; };
+		11309FF967CA3556B9DF9B01 /* MenuBarIconImage+NSImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF7DA4FE7F8B108CACD7C97 /* MenuBarIconImage+NSImage.swift */; };
+		15CA70A78A67211E6A718958 /* MenuBarIconState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94297E382AFD41C72E35B01B /* MenuBarIconState.swift */; };
+		46F2D40900C3E46456108C72 /* PopupKeyboardNavModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC3C0AD716C9D39588893959 /* PopupKeyboardNavModel.swift */; };
+		0AC84DCC48FEEB41CB619341 /* MenuBarPopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D95BA63A30CB3F944696BE /* MenuBarPopupView.swift */; };
+		C0BE7F19C84A98FCB3013C06 /* FirstRunOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA17E828F649C165FA4CA832 /* FirstRunOnboardingView.swift */; };
+		42F84416234FD512CD0E2AB0 /* MockData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2ACEB41E4A8ED5D98207C4 /* MockData.swift */; };
+		7579D1478FD370D1186DB574 /* PreviewContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17A58A795D391394F12D7325 /* PreviewContainer.swift */; };
+		65E36282EC7DC78F78D4A88F /* AppEditRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D59A29F60A7A352787FD23B /* AppEditRow.swift */; };
+		DEE8B7891AB34155C281102E /* AppRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FFA4FF09C552DE88F2BC045 /* AppRow.swift */; };
+		5A651C226B2EC77A9BDB5527 /* AppRowControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E8EEF765F7D4878FF2F75AE /* AppRowControls.swift */; };
+		8B61AF95F18267E6A7982B4E /* AppRowWithLevelPolling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92AAF4D09F5E88F79BF7E62A /* AppRowWithLevelPolling.swift */; };
+		ABC844532ADA2B355C2743BB /* DeviceEditRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6407828E2D818E5AD074784F /* DeviceEditRow.swift */; };
+		377A92F717DD74636EFADE90 /* DeviceInspectorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E4D1A54E60AE07FA40D3E3D /* DeviceInspectorInfo.swift */; };
+		93258BD12F070A6D0C06068C /* DeviceInspectorInfoGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88BE085F07D97980EE24F826 /* DeviceInspectorInfoGrid.swift */; };
+		AE20BED19E5E43C207BFB47A /* DeviceInspectorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08B06918FF85CFDE9CB5A855 /* DeviceInspectorViewModel.swift */; };
+		AEF1DFD22FB9580B3E521829 /* DeviceRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82998702DD390B25DB76ADF1 /* DeviceRow.swift */; };
+		430DD113096E3A8C7B80423F /* InactiveAppRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 049EB68B3FB66CFE77B20123 /* InactiveAppRow.swift */; };
+		8CF355E19F5F5E1B7FCD0E7F /* InputDeviceRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 146A0CE4B0AD5EB4563C4BA3 /* InputDeviceRow.swift */; };
+		BDC3E9AAD45B3943128EC2B3 /* PairedDeviceRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A4F57A622B1F67F2CE33D3 /* PairedDeviceRow.swift */; };
+		7FEBC28D2C2800206EDB5241 /* AboutLinkChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791A3A57228764DA56EB3F6B /* AboutLinkChip.swift */; };
+		DCFDB148B4F10C8066230AFB /* AccessibilityPromptStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA336732BCD1D4AC39A9D08E /* AccessibilityPromptStrip.swift */; };
+		55DAA57A27D41758C6959C9C /* HUDStyleSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 825DFC7CD5FB1D10E45C3383 /* HUDStyleSegmentedControl.swift */; };
+		42CC599B5EA893101D4CC75E /* IconStyleSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DC83E866B6A074EBED1B0AC /* IconStyleSegmentedControl.swift */; };
+		B30C0ADDCA32DD3946FF2009 /* SettingsRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94930B163EDD9F33EA788190 /* SettingsRow.swift */; };
+		F1B1DB2DAC701DD01D7728F4 /* SettingsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F965D59DCE4DACB8EB168A /* SettingsSection.swift */; };
+		5537220FD58B446E31AE0672 /* SystemSoundsDevicePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1984B8AC89373AEBB16869 /* SystemSoundsDevicePicker.swift */; };
+		A296CEEDAB5D0C0E9BE68B66 /* ThemeTilePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B51D201F930C7E27DA486C9 /* ThemeTilePicker.swift */; };
+		0DA8AB67849FC42B93635E20 /* VolumeSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2AF998A5C9BDE6A0BACD2A8 /* VolumeSlider.swift */; };
+		87448D7A57B1ED30078EC2F8 /* SettingsGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4997C9752310E518C39C0FC3 /* SettingsGuideView.swift */; };
+		919996D0ED9B9891A4C3ED11 /* MediaKeyOfflineCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 171DFFD43B6FB642E0B5A31A /* MediaKeyOfflineCard.swift */; };
+		96749994E2F49481949558EB /* SettingsRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84661F138203ECA13EBDFD9C /* SettingsRootView.swift */; };
+		A152A15CB9E2E4F0CE3F4E95 /* AboutTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADC0CABA4744DCBE72A525C /* AboutTab.swift */; };
+		B4E73A0719963A2F6DE351D5 /* AudioTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F4BD8C62F71F84E1952948 /* AudioTab.swift */; };
+		D74077B004410E65BA3FC2DC /* AudioUnitsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98BEF3722102F1E4A310DB8E /* AudioUnitsTab.swift */; };
+		E5C5278A454EBF0765C688E2 /* EverydayTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = B11A015C018BEEC07D654F97 /* EverydayTab.swift */; };
+		603673CFE480D8AF226C8515 /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10132B1CFA6974466E7014A /* GeneralTab.swift */; };
+		30F7F7824BF9380B6C784C2C /* ShortcutsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B363B3973B2998BD6094401 /* ShortcutsTab.swift */; };
+		D012761D3A99FF645420B717 /* UpdatesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4251251772F3F69C1D8947 /* UpdatesTab.swift */; };
+		E2F036DD1ACE0320D78E175B /* DeviceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548050A3E439822C21CBCD6A /* DeviceDetailSheet.swift */; };
+		6AC32524C03360DF145882DA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */; };
+		E9AD84E58BD2C887166E1C7C /* Melo.icns in Resources */ = {isa = PBXBuildFile; fileRef = C00E9BD0C6EA243666724851 /* Melo.icns */; };
+		F1F613E9C12FC2C6D3D61236 /* KeyboardShortcuts-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */; };
+		E179C37A1F73DE2B9CBEA53B /* FluidMenuBarExtra-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */; };
+		BC416D313F7DB9B9F3DE44F9 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = EFA11A34099928F69070054E /* LICENSE.txt */; };
+		3FCBB24532230D3F65BC45B5 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = 3A49C7F49CEBA18D9C8AEB50 /* NOTICE.md */; };
+		5B69D87A4FE4CECF5D1B05D4 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = AA4ACA445B3FBAF47CDE31AC /* README.md */; };
+		C58E6B55BA9E2E51AB13932B /* FluidMenuBarExtra in Frameworks */ = {isa = PBXBuildFile; productRef = 7B00844468A200406202C396 /* FluidMenuBarExtra */; };
+		725F62D281366640C5B5AF1B /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 6658853661A29BB4DE43D72C /* KeyboardShortcuts */; };
+		06C4C9684241D4403F097C28 /* FirstRunAudioPrimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9022A5647D8540DAE3D7FDE4 /* FirstRunAudioPrimer.swift */; };
+		A1B2C3D4E5F60718293A4B5C /* AppSupportCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5B4A39281706F5E4D3C2B1A /* AppSupportCoordinator.swift */; };
+		6A5E287245EE9118697D543F /* GuidedTourCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADAE0D07EE3CE84F8461D42 /* GuidedTourCoordinator.swift */; };
+		56953D45CECE88A3ED30A413 /* IntentSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C40B14E124178C2A85E553 /* IntentSearch.swift */; };
+		9D00496EF695223226AD5D6F /* GuidedTourOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E30D4B206BA32CA150461D /* GuidedTourOverlay.swift */; };
+		3BC18682302B84B86F8E3733 /* MeloFirstRunIntro.wav in Resources */ = {isa = PBXBuildFile; fileRef = ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */; };
+		B9E24FDF47B770B32489A40C /* DeveloperUpdateManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A108AFDF4FB3D912CC2616A /* DeveloperUpdateManifest.swift */; };
+		B2E0B5666E9B45DE90E4FDD9 /* UpdateFolderBookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084D9974DE56612627FBC3B3 /* UpdateFolderBookmark.swift */; };
+		F5B2896DC6E266B928AD18BF /* UpdatePackageValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132676624646211787267055 /* UpdatePackageValidator.swift */; };
+		422A803407D471E83E74AA3B /* UpdateBuildCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8AC880A63518ABD9C0BCA8 /* UpdateBuildCoordinator.swift */; };
+		1CF04DCEEF67A3C2BEE7EA91 /* UpdateInstallationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2A9D65364154029DA3FE7D /* UpdateInstallationCoordinator.swift */; };
+		F8ECA17AD345815D02353E2B /* DeveloperUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB0BADCE163EE59C4ADEEA3 /* DeveloperUpdateManager.swift */; };
+		DA2E82959DEEDBF714F00440 /* SparkleUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8EA129D0BCA10C96CE4881C /* SparkleUpdateController.swift */; };
+		7E9ACFA8A5180621C1A7F380 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EC397D4AD41F140D9BE3546 /* Sparkle */; };
+		B82E6E7CD170172A3FBE79D3 /* Sparkle-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8D324355EE7A9A0C7BE54F85 /* Sparkle-LICENSE.txt */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		F92DC93D0C44DA293A3472D3 /* AutoEQFetcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/AutoEQ/AutoEQFetcher.swift; sourceTree = SOURCE_ROOT; };
+		51252B6795CB3685C3108C66 /* AutoEQParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/AutoEQ/AutoEQParser.swift; sourceTree = SOURCE_ROOT; };
+		2C7485F7919685F50B9DB10D /* AutoEQProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/AutoEQ/AutoEQProcessor.swift; sourceTree = SOURCE_ROOT; };
+		2472C9D32B44100143654289 /* AutoEQProfileLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/AutoEQ/AutoEQProfileLoader.swift; sourceTree = SOURCE_ROOT; };
+		9C6F6E5A2F0DE14A1673C062 /* AutoEQProfileManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/AutoEQ/AutoEQProfileManager.swift; sourceTree = SOURCE_ROOT; };
+		F29CC7DE3FD9F0012482D1F5 /* DDCController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/DDC/DDCController.swift; sourceTree = SOURCE_ROOT; };
+		3F9A8FAAD1DA1DAF076DE438 /* DDCService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/DDC/DDCService.swift; sourceTree = SOURCE_ROOT; };
+		D1957443ABFF775C4FF35775 /* BiquadMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/EQ/BiquadMath.swift; sourceTree = SOURCE_ROOT; };
+		1CDB28734262346A1CB3BA3F /* BiquadProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/EQ/BiquadProcessor.swift; sourceTree = SOURCE_ROOT; };
+		5C92BF7FE614099E0A11E83A /* EQProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/EQ/EQProcessor.swift; sourceTree = SOURCE_ROOT; };
+		8E5D43562FC24D2145FCFE22 /* AppListCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/AppListCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		BDC85A379CC49AB753D377FB /* AudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/AudioEngine.swift; sourceTree = SOURCE_ROOT; };
+		00B4C9E3B6F3B456231441EA /* AudioUnitHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/AudioUnitHost.swift; sourceTree = SOURCE_ROOT; };
+		6CDA2BB35267B1AB21FCCDFE /* CrashGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/CrashGuard.swift; sourceTree = SOURCE_ROOT; };
+		CFF10D646A6872066362E41E /* CrossfadeOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/CrossfadeOrchestrator.swift; sourceTree = SOURCE_ROOT; };
+		C5F97F5DDD90B039058F2E7E /* CrossfadeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/CrossfadeState.swift; sourceTree = SOURCE_ROOT; };
+		666C7EC8D05ACA1C3FAEDADD /* EchoTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/EchoTracker.swift; sourceTree = SOURCE_ROOT; };
+		3775B1B9712EED007CA3C238 /* OrphanedTapCleanup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/OrphanedTapCleanup.swift; sourceTree = SOURCE_ROOT; };
+		ADBCD4CE886479A6BF73F0A4 /* ProcessTapController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/ProcessTapController.swift; sourceTree = SOURCE_ROOT; };
+		ACA207D24F19F1BA23911E8C /* ProcessTapControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/ProcessTapControlling.swift; sourceTree = SOURCE_ROOT; };
+		8DCCB8C315D66ECBE3480FBC /* RealtimeAudioUnitChainSlot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/RealtimeAudioUnitChainSlot.swift; sourceTree = SOURCE_ROOT; };
+		48E7068E2CE1C8E4F645DCD6 /* SoftLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/SoftLimiter.swift; sourceTree = SOURCE_ROOT; };
+		AD8F09D50F9C54FD159A6954 /* StereoAudioUnitEffectChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/StereoAudioUnitEffectChain.swift; sourceTree = SOURCE_ROOT; };
+		A59B1E2BDBA84F2AF7236297 /* TapActivationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/TapActivationPolicy.swift; sourceTree = SOURCE_ROOT; };
+		B8A004CA454AACF3250A9F8E /* TapInitialState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/TapInitialState.swift; sourceTree = SOURCE_ROOT; };
+		9F5B6C644C0AA3AA9D63CD4D /* TapResources.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Engine/TapResources.swift; sourceTree = SOURCE_ROOT; };
+		8006F71D1F9651A9BDD4741C /* AudioDeviceID+Classification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioDeviceID+Classification.swift"; sourceTree = SOURCE_ROOT; };
+		998C8F05C9574662E85C8BEA /* AudioDeviceID+Info.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioDeviceID+Info.swift"; sourceTree = SOURCE_ROOT; };
+		3D4FA83EC8BE13C490588A4E /* AudioDeviceID+Inspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioDeviceID+Inspector.swift"; sourceTree = SOURCE_ROOT; };
+		8158D46AB27D59BF8F926DC1 /* AudioDeviceID+Streams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioDeviceID+Streams.swift"; sourceTree = SOURCE_ROOT; };
+		FC44EC3090A4CA38E5573A36 /* AudioDeviceID+Volume.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioDeviceID+Volume.swift"; sourceTree = SOURCE_ROOT; };
+		4D2796762872768D6FEA202B /* AudioObjectID+Properties.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioObjectID+Properties.swift"; sourceTree = SOURCE_ROOT; };
+		397AE7A7E7D8B58A3EEAFA81 /* AudioObjectID+Readiness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioObjectID+Readiness.swift"; sourceTree = SOURCE_ROOT; };
+		9E0F3E98DB323130F8051FE2 /* AudioObjectID+System.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Audio/Extensions/AudioObjectID+System.swift"; sourceTree = SOURCE_ROOT; };
+		87EEEBCC69916773091B027F /* VolumeFeedbackPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Feedback/VolumeFeedbackPlayer.swift; sourceTree = SOURCE_ROOT; };
+		00FE186312AF63BFE5B1450D /* MediaKeyEventDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Keys/MediaKeyEventDecoder.swift; sourceTree = SOURCE_ROOT; };
+		7A49D04272814E537CA2D54E /* MediaKeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Keys/MediaKeyMonitor.swift; sourceTree = SOURCE_ROOT; };
+		AE2E769B2E94E92301FD98B9 /* PlaybackPauseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Keys/PlaybackPauseService.swift; sourceTree = SOURCE_ROOT; };
+		4C476EAF29A976FE7183BA23 /* AdaptiveAudioProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/AdaptiveAudioProcessor.swift; sourceTree = SOURCE_ROOT; };
+		F65F059EA13CBC7F34D0287F /* AdaptiveAudioSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/AdaptiveAudioSettings.swift; sourceTree = SOURCE_ROOT; };
+		8189F014027C23A28BF6DACB /* GainComputer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/GainComputer.swift; sourceTree = SOURCE_ROOT; };
+		ED2698E7D3F0E1A721EA0E16 /* GainSmoother.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/GainSmoother.swift; sourceTree = SOURCE_ROOT; };
+		EBE5F8F4B25355CB93492750 /* ISO226Contours.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/ISO226Contours.swift; sourceTree = SOURCE_ROOT; };
+		5F0A5EDA63EF9840179B2387 /* KWeightingFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/KWeightingFilter.swift; sourceTree = SOURCE_ROOT; };
+		137BC6CB8500F259B0890D15 /* LoudnessCompensator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/LoudnessCompensator.swift; sourceTree = SOURCE_ROOT; };
+		8004731CCD0807E2DFFB7C15 /* LoudnessDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/LoudnessDetector.swift; sourceTree = SOURCE_ROOT; };
+		CF30A34DE061CD0E5092509F /* LoudnessEqualizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/LoudnessEqualizer.swift; sourceTree = SOURCE_ROOT; };
+		05A3608AB649BA7C6FF67E04 /* LoudnessEqualizerMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/LoudnessEqualizerMath.swift; sourceTree = SOURCE_ROOT; };
+		9B6D9EC8A1CCB02AD9B86255 /* LoudnessEqualizerSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Loudness/LoudnessEqualizerSettings.swift; sourceTree = SOURCE_ROOT; };
+		E63219FC60328E155F1163E1 /* AudioDeviceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/AudioDeviceMonitor.swift; sourceTree = SOURCE_ROOT; };
+		EFAC742CE2804F170FAD632D /* AudioDeviceProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/AudioDeviceProviding.swift; sourceTree = SOURCE_ROOT; };
+		9B8E8208BE5EF17F7FCE0FBB /* AudioProcessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/AudioProcessMonitor.swift; sourceTree = SOURCE_ROOT; };
+		6F36D4BA238E820451489ED9 /* AudioProcessMonitoring.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/AudioProcessMonitoring.swift; sourceTree = SOURCE_ROOT; };
+		D231A2FD82602ABB29D9445B /* BluetoothDeviceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/BluetoothDeviceMonitor.swift; sourceTree = SOURCE_ROOT; };
+		4A1A39F9B22541558085822A /* DeviceVolumeMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/DeviceVolumeMonitor.swift; sourceTree = SOURCE_ROOT; };
+		2BEEB8770CF02064C9D6263E /* DeviceVolumeProviding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Monitors/DeviceVolumeProviding.swift; sourceTree = SOURCE_ROOT; };
+		2032A2E010B3180BC5B4561C /* AudioRecordingPermission.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Permission/AudioRecordingPermission.swift; sourceTree = SOURCE_ROOT; };
+		DF71C2EB76B05D7DC19C95E3 /* AudioScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Types/AudioScope.swift; sourceTree = SOURCE_ROOT; };
+		E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Types/BiquadProcessable.swift; sourceTree = SOURCE_ROOT; };
+		7DE7F06B980C7D37F64538B5 /* TransportType.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Types/TransportType.swift; sourceTree = SOURCE_ROOT; };
+		BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/AccessibilityPermissionService.swift; sourceTree = SOURCE_ROOT; };
+		EBC30BBD341C272738383CFC /* CallDuckingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/CallDuckingManager.swift; sourceTree = SOURCE_ROOT; };
+		EB8B32EC58A69AD17559242A /* ConsumerAutomationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/ConsumerAutomationManager.swift; sourceTree = SOURCE_ROOT; };
+		E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/ConsumerUndoManager.swift; sourceTree = SOURCE_ROOT; };
+		BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/MediaKeyStatus.swift; sourceTree = SOURCE_ROOT; };
+		4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/OnboardingWindowController.swift; sourceTree = SOURCE_ROOT; };
+		74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PopupVisibilityService.swift; sourceTree = SOURCE_ROOT; };
+		CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PowerSourceMonitor.swift; sourceTree = SOURCE_ROOT; };
+		65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/SleepTimerManager.swift; sourceTree = SOURCE_ROOT; };
+		BEB58AFA75F03458148A8B63 /* FineTuneApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/FineTuneApp.swift; sourceTree = SOURCE_ROOT; };
+		59A69A7096C24B369C509D27 /* AppActivityPresentationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AppActivityPresentationPolicy.swift; sourceTree = SOURCE_ROOT; };
+		51556C23D96B4E028E8EA822 /* AudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AudioApp.swift; sourceTree = SOURCE_ROOT; };
+		6096457BFFB8B0F32F4C0EE8 /* AudioDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AudioDevice.swift; sourceTree = SOURCE_ROOT; };
+		2733C2784777D312BE881B39 /* AutoEQProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/AutoEQProfile.swift; sourceTree = SOURCE_ROOT; };
+		6991ACEE1D54924C0DA7DB6A /* BoostLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/BoostLevel.swift; sourceTree = SOURCE_ROOT; };
+		5B0747D76B5723D09B370C64 /* ConsumerExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/ConsumerExperience.swift; sourceTree = SOURCE_ROOT; };
+		B9B39E7876CA9B99AA179B63 /* DeviceIconCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/DeviceIconCatalog.swift; sourceTree = SOURCE_ROOT; };
+		800C834A7D4B7C43D97499A7 /* DisplayableApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/DisplayableApp.swift; sourceTree = SOURCE_ROOT; };
+		2A6066371CD665711A3EAB14 /* EQPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/EQPreset.swift; sourceTree = SOURCE_ROOT; };
+		128E1772597D4A12DD96D92F /* EQSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/EQSettings.swift; sourceTree = SOURCE_ROOT; };
+		42179BB9AA37DCFABC0B8945 /* PairedBluetoothDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/PairedBluetoothDevice.swift; sourceTree = SOURCE_ROOT; };
+		39FF3A33EA7E1297E4208B76 /* SettingsGuide.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/SettingsGuide.swift; sourceTree = SOURCE_ROOT; };
+		F2641A038DA5B6D6AEDB7154 /* StereoFieldSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/StereoFieldSettings.swift; sourceTree = SOURCE_ROOT; };
+		25EAEE417851245B77EE6662 /* UserEQPreset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/UserEQPreset.swift; sourceTree = SOURCE_ROOT; };
+		8FEBD409BEE8268179B1541F /* VolumeMapping.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/VolumeMapping.swift; sourceTree = SOURCE_ROOT; };
+		390294C0E0048C37CDBEA5A6 /* VolumeState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Models/VolumeState.swift; sourceTree = SOURCE_ROOT; };
+		EEB50D9F59D20AD668AB030B /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Settings/SettingsManager.swift; sourceTree = SOURCE_ROOT; };
+		C39AD3D95C39AFB95A734CA2 /* SettingsUITypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Settings/Types/SettingsUITypes.swift; sourceTree = SOURCE_ROOT; };
+		2380E3CD2E8700FC09E064E0 /* MeloAppIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Shortcuts/MeloAppIntents.swift; sourceTree = SOURCE_ROOT; };
+		1B7677F534E889E254F14D98 /* MenuBarPopupController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Shortcuts/MenuBarPopupController.swift; sourceTree = SOURCE_ROOT; };
+		2D2B0B9BBF97802D2691D0DE /* ShortcutAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Shortcuts/ShortcutAction.swift; sourceTree = SOURCE_ROOT; };
+		58D0278160725280B0F477E2 /* ShortcutCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Shortcuts/ShortcutCodable.swift; sourceTree = SOURCE_ROOT; };
+		EDEC4D1AF95BF62C5556252E /* ShortcutsRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Shortcuts/ShortcutsRegistry.swift; sourceTree = SOURCE_ROOT; };
+		7874A2FEACC9129601503D71 /* TargetAppResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Shortcuts/TargetAppResolver.swift; sourceTree = SOURCE_ROOT; };
+		6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/DeviceIconCache.swift; sourceTree = SOURCE_ROOT; };
+		840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/MoveToApplicationsView.swift; sourceTree = SOURCE_ROOT; };
+		1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/InstallLocationCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/MotionPreference.swift; sourceTree = SOURCE_ROOT; };
+		6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/NotificationAuthorization.swift; sourceTree = SOURCE_ROOT; };
+		EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/DeviceIconResolver.swift; sourceTree = SOURCE_ROOT; };
+		D303AB7DD19FA3BE391B75BC /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/Haptics.swift; sourceTree = SOURCE_ROOT; };
+		C7441087600AEDDF3F5D3E3E /* ProcessNameLookup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/ProcessNameLookup.swift; sourceTree = SOURCE_ROOT; };
+		FE78F282E1881791D0A9493A /* URLHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/URLHandler.swift; sourceTree = SOURCE_ROOT; };
+		013367D5043CD191185F4537 /* AutoEQPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/AutoEQPicker.swift; sourceTree = SOURCE_ROOT; };
+		B157EA690962D7B76D84C3C0 /* AutoEQSearchPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/AutoEQSearchPanel.swift; sourceTree = SOURCE_ROOT; };
+		51B776EA46FA82677D2439FB /* BoostChevrons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/BoostChevrons.swift; sourceTree = SOURCE_ROOT; };
+		D734BA16EAF53EE7BCC0C235 /* ClickOutsideCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/ClickOutsideCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		8C0BC5690D8A5A7C5D64301F /* ConsumerCommandPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/ConsumerCommandPalette.swift; sourceTree = SOURCE_ROOT; };
+		4B687EE6A44F9C2C62A3A8F9 /* DeviceBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DeviceBadge.swift; sourceTree = SOURCE_ROOT; };
+		101AF94506B12E7AF791DC00 /* DeviceIconPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DeviceIconPicker.swift; sourceTree = SOURCE_ROOT; };
+		52940F601F0EEC7CBFABAD21 /* DevicePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DevicePicker.swift; sourceTree = SOURCE_ROOT; };
+		49230E6539EE22EDD37A968C /* DropdownMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DropdownMenu.swift; sourceTree = SOURCE_ROOT; };
+		178DAC268F6053B9FDAF114F /* EQPresetPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/EQPresetPicker.swift; sourceTree = SOURCE_ROOT; };
+		D51EEFE6E80D0CABA592E51F /* EditablePercentage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/EditablePercentage.swift; sourceTree = SOURCE_ROOT; };
+		B693E17BEA40D0F79FF3AB18 /* ExpandableGlassRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/ExpandableGlassRow.swift; sourceTree = SOURCE_ROOT; };
+		FC738E84F5EA5C26FDAC9902 /* LiquidGlassSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/LiquidGlassSlider.swift; sourceTree = SOURCE_ROOT; };
+		A72762A75892360C32E62148 /* ModeToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/ModeToggle.swift; sourceTree = SOURCE_ROOT; };
+		7502BB7B1F5BC9FA96C25EAE /* MouseInsideModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/MouseInsideModifier.swift; sourceTree = SOURCE_ROOT; };
+		F8A3E8FE8810B1B4BC815E53 /* MuteButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/MuteButton.swift; sourceTree = SOURCE_ROOT; };
+		BC3F666C3EDF096104C30A93 /* PermissionBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/PermissionBannerView.swift; sourceTree = SOURCE_ROOT; };
+		ED7480D860717F74D66A06C2 /* PopoverHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/PopoverHost.swift; sourceTree = SOURCE_ROOT; };
+		50C8F273AA2F4B9F68B4761C /* RadioButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/RadioButton.swift; sourceTree = SOURCE_ROOT; };
+		C51D397986825280B12EF1C7 /* ScrollWheelStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/ScrollWheelStep.swift; sourceTree = SOURCE_ROOT; };
+		185F6E9A5B2E60DDF90AF0B2 /* ScrollWheelStepModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/ScrollWheelStepModifier.swift; sourceTree = SOURCE_ROOT; };
+		F679BF9C08FD4C5F0E0FE579 /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/SectionHeader.swift; sourceTree = SOURCE_ROOT; };
+		6A03CC06A3E7B111D67FE293 /* SmartAutoEQControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/SmartAutoEQControl.swift; sourceTree = SOURCE_ROOT; };
+		9F5DA17D9810BBB2E053AC1D /* StereoFieldControlView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/StereoFieldControlView.swift; sourceTree = SOURCE_ROOT; };
+		DDD06BA0856A21295EE8A956 /* VUMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/VUMeter.swift; sourceTree = SOURCE_ROOT; };
+		BEAB2F2906915624A242594A /* AppearancePreference+SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Views/DesignSystem/AppearancePreference+SwiftUI.swift"; sourceTree = SOURCE_ROOT; };
+		CED26D5D87B8180C9027F166 /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/DesignTokens.swift; sourceTree = SOURCE_ROOT; };
+		2231E375469E336CBC18FDA0 /* MeloVisualTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/MeloVisualTheme.swift; sourceTree = SOURCE_ROOT; };
+		7CAA2BFAA4E92F45DE2BF77B /* ViewModifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/ViewModifiers.swift; sourceTree = SOURCE_ROOT; };
+		57F91E4A1D828D6E1C34987F /* VisualEffectBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/VisualEffectBackground.swift; sourceTree = SOURCE_ROOT; };
+		A2B899A76AEBCB0C93FB5D1E /* WindowAppearanceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/WindowAppearanceBridge.swift; sourceTree = SOURCE_ROOT; };
+		9F87ECDA15066E3300571308 /* WindowTitleBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/WindowTitleBridge.swift; sourceTree = SOURCE_ROOT; };
+		4FB87F445EA22134EAC6CC76 /* EQPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/EQPanelView.swift; sourceTree = SOURCE_ROOT; };
+		FE3705B5969DE11150C3D2C7 /* EQSliderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/EQSliderView.swift; sourceTree = SOURCE_ROOT; };
+		1C33EC1C1515175B333371FE /* ClassicStyleHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/HUD/ClassicStyleHUD.swift; sourceTree = SOURCE_ROOT; };
+		0236A7197ECE0866C1101048 /* HUDWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/HUD/HUDWindowController.swift; sourceTree = SOURCE_ROOT; };
+		A64336582ED5C2BC064FB7C5 /* TahoeStyleHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/HUD/TahoeStyleHUD.swift; sourceTree = SOURCE_ROOT; };
+		74069ED61AADAA7771F424E2 /* MenuBarDeviceIconResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBar/MenuBarDeviceIconResolver.swift; sourceTree = SOURCE_ROOT; };
+		429ADA3426346A9B279CE1AA /* MenuBarIconCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		DCF7DA4FE7F8B108CACD7C97 /* MenuBarIconImage+NSImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Views/MenuBar/MenuBarIconImage+NSImage.swift"; sourceTree = SOURCE_ROOT; };
+		94297E382AFD41C72E35B01B /* MenuBarIconState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBar/MenuBarIconState.swift; sourceTree = SOURCE_ROOT; };
+		FC3C0AD716C9D39588893959 /* PopupKeyboardNavModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBar/PopupKeyboardNavModel.swift; sourceTree = SOURCE_ROOT; };
+		54D95BA63A30CB3F944696BE /* MenuBarPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/MenuBarPopupView.swift; sourceTree = SOURCE_ROOT; };
+		FA17E828F649C165FA4CA832 /* FirstRunOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		9E2ACEB41E4A8ED5D98207C4 /* MockData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Previews/MockData.swift; sourceTree = SOURCE_ROOT; };
+		17A58A795D391394F12D7325 /* PreviewContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Previews/PreviewContainer.swift; sourceTree = SOURCE_ROOT; };
+		2D59A29F60A7A352787FD23B /* AppEditRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/AppEditRow.swift; sourceTree = SOURCE_ROOT; };
+		3FFA4FF09C552DE88F2BC045 /* AppRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/AppRow.swift; sourceTree = SOURCE_ROOT; };
+		5E8EEF765F7D4878FF2F75AE /* AppRowControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/AppRowControls.swift; sourceTree = SOURCE_ROOT; };
+		92AAF4D09F5E88F79BF7E62A /* AppRowWithLevelPolling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/AppRowWithLevelPolling.swift; sourceTree = SOURCE_ROOT; };
+		6407828E2D818E5AD074784F /* DeviceEditRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/DeviceEditRow.swift; sourceTree = SOURCE_ROOT; };
+		0E4D1A54E60AE07FA40D3E3D /* DeviceInspectorInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfo.swift; sourceTree = SOURCE_ROOT; };
+		88BE085F07D97980EE24F826 /* DeviceInspectorInfoGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorInfoGrid.swift; sourceTree = SOURCE_ROOT; };
+		08B06918FF85CFDE9CB5A855 /* DeviceInspectorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/DeviceInspector/DeviceInspectorViewModel.swift; sourceTree = SOURCE_ROOT; };
+		82998702DD390B25DB76ADF1 /* DeviceRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/DeviceRow.swift; sourceTree = SOURCE_ROOT; };
+		049EB68B3FB66CFE77B20123 /* InactiveAppRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/InactiveAppRow.swift; sourceTree = SOURCE_ROOT; };
+		146A0CE4B0AD5EB4563C4BA3 /* InputDeviceRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/InputDeviceRow.swift; sourceTree = SOURCE_ROOT; };
+		67A4F57A622B1F67F2CE33D3 /* PairedDeviceRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Rows/PairedDeviceRow.swift; sourceTree = SOURCE_ROOT; };
+		791A3A57228764DA56EB3F6B /* AboutLinkChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/AboutLinkChip.swift; sourceTree = SOURCE_ROOT; };
+		CA336732BCD1D4AC39A9D08E /* AccessibilityPromptStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/AccessibilityPromptStrip.swift; sourceTree = SOURCE_ROOT; };
+		825DFC7CD5FB1D10E45C3383 /* HUDStyleSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/HUDStyleSegmentedControl.swift; sourceTree = SOURCE_ROOT; };
+		8DC83E866B6A074EBED1B0AC /* IconStyleSegmentedControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/IconStyleSegmentedControl.swift; sourceTree = SOURCE_ROOT; };
+		94930B163EDD9F33EA788190 /* SettingsRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/SettingsRow.swift; sourceTree = SOURCE_ROOT; };
+		B7F965D59DCE4DACB8EB168A /* SettingsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/SettingsSection.swift; sourceTree = SOURCE_ROOT; };
+		8F1984B8AC89373AEBB16869 /* SystemSoundsDevicePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/SystemSoundsDevicePicker.swift; sourceTree = SOURCE_ROOT; };
+		9B51D201F930C7E27DA486C9 /* ThemeTilePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/ThemeTilePicker.swift; sourceTree = SOURCE_ROOT; };
+		F2AF998A5C9BDE6A0BACD2A8 /* VolumeSlider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/VolumeSlider.swift; sourceTree = SOURCE_ROOT; };
+		4997C9752310E518C39C0FC3 /* SettingsGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Guide/SettingsGuideView.swift; sourceTree = SOURCE_ROOT; };
+		171DFFD43B6FB642E0B5A31A /* MediaKeyOfflineCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/MediaKeyOfflineCard.swift; sourceTree = SOURCE_ROOT; };
+		84661F138203ECA13EBDFD9C /* SettingsRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/SettingsRootView.swift; sourceTree = SOURCE_ROOT; };
+		0ADC0CABA4744DCBE72A525C /* AboutTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/AboutTab.swift; sourceTree = SOURCE_ROOT; };
+		73F4BD8C62F71F84E1952948 /* AudioTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/AudioTab.swift; sourceTree = SOURCE_ROOT; };
+		98BEF3722102F1E4A310DB8E /* AudioUnitsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/AudioUnitsTab.swift; sourceTree = SOURCE_ROOT; };
+		B11A015C018BEEC07D654F97 /* EverydayTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/EverydayTab.swift; sourceTree = SOURCE_ROOT; };
+		A10132B1CFA6974466E7014A /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/GeneralTab.swift; sourceTree = SOURCE_ROOT; };
+		4B363B3973B2998BD6094401 /* ShortcutsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/ShortcutsTab.swift; sourceTree = SOURCE_ROOT; };
+		7E4251251772F3F69C1D8947 /* UpdatesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/UpdatesTab.swift; sourceTree = SOURCE_ROOT; };
+		548050A3E439822C21CBCD6A /* DeviceDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Sheets/DeviceDetailSheet.swift; sourceTree = SOURCE_ROOT; };
+		E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
+		C00E9BD0C6EA243666724851 /* Melo.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Resources/Melo.icns; sourceTree = SOURCE_ROOT; };
+		E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/KeyboardShortcuts-LICENSE.txt; sourceTree = SOURCE_ROOT; };
+		D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/FluidMenuBarExtra-LICENSE.txt; sourceTree = SOURCE_ROOT; };
+		EFA11A34099928F69070054E /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = SOURCE_ROOT; };
+		3A49C7F49CEBA18D9C8AEB50 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = SOURCE_ROOT; };
+		AA4ACA445B3FBAF47CDE31AC /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
+		41D3B8310FAFECFBB479A1E5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config/Info.plist; sourceTree = SOURCE_ROOT; };
+		0B95FA1E131A2E4DA94235DC /* Melo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Config/Melo.entitlements; sourceTree = SOURCE_ROOT; };
+		BB46C52366A4F1D422F532CB /* Melo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Melo.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9022A5647D8540DAE3D7FDE4 /* FirstRunAudioPrimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/FirstRunAudioPrimer.swift; sourceTree = SOURCE_ROOT; };
+		C5B4A39281706F5E4D3C2B1A /* AppSupportCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/AppSupportCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		0ADAE0D07EE3CE84F8461D42 /* GuidedTourCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/GuidedTourCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		F2C40B14E124178C2A85E553 /* IntentSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/IntentSearch.swift; sourceTree = SOURCE_ROOT; };
+		22E30D4B206BA32CA150461D /* GuidedTourOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/GuidedTourOverlay.swift; sourceTree = SOURCE_ROOT; };
+		ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Resources/MeloFirstRunIntro.wav; sourceTree = SOURCE_ROOT; };
+		2A108AFDF4FB3D912CC2616A /* DeveloperUpdateManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/DeveloperUpdateManifest.swift; sourceTree = SOURCE_ROOT; };
+		084D9974DE56612627FBC3B3 /* UpdateFolderBookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/UpdateFolderBookmark.swift; sourceTree = SOURCE_ROOT; };
+		132676624646211787267055 /* UpdatePackageValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/UpdatePackageValidator.swift; sourceTree = SOURCE_ROOT; };
+		6A8AC880A63518ABD9C0BCA8 /* UpdateBuildCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/UpdateBuildCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		0D2A9D65364154029DA3FE7D /* UpdateInstallationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/UpdateInstallationCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		9AB0BADCE163EE59C4ADEEA3 /* DeveloperUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/DeveloperUpdateManager.swift; sourceTree = SOURCE_ROOT; };
+		F8EA129D0BCA10C96CE4881C /* SparkleUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/SparkleUpdateController.swift; sourceTree = SOURCE_ROOT; };
+		041912F103B334352BBB1CC1 /* Melo.local.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Config/Melo.local.entitlements; sourceTree = SOURCE_ROOT; };
+		8D324355EE7A9A0C7BE54F85 /* Sparkle-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/Sparkle-LICENSE.txt; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CF5BDB0BEAFE176F9629192A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C58E6B55BA9E2E51AB13932B /* FluidMenuBarExtra in Frameworks */,
+				725F62D281366640C5B5AF1B /* KeyboardShortcuts in Frameworks */,
+				7E9ACFA8A5180621C1A7F380 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		ADCF10F76EBF2A74473E9DC4 = {isa = PBXGroup; children = (
+			9642F1047C1002A1EE72F0DB /* Sources */,
+			22D02A9EFAC9B3FBBAEBE062 /* Resources */,
+			D35BDCF6803CCB1A9C4483A8 /* Config */,
+			00C45FD35CB0F9C5F764F070 /* Products */,
+		); sourceTree = "<group>"; };
+		9642F1047C1002A1EE72F0DB /* Sources */ = {isa = PBXGroup; children = (
+			9022A5647D8540DAE3D7FDE4 /* FirstRunAudioPrimer.swift */,
+			C5B4A39281706F5E4D3C2B1A /* AppSupportCoordinator.swift */,
+			0ADAE0D07EE3CE84F8461D42 /* GuidedTourCoordinator.swift */,
+			F2C40B14E124178C2A85E553 /* IntentSearch.swift */,
+			22E30D4B206BA32CA150461D /* GuidedTourOverlay.swift */,
+			2A108AFDF4FB3D912CC2616A /* DeveloperUpdateManifest.swift */,
+			084D9974DE56612627FBC3B3 /* UpdateFolderBookmark.swift */,
+			132676624646211787267055 /* UpdatePackageValidator.swift */,
+			6A8AC880A63518ABD9C0BCA8 /* UpdateBuildCoordinator.swift */,
+			0D2A9D65364154029DA3FE7D /* UpdateInstallationCoordinator.swift */,
+			9AB0BADCE163EE59C4ADEEA3 /* DeveloperUpdateManager.swift */,
+			F8EA129D0BCA10C96CE4881C /* SparkleUpdateController.swift */,
+			F92DC93D0C44DA293A3472D3 /* AutoEQFetcher.swift */,
+			51252B6795CB3685C3108C66 /* AutoEQParser.swift */,
+			2C7485F7919685F50B9DB10D /* AutoEQProcessor.swift */,
+			2472C9D32B44100143654289 /* AutoEQProfileLoader.swift */,
+			9C6F6E5A2F0DE14A1673C062 /* AutoEQProfileManager.swift */,
+			F29CC7DE3FD9F0012482D1F5 /* DDCController.swift */,
+			3F9A8FAAD1DA1DAF076DE438 /* DDCService.swift */,
+			D1957443ABFF775C4FF35775 /* BiquadMath.swift */,
+			1CDB28734262346A1CB3BA3F /* BiquadProcessor.swift */,
+			5C92BF7FE614099E0A11E83A /* EQProcessor.swift */,
+			8E5D43562FC24D2145FCFE22 /* AppListCoordinator.swift */,
+			BDC85A379CC49AB753D377FB /* AudioEngine.swift */,
+			00B4C9E3B6F3B456231441EA /* AudioUnitHost.swift */,
+			6CDA2BB35267B1AB21FCCDFE /* CrashGuard.swift */,
+			CFF10D646A6872066362E41E /* CrossfadeOrchestrator.swift */,
+			C5F97F5DDD90B039058F2E7E /* CrossfadeState.swift */,
+			666C7EC8D05ACA1C3FAEDADD /* EchoTracker.swift */,
+			3775B1B9712EED007CA3C238 /* OrphanedTapCleanup.swift */,
+			ADBCD4CE886479A6BF73F0A4 /* ProcessTapController.swift */,
+			ACA207D24F19F1BA23911E8C /* ProcessTapControlling.swift */,
+			8DCCB8C315D66ECBE3480FBC /* RealtimeAudioUnitChainSlot.swift */,
+			48E7068E2CE1C8E4F645DCD6 /* SoftLimiter.swift */,
+			AD8F09D50F9C54FD159A6954 /* StereoAudioUnitEffectChain.swift */,
+			A59B1E2BDBA84F2AF7236297 /* TapActivationPolicy.swift */,
+			B8A004CA454AACF3250A9F8E /* TapInitialState.swift */,
+			9F5B6C644C0AA3AA9D63CD4D /* TapResources.swift */,
+			8006F71D1F9651A9BDD4741C /* AudioDeviceID+Classification.swift */,
+			998C8F05C9574662E85C8BEA /* AudioDeviceID+Info.swift */,
+			3D4FA83EC8BE13C490588A4E /* AudioDeviceID+Inspector.swift */,
+			8158D46AB27D59BF8F926DC1 /* AudioDeviceID+Streams.swift */,
+			FC44EC3090A4CA38E5573A36 /* AudioDeviceID+Volume.swift */,
+			4D2796762872768D6FEA202B /* AudioObjectID+Properties.swift */,
+			397AE7A7E7D8B58A3EEAFA81 /* AudioObjectID+Readiness.swift */,
+			9E0F3E98DB323130F8051FE2 /* AudioObjectID+System.swift */,
+			87EEEBCC69916773091B027F /* VolumeFeedbackPlayer.swift */,
+			00FE186312AF63BFE5B1450D /* MediaKeyEventDecoder.swift */,
+			7A49D04272814E537CA2D54E /* MediaKeyMonitor.swift */,
+			AE2E769B2E94E92301FD98B9 /* PlaybackPauseService.swift */,
+			4C476EAF29A976FE7183BA23 /* AdaptiveAudioProcessor.swift */,
+			F65F059EA13CBC7F34D0287F /* AdaptiveAudioSettings.swift */,
+			8189F014027C23A28BF6DACB /* GainComputer.swift */,
+			ED2698E7D3F0E1A721EA0E16 /* GainSmoother.swift */,
+			EBE5F8F4B25355CB93492750 /* ISO226Contours.swift */,
+			5F0A5EDA63EF9840179B2387 /* KWeightingFilter.swift */,
+			137BC6CB8500F259B0890D15 /* LoudnessCompensator.swift */,
+			8004731CCD0807E2DFFB7C15 /* LoudnessDetector.swift */,
+			CF30A34DE061CD0E5092509F /* LoudnessEqualizer.swift */,
+			05A3608AB649BA7C6FF67E04 /* LoudnessEqualizerMath.swift */,
+			9B6D9EC8A1CCB02AD9B86255 /* LoudnessEqualizerSettings.swift */,
+			E63219FC60328E155F1163E1 /* AudioDeviceMonitor.swift */,
+			EFAC742CE2804F170FAD632D /* AudioDeviceProviding.swift */,
+			9B8E8208BE5EF17F7FCE0FBB /* AudioProcessMonitor.swift */,
+			6F36D4BA238E820451489ED9 /* AudioProcessMonitoring.swift */,
+			D231A2FD82602ABB29D9445B /* BluetoothDeviceMonitor.swift */,
+			4A1A39F9B22541558085822A /* DeviceVolumeMonitor.swift */,
+			2BEEB8770CF02064C9D6263E /* DeviceVolumeProviding.swift */,
+			2032A2E010B3180BC5B4561C /* AudioRecordingPermission.swift */,
+			DF71C2EB76B05D7DC19C95E3 /* AudioScope.swift */,
+			E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */,
+			7DE7F06B980C7D37F64538B5 /* TransportType.swift */,
+			BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */,
+			EBC30BBD341C272738383CFC /* CallDuckingManager.swift */,
+			EB8B32EC58A69AD17559242A /* ConsumerAutomationManager.swift */,
+			E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */,
+			BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */,
+			4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */,
+			74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */,
+			CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */,
+			65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */,
+			BEB58AFA75F03458148A8B63 /* FineTuneApp.swift */,
+			59A69A7096C24B369C509D27 /* AppActivityPresentationPolicy.swift */,
+			51556C23D96B4E028E8EA822 /* AudioApp.swift */,
+			6096457BFFB8B0F32F4C0EE8 /* AudioDevice.swift */,
+			2733C2784777D312BE881B39 /* AutoEQProfile.swift */,
+			6991ACEE1D54924C0DA7DB6A /* BoostLevel.swift */,
+			5B0747D76B5723D09B370C64 /* ConsumerExperience.swift */,
+			B9B39E7876CA9B99AA179B63 /* DeviceIconCatalog.swift */,
+			800C834A7D4B7C43D97499A7 /* DisplayableApp.swift */,
+			2A6066371CD665711A3EAB14 /* EQPreset.swift */,
+			128E1772597D4A12DD96D92F /* EQSettings.swift */,
+			42179BB9AA37DCFABC0B8945 /* PairedBluetoothDevice.swift */,
+			39FF3A33EA7E1297E4208B76 /* SettingsGuide.swift */,
+			F2641A038DA5B6D6AEDB7154 /* StereoFieldSettings.swift */,
+			25EAEE417851245B77EE6662 /* UserEQPreset.swift */,
+			8FEBD409BEE8268179B1541F /* VolumeMapping.swift */,
+			390294C0E0048C37CDBEA5A6 /* VolumeState.swift */,
+			EEB50D9F59D20AD668AB030B /* SettingsManager.swift */,
+			C39AD3D95C39AFB95A734CA2 /* SettingsUITypes.swift */,
+			2380E3CD2E8700FC09E064E0 /* MeloAppIntents.swift */,
+			1B7677F534E889E254F14D98 /* MenuBarPopupController.swift */,
+			2D2B0B9BBF97802D2691D0DE /* ShortcutAction.swift */,
+			58D0278160725280B0F477E2 /* ShortcutCodable.swift */,
+			EDEC4D1AF95BF62C5556252E /* ShortcutsRegistry.swift */,
+			7874A2FEACC9129601503D71 /* TargetAppResolver.swift */,
+			6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */,
+			840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */,
+			1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */,
+			82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */,
+			6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */,
+			EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */,
+			D303AB7DD19FA3BE391B75BC /* Haptics.swift */,
+			C7441087600AEDDF3F5D3E3E /* ProcessNameLookup.swift */,
+			FE78F282E1881791D0A9493A /* URLHandler.swift */,
+			013367D5043CD191185F4537 /* AutoEQPicker.swift */,
+			B157EA690962D7B76D84C3C0 /* AutoEQSearchPanel.swift */,
+			51B776EA46FA82677D2439FB /* BoostChevrons.swift */,
+			D734BA16EAF53EE7BCC0C235 /* ClickOutsideCoordinator.swift */,
+			8C0BC5690D8A5A7C5D64301F /* ConsumerCommandPalette.swift */,
+			4B687EE6A44F9C2C62A3A8F9 /* DeviceBadge.swift */,
+			101AF94506B12E7AF791DC00 /* DeviceIconPicker.swift */,
+			52940F601F0EEC7CBFABAD21 /* DevicePicker.swift */,
+			49230E6539EE22EDD37A968C /* DropdownMenu.swift */,
+			178DAC268F6053B9FDAF114F /* EQPresetPicker.swift */,
+			D51EEFE6E80D0CABA592E51F /* EditablePercentage.swift */,
+			B693E17BEA40D0F79FF3AB18 /* ExpandableGlassRow.swift */,
+			FC738E84F5EA5C26FDAC9902 /* LiquidGlassSlider.swift */,
+			A72762A75892360C32E62148 /* ModeToggle.swift */,
+			7502BB7B1F5BC9FA96C25EAE /* MouseInsideModifier.swift */,
+			F8A3E8FE8810B1B4BC815E53 /* MuteButton.swift */,
+			BC3F666C3EDF096104C30A93 /* PermissionBannerView.swift */,
+			ED7480D860717F74D66A06C2 /* PopoverHost.swift */,
+			50C8F273AA2F4B9F68B4761C /* RadioButton.swift */,
+			C51D397986825280B12EF1C7 /* ScrollWheelStep.swift */,
+			185F6E9A5B2E60DDF90AF0B2 /* ScrollWheelStepModifier.swift */,
+			F679BF9C08FD4C5F0E0FE579 /* SectionHeader.swift */,
+			6A03CC06A3E7B111D67FE293 /* SmartAutoEQControl.swift */,
+			9F5DA17D9810BBB2E053AC1D /* StereoFieldControlView.swift */,
+			DDD06BA0856A21295EE8A956 /* VUMeter.swift */,
+			BEAB2F2906915624A242594A /* AppearancePreference+SwiftUI.swift */,
+			CED26D5D87B8180C9027F166 /* DesignTokens.swift */,
+			2231E375469E336CBC18FDA0 /* MeloVisualTheme.swift */,
+			7CAA2BFAA4E92F45DE2BF77B /* ViewModifiers.swift */,
+			57F91E4A1D828D6E1C34987F /* VisualEffectBackground.swift */,
+			A2B899A76AEBCB0C93FB5D1E /* WindowAppearanceBridge.swift */,
+			9F87ECDA15066E3300571308 /* WindowTitleBridge.swift */,
+			4FB87F445EA22134EAC6CC76 /* EQPanelView.swift */,
+			FE3705B5969DE11150C3D2C7 /* EQSliderView.swift */,
+			1C33EC1C1515175B333371FE /* ClassicStyleHUD.swift */,
+			0236A7197ECE0866C1101048 /* HUDWindowController.swift */,
+			A64336582ED5C2BC064FB7C5 /* TahoeStyleHUD.swift */,
+			74069ED61AADAA7771F424E2 /* MenuBarDeviceIconResolver.swift */,
+			429ADA3426346A9B279CE1AA /* MenuBarIconCoordinator.swift */,
+			DCF7DA4FE7F8B108CACD7C97 /* MenuBarIconImage+NSImage.swift */,
+			94297E382AFD41C72E35B01B /* MenuBarIconState.swift */,
+			FC3C0AD716C9D39588893959 /* PopupKeyboardNavModel.swift */,
+			54D95BA63A30CB3F944696BE /* MenuBarPopupView.swift */,
+			FA17E828F649C165FA4CA832 /* FirstRunOnboardingView.swift */,
+			9E2ACEB41E4A8ED5D98207C4 /* MockData.swift */,
+			17A58A795D391394F12D7325 /* PreviewContainer.swift */,
+			2D59A29F60A7A352787FD23B /* AppEditRow.swift */,
+			3FFA4FF09C552DE88F2BC045 /* AppRow.swift */,
+			5E8EEF765F7D4878FF2F75AE /* AppRowControls.swift */,
+			92AAF4D09F5E88F79BF7E62A /* AppRowWithLevelPolling.swift */,
+			6407828E2D818E5AD074784F /* DeviceEditRow.swift */,
+			0E4D1A54E60AE07FA40D3E3D /* DeviceInspectorInfo.swift */,
+			88BE085F07D97980EE24F826 /* DeviceInspectorInfoGrid.swift */,
+			08B06918FF85CFDE9CB5A855 /* DeviceInspectorViewModel.swift */,
+			82998702DD390B25DB76ADF1 /* DeviceRow.swift */,
+			049EB68B3FB66CFE77B20123 /* InactiveAppRow.swift */,
+			146A0CE4B0AD5EB4563C4BA3 /* InputDeviceRow.swift */,
+			67A4F57A622B1F67F2CE33D3 /* PairedDeviceRow.swift */,
+			791A3A57228764DA56EB3F6B /* AboutLinkChip.swift */,
+			CA336732BCD1D4AC39A9D08E /* AccessibilityPromptStrip.swift */,
+			825DFC7CD5FB1D10E45C3383 /* HUDStyleSegmentedControl.swift */,
+			8DC83E866B6A074EBED1B0AC /* IconStyleSegmentedControl.swift */,
+			94930B163EDD9F33EA788190 /* SettingsRow.swift */,
+			B7F965D59DCE4DACB8EB168A /* SettingsSection.swift */,
+			8F1984B8AC89373AEBB16869 /* SystemSoundsDevicePicker.swift */,
+			9B51D201F930C7E27DA486C9 /* ThemeTilePicker.swift */,
+			F2AF998A5C9BDE6A0BACD2A8 /* VolumeSlider.swift */,
+			4997C9752310E518C39C0FC3 /* SettingsGuideView.swift */,
+			171DFFD43B6FB642E0B5A31A /* MediaKeyOfflineCard.swift */,
+			84661F138203ECA13EBDFD9C /* SettingsRootView.swift */,
+			0ADC0CABA4744DCBE72A525C /* AboutTab.swift */,
+			73F4BD8C62F71F84E1952948 /* AudioTab.swift */,
+			98BEF3722102F1E4A310DB8E /* AudioUnitsTab.swift */,
+			B11A015C018BEEC07D654F97 /* EverydayTab.swift */,
+			A10132B1CFA6974466E7014A /* GeneralTab.swift */,
+			4B363B3973B2998BD6094401 /* ShortcutsTab.swift */,
+			7E4251251772F3F69C1D8947 /* UpdatesTab.swift */,
+			548050A3E439822C21CBCD6A /* DeviceDetailSheet.swift */,
+		); name = Sources; sourceTree = "<group>"; };
+		22D02A9EFAC9B3FBBAEBE062 /* Resources */ = {isa = PBXGroup; children = (
+			ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */,
+			E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */,
+			C00E9BD0C6EA243666724851 /* Melo.icns */,
+			E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */,
+			D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */,
+			8D324355EE7A9A0C7BE54F85 /* Sparkle-LICENSE.txt */,
+			EFA11A34099928F69070054E /* LICENSE.txt */,
+			3A49C7F49CEBA18D9C8AEB50 /* NOTICE.md */,
+			AA4ACA445B3FBAF47CDE31AC /* README.md */,
+		); name = Resources; sourceTree = "<group>"; };
+		D35BDCF6803CCB1A9C4483A8 /* Config */ = {isa = PBXGroup; children = (
+			41D3B8310FAFECFBB479A1E5 /* Info.plist */,
+			0B95FA1E131A2E4DA94235DC /* Melo.entitlements */,
+			041912F103B334352BBB1CC1 /* Melo.local.entitlements */,
+		); name = Config; sourceTree = "<group>"; };
+		00C45FD35CB0F9C5F764F070 /* Products */ = {isa = PBXGroup; children = (BB46C52366A4F1D422F532CB /* Melo.app */,); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		E4599A932E800136953C438F /* Melo */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D28A2B497FA98060CD1B56AC /* Build configuration list for PBXNativeTarget "Melo" */;
+			buildPhases = (1CDF2F71A52B082132B04DFF /* Sources */, CF5BDB0BEAFE176F9629192A /* Frameworks */, C02F1309AF4906C92F1EAD44 /* Resources */,);
+			buildRules = (); dependencies = (); name = Melo;
+			packageProductDependencies = (7B00844468A200406202C396 /* FluidMenuBarExtra */, 6658853661A29BB4DE43D72C /* KeyboardShortcuts */, 4EC397D4AD41F140D9BE3546 /* Sparkle */,);
+			productName = Melo;
+			productReference = BB46C52366A4F1D422F532CB /* Melo.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7E3160B84040B844D8FB8B4B /* Project object */ = {
+			isa = PBXProject;
+			attributes = { BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2600; LastUpgradeCheck = 2600; TargetAttributes = {
+				E4599A932E800136953C438F = { CreatedOnToolsVersion = 26.0; };
+			}; };
+			buildConfigurationList = 3D29D9F3A882C4202964FB56 /* Build configuration list for PBXProject "Melo" */;
+			compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base,);
+			mainGroup = ADCF10F76EBF2A74473E9DC4;
+			packageReferences = (A83F8F4C5F8FF8D759243BF5 /* XCRemoteSwiftPackageReference "FluidMenuBarExtra" */, DE1BB1ED428C0F768F52D030 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */, C05EAB06B3FF21DAD54ABBD3 /* XCRemoteSwiftPackageReference "Sparkle" */,);
+			productRefGroup = 00C45FD35CB0F9C5F764F070 /* Products */; projectDirPath = ""; projectRoot = "";
+			targets = (E4599A932E800136953C438F /* Melo */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C02F1309AF4906C92F1EAD44 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
+			3BC18682302B84B86F8E3733 /* MeloFirstRunIntro.wav in Resources */,
+			6AC32524C03360DF145882DA /* Assets.xcassets in Resources */,
+			E9AD84E58BD2C887166E1C7C /* Melo.icns in Resources */,
+			F1F613E9C12FC2C6D3D61236 /* KeyboardShortcuts-LICENSE.txt in Resources */,
+			E179C37A1F73DE2B9CBEA53B /* FluidMenuBarExtra-LICENSE.txt in Resources */,
+			B82E6E7CD170172A3FBE79D3 /* Sparkle-LICENSE.txt in Resources */,
+			BC416D313F7DB9B9F3DE44F9 /* LICENSE.txt in Resources */,
+			3FCBB24532230D3F65BC45B5 /* NOTICE.md in Resources */,
+			5B69D87A4FE4CECF5D1B05D4 /* README.md in Resources */,
+		); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			06C4C9684241D4403F097C28 /* FirstRunAudioPrimer.swift in Sources */,
+			A1B2C3D4E5F60718293A4B5C /* AppSupportCoordinator.swift in Sources */,
+			6A5E287245EE9118697D543F /* GuidedTourCoordinator.swift in Sources */,
+			56953D45CECE88A3ED30A413 /* IntentSearch.swift in Sources */,
+			9D00496EF695223226AD5D6F /* GuidedTourOverlay.swift in Sources */,
+			B9E24FDF47B770B32489A40C /* DeveloperUpdateManifest.swift in Sources */,
+			B2E0B5666E9B45DE90E4FDD9 /* UpdateFolderBookmark.swift in Sources */,
+			F5B2896DC6E266B928AD18BF /* UpdatePackageValidator.swift in Sources */,
+			422A803407D471E83E74AA3B /* UpdateBuildCoordinator.swift in Sources */,
+			1CF04DCEEF67A3C2BEE7EA91 /* UpdateInstallationCoordinator.swift in Sources */,
+			F8ECA17AD345815D02353E2B /* DeveloperUpdateManager.swift in Sources */,
+			DA2E82959DEEDBF714F00440 /* SparkleUpdateController.swift in Sources */,
+			70B7557D2725375AD2F3B76B /* AutoEQFetcher.swift in Sources */,
+			AA7B8D6EFE694F6AD63F45E3 /* AutoEQParser.swift in Sources */,
+			F69359A86D4706E1BDE5F299 /* AutoEQProcessor.swift in Sources */,
+			DF0B81778EC0EFD8CA4197BC /* AutoEQProfileLoader.swift in Sources */,
+			5F230465C32F4FB433A72DD7 /* AutoEQProfileManager.swift in Sources */,
+			96515FE2D784CEC233857D8C /* DDCController.swift in Sources */,
+			1A822FF64C2248B565B1A0DA /* DDCService.swift in Sources */,
+			FF18ABC5A1610F186BC3D901 /* BiquadMath.swift in Sources */,
+			38372C52B2F48023E5A7D3BC /* BiquadProcessor.swift in Sources */,
+			BCA32C08903100D6291D7849 /* EQProcessor.swift in Sources */,
+			5FE5C0407DF9D0EB207AC64E /* AppListCoordinator.swift in Sources */,
+			672BF34CF3411249695960B5 /* AudioEngine.swift in Sources */,
+			2BC54CA449092D89C479EF4C /* AudioUnitHost.swift in Sources */,
+			343EF69B674FA03873EA5FB2 /* CrashGuard.swift in Sources */,
+			15AC1EAA719D86E25A5CD704 /* CrossfadeOrchestrator.swift in Sources */,
+			60907596FB83162C22924387 /* CrossfadeState.swift in Sources */,
+			35DC375AA73BFDD4763C06DC /* EchoTracker.swift in Sources */,
+			9F2CE00BDF0B6838749A46C3 /* OrphanedTapCleanup.swift in Sources */,
+			2C555FC67A162E0BD23EBC1D /* ProcessTapController.swift in Sources */,
+			D1944C23084FF2F7BA561DD1 /* ProcessTapControlling.swift in Sources */,
+			2B0D6FAED2041D051042E475 /* RealtimeAudioUnitChainSlot.swift in Sources */,
+			20D213E8AE41605FC2BF9CEF /* SoftLimiter.swift in Sources */,
+			568D69ADC1212E753BB56955 /* StereoAudioUnitEffectChain.swift in Sources */,
+			4538CEF7057BCC9EDFE15E7D /* TapActivationPolicy.swift in Sources */,
+			44D2480A5F2A74A64C461F0F /* TapInitialState.swift in Sources */,
+			45BB674E465868EEBB685B57 /* TapResources.swift in Sources */,
+			AA9D29321DE8DFE34187CE53 /* AudioDeviceID+Classification.swift in Sources */,
+			A9A9DD7781EC2044E702C309 /* AudioDeviceID+Info.swift in Sources */,
+			BC6A6BE08C6233957193130E /* AudioDeviceID+Inspector.swift in Sources */,
+			30C517882FD5551C698B7838 /* AudioDeviceID+Streams.swift in Sources */,
+			BBCDBB45D267CB47D2303DA7 /* AudioDeviceID+Volume.swift in Sources */,
+			93A62DDBDDADAB6C28E4CD35 /* AudioObjectID+Properties.swift in Sources */,
+			E881ABED699F2EDF900782CB /* AudioObjectID+Readiness.swift in Sources */,
+			574C8894946F6C39AD314769 /* AudioObjectID+System.swift in Sources */,
+			E830F6E22C882932C9C2F488 /* VolumeFeedbackPlayer.swift in Sources */,
+			7F6CE727DB491CA1F8E4FAFA /* MediaKeyEventDecoder.swift in Sources */,
+			73387B38BF99E259596C5583 /* MediaKeyMonitor.swift in Sources */,
+			D3F49245EF8626DFA3A3CE47 /* PlaybackPauseService.swift in Sources */,
+			058BA65E0652CA5E8AEA30DF /* AdaptiveAudioProcessor.swift in Sources */,
+			5ACFD5AF2F403F23701A7141 /* AdaptiveAudioSettings.swift in Sources */,
+			F4AED72AE9255A4B3532AF2E /* GainComputer.swift in Sources */,
+			445A38600D812D95134AC460 /* GainSmoother.swift in Sources */,
+			2628534F512CDCCAD26401C9 /* ISO226Contours.swift in Sources */,
+			12081FF7A392D32553039BE3 /* KWeightingFilter.swift in Sources */,
+			7551DEA5B8257079C719D658 /* LoudnessCompensator.swift in Sources */,
+			E351BEE093F2E36AC43B56A3 /* LoudnessDetector.swift in Sources */,
+			2527CD268C213AAA4F00D78C /* LoudnessEqualizer.swift in Sources */,
+			EDB3DE7ED4C584CEF31F085C /* LoudnessEqualizerMath.swift in Sources */,
+			C1396A1AC7F5C927A7488893 /* LoudnessEqualizerSettings.swift in Sources */,
+			DCCE39CA8A35C82304F9E544 /* AudioDeviceMonitor.swift in Sources */,
+			247D7153A1FCE89E7F0AFDC9 /* AudioDeviceProviding.swift in Sources */,
+			B089F58C05455749B36E3A23 /* AudioProcessMonitor.swift in Sources */,
+			FECC0CF531B01802EEBA59E1 /* AudioProcessMonitoring.swift in Sources */,
+			BF4644B0FC6A947228C3118D /* BluetoothDeviceMonitor.swift in Sources */,
+			A839AC8D77A6EECEE64D8E5D /* DeviceVolumeMonitor.swift in Sources */,
+			CF8C309DE2684CD0E1A2C725 /* DeviceVolumeProviding.swift in Sources */,
+			E19249A686F64E244A29805F /* AudioRecordingPermission.swift in Sources */,
+			31F86C9564CEFD0D13F93D5C /* AudioScope.swift in Sources */,
+			27EBA48754BEE3BD6CD20319 /* BiquadProcessable.swift in Sources */,
+			EAABA0E8236CCF7E03F47C78 /* TransportType.swift in Sources */,
+			C08E08449A7B63141B752DF8 /* AccessibilityPermissionService.swift in Sources */,
+			FED3B832113C783C0543C040 /* CallDuckingManager.swift in Sources */,
+			CD5B61A6ADB8F540DF5A7ECD /* ConsumerAutomationManager.swift in Sources */,
+			C6DB3BB57197D67DC8653715 /* ConsumerUndoManager.swift in Sources */,
+			C4722DBC2ABB9AB4B66A183E /* MediaKeyStatus.swift in Sources */,
+			CD3D058532662CB2B596820C /* OnboardingWindowController.swift in Sources */,
+			47B1161301B8D6A7D6568359 /* PopupVisibilityService.swift in Sources */,
+			C565963592ADA5EAAC91D8A8 /* PowerSourceMonitor.swift in Sources */,
+			1FAD0DB5CE7144F56506B9F7 /* SleepTimerManager.swift in Sources */,
+			7A58C38438A38252CCA024DB /* FineTuneApp.swift in Sources */,
+			E62F13D1CEB4648A1290437F /* AppActivityPresentationPolicy.swift in Sources */,
+			00DC2D964DE2C402C9557CAD /* AudioApp.swift in Sources */,
+			94D2AD63AACD4407F215BE60 /* AudioDevice.swift in Sources */,
+			453F9C5CDACB066BB0C0D5A8 /* AutoEQProfile.swift in Sources */,
+			9E33545CF02EF8938D64F962 /* BoostLevel.swift in Sources */,
+			382D2A6BC53AD84B3E1417C0 /* ConsumerExperience.swift in Sources */,
+			CB42C1BF5140DF0A27D6C977 /* DeviceIconCatalog.swift in Sources */,
+			3E131F0ACE10D7C5128F26BB /* DisplayableApp.swift in Sources */,
+			4A4DEB10EA221066A1846FF9 /* EQPreset.swift in Sources */,
+			2A72011FCD947654A7BAA19D /* EQSettings.swift in Sources */,
+			226110870C6231EA02B682B0 /* PairedBluetoothDevice.swift in Sources */,
+			3512D819EA6128E44D938F3F /* SettingsGuide.swift in Sources */,
+			00BE9CB7C2CE0904562ACCBE /* StereoFieldSettings.swift in Sources */,
+			167B4597F3268DF6709C35B0 /* UserEQPreset.swift in Sources */,
+			914F92E6F785DE7463B4782C /* VolumeMapping.swift in Sources */,
+			96124848CD77ADF215C85920 /* VolumeState.swift in Sources */,
+			F884FD292C3E27B34B16D1D4 /* SettingsManager.swift in Sources */,
+			28A5B007D4E18BE5547527B6 /* SettingsUITypes.swift in Sources */,
+			F3A31FE6A93DF978BEB52443 /* MeloAppIntents.swift in Sources */,
+			EAD744EAB03E87E2B202B4DA /* MenuBarPopupController.swift in Sources */,
+			C4CEBC27D807DF0C273DA40F /* ShortcutAction.swift in Sources */,
+			37CF38FC0F5F8DA66F0762D4 /* ShortcutCodable.swift in Sources */,
+			1667F428972ECCB5AF55D86E /* ShortcutsRegistry.swift in Sources */,
+			3BB045B0AD560ADC0C6538DF /* TargetAppResolver.swift in Sources */,
+			B70D0E487D69CB35DCF954EE /* DeviceIconCache.swift in Sources */,
+			AC91633407D56C84D6B2BDA8 /* MoveToApplicationsView.swift in Sources */,
+			35094BE62DB1A29CA2B89BFD /* InstallLocationCoordinator.swift in Sources */,
+			16D581A5553A2C8B9E893B84 /* MotionPreference.swift in Sources */,
+			EDB4AF6DD943B4ED511DF8D7 /* NotificationAuthorization.swift in Sources */,
+			7BF5DE12F26A3ADC015A5A05 /* DeviceIconResolver.swift in Sources */,
+			F765B87AA8FC409D188877DE /* Haptics.swift in Sources */,
+			B1CE075BBF0BF179CFEF391D /* ProcessNameLookup.swift in Sources */,
+			FB2F8D9913F2F0E102E87921 /* URLHandler.swift in Sources */,
+			7B6631775D426A1E1279D228 /* AutoEQPicker.swift in Sources */,
+			5CDE4242BBDE3865C2CF137B /* AutoEQSearchPanel.swift in Sources */,
+			67081A414E5792CE0124E029 /* BoostChevrons.swift in Sources */,
+			4D1FD24A2042984E18FCC6F9 /* ClickOutsideCoordinator.swift in Sources */,
+			0E996390D060334F13068E5B /* ConsumerCommandPalette.swift in Sources */,
+			04D93DFB4E3E3CA22FC0129B /* DeviceBadge.swift in Sources */,
+			5206872F51F1FF0194E85824 /* DeviceIconPicker.swift in Sources */,
+			1EA4B703C2EDDFB88A2EC9AD /* DevicePicker.swift in Sources */,
+			CBF95432BA39210DC2B4A10F /* DropdownMenu.swift in Sources */,
+			E6851198107B4C4079648FAF /* EQPresetPicker.swift in Sources */,
+			39A81BBB39D94E5818890F6B /* EditablePercentage.swift in Sources */,
+			C8412C5B4B76AA4179D72F98 /* ExpandableGlassRow.swift in Sources */,
+			1004A63A3CB1F2CF9E1045E5 /* LiquidGlassSlider.swift in Sources */,
+			93A92F60BB90FBEB169CAC85 /* ModeToggle.swift in Sources */,
+			A3E3E10F01E3D6B4DB73643F /* MouseInsideModifier.swift in Sources */,
+			0B1439ACE8D73CA8BA331DA3 /* MuteButton.swift in Sources */,
+			18531A8E843132DC3D2A421A /* PermissionBannerView.swift in Sources */,
+			3821EAAB372DEC119FF6E58B /* PopoverHost.swift in Sources */,
+			31BA0BC38395DB0DB82EA300 /* RadioButton.swift in Sources */,
+			2AB4C73769BD72F2F0E09F9A /* ScrollWheelStep.swift in Sources */,
+			C25CFEB07040A1B9F0C01CD6 /* ScrollWheelStepModifier.swift in Sources */,
+			25502D7B72C6B81EF7F87D05 /* SectionHeader.swift in Sources */,
+			B8B1445747978B43CAF5D63E /* SmartAutoEQControl.swift in Sources */,
+			C15C97FC04A2AD7F1D721BAC /* StereoFieldControlView.swift in Sources */,
+			891076C66B30F2235B381572 /* VUMeter.swift in Sources */,
+			910302BD1EE18A23FE0B6AFE /* AppearancePreference+SwiftUI.swift in Sources */,
+			985EBA306B8A4A86DBF3560E /* DesignTokens.swift in Sources */,
+			AC1C4DF95E2164587CEB99AF /* MeloVisualTheme.swift in Sources */,
+			A1698DC03454B641E29A1F94 /* ViewModifiers.swift in Sources */,
+			57607F7DDEEF0B77124B9867 /* VisualEffectBackground.swift in Sources */,
+			A521C4695153416A7029096C /* WindowAppearanceBridge.swift in Sources */,
+			50C465EDECBE5F24B7E40F75 /* WindowTitleBridge.swift in Sources */,
+			B0ED671739C1FE935D3D3971 /* EQPanelView.swift in Sources */,
+			9293F56B490023957C550CA5 /* EQSliderView.swift in Sources */,
+			7261B5727A41A7E3D6D23194 /* ClassicStyleHUD.swift in Sources */,
+			F11BC4EDFD3B3FC49AFF7E8C /* HUDWindowController.swift in Sources */,
+			51AFEBEEF76C459581E2659E /* TahoeStyleHUD.swift in Sources */,
+			922A131D4F17581905AF11E5 /* MenuBarDeviceIconResolver.swift in Sources */,
+			DE2420FA86B0CEF1D9446EAD /* MenuBarIconCoordinator.swift in Sources */,
+			11309FF967CA3556B9DF9B01 /* MenuBarIconImage+NSImage.swift in Sources */,
+			15CA70A78A67211E6A718958 /* MenuBarIconState.swift in Sources */,
+			46F2D40900C3E46456108C72 /* PopupKeyboardNavModel.swift in Sources */,
+			0AC84DCC48FEEB41CB619341 /* MenuBarPopupView.swift in Sources */,
+			C0BE7F19C84A98FCB3013C06 /* FirstRunOnboardingView.swift in Sources */,
+			42F84416234FD512CD0E2AB0 /* MockData.swift in Sources */,
+			7579D1478FD370D1186DB574 /* PreviewContainer.swift in Sources */,
+			65E36282EC7DC78F78D4A88F /* AppEditRow.swift in Sources */,
+			DEE8B7891AB34155C281102E /* AppRow.swift in Sources */,
+			5A651C226B2EC77A9BDB5527 /* AppRowControls.swift in Sources */,
+			8B61AF95F18267E6A7982B4E /* AppRowWithLevelPolling.swift in Sources */,
+			ABC844532ADA2B355C2743BB /* DeviceEditRow.swift in Sources */,
+			377A92F717DD74636EFADE90 /* DeviceInspectorInfo.swift in Sources */,
+			93258BD12F070A6D0C06068C /* DeviceInspectorInfoGrid.swift in Sources */,
+			AE20BED19E5E43C207BFB47A /* DeviceInspectorViewModel.swift in Sources */,
+			AEF1DFD22FB9580B3E521829 /* DeviceRow.swift in Sources */,
+			430DD113096E3A8C7B80423F /* InactiveAppRow.swift in Sources */,
+			8CF355E19F5F5E1B7FCD0E7F /* InputDeviceRow.swift in Sources */,
+			BDC3E9AAD45B3943128EC2B3 /* PairedDeviceRow.swift in Sources */,
+			7FEBC28D2C2800206EDB5241 /* AboutLinkChip.swift in Sources */,
+			DCFDB148B4F10C8066230AFB /* AccessibilityPromptStrip.swift in Sources */,
+			55DAA57A27D41758C6959C9C /* HUDStyleSegmentedControl.swift in Sources */,
+			42CC599B5EA893101D4CC75E /* IconStyleSegmentedControl.swift in Sources */,
+			B30C0ADDCA32DD3946FF2009 /* SettingsRow.swift in Sources */,
+			F1B1DB2DAC701DD01D7728F4 /* SettingsSection.swift in Sources */,
+			5537220FD58B446E31AE0672 /* SystemSoundsDevicePicker.swift in Sources */,
+			A296CEEDAB5D0C0E9BE68B66 /* ThemeTilePicker.swift in Sources */,
+			0DA8AB67849FC42B93635E20 /* VolumeSlider.swift in Sources */,
+			87448D7A57B1ED30078EC2F8 /* SettingsGuideView.swift in Sources */,
+			919996D0ED9B9891A4C3ED11 /* MediaKeyOfflineCard.swift in Sources */,
+			96749994E2F49481949558EB /* SettingsRootView.swift in Sources */,
+			A152A15CB9E2E4F0CE3F4E95 /* AboutTab.swift in Sources */,
+			B4E73A0719963A2F6DE351D5 /* AudioTab.swift in Sources */,
+			D74077B004410E65BA3FC2DC /* AudioUnitsTab.swift in Sources */,
+			E5C5278A454EBF0765C688E2 /* EverydayTab.swift in Sources */,
+			603673CFE480D8AF226C8515 /* GeneralTab.swift in Sources */,
+			30F7F7824BF9380B6C784C2C /* ShortcutsTab.swift in Sources */,
+			D012761D3A99FF645420B717 /* UpdatesTab.swift in Sources */,
+			E2F036DD1ACE0320D78E175B /* DeviceDetailSheet.swift in Sources */,
+		); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		FAF05FA3B9540408EA10B3FA /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+			ALWAYS_SEARCH_USER_PATHS = NO;
+			CLANG_ENABLE_MODULES = YES;
+			CLANG_ENABLE_OBJC_ARC = YES;
+			ARCHS = arm64;
+			EXCLUDED_ARCHS = x86_64;
+			MACOSX_DEPLOYMENT_TARGET = 15.4;
+			ONLY_ACTIVE_ARCH = NO;
+			SDKROOT = macosx;
+			SWIFT_VERSION = 6.0;
+			DEBUG_INFORMATION_FORMAT = dwarf;
+			SWIFT_OPTIMIZATION_LEVEL = -Onone;
+		}; name = Debug; };
+		C3AD4418E42D5560B4DAA7A3 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+			ALWAYS_SEARCH_USER_PATHS = NO;
+			CLANG_ENABLE_MODULES = YES;
+			CLANG_ENABLE_OBJC_ARC = YES;
+			ARCHS = arm64;
+			EXCLUDED_ARCHS = x86_64;
+			MACOSX_DEPLOYMENT_TARGET = 15.4;
+			ONLY_ACTIVE_ARCH = NO;
+			SDKROOT = macosx;
+			SWIFT_VERSION = 6.0;
+			DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+			SWIFT_COMPILATION_MODE = wholemodule;
+		}; name = Release; };
+		A6259B448A9EF72F89722E80 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG MELO_DEV";
+			ASSETCATALOG_COMPILER_APPICON_NAME = fineTuneIcon;
+			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
+			ARCHS = arm64;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 294;
+			EXCLUDED_ARCHS = x86_64;
+			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = Config/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/../Frameworks",
+			);
+			MACOSX_DEPLOYMENT_TARGET = 15.4;
+			MARKETING_VERSION = 2.9.0;
+			ONLY_ACTIVE_ARCH = NO;
+			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
+			PRODUCT_NAME = Melo;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_STRICT_CONCURRENCY = complete;
+			SWIFT_VERSION = 6.0;
+			COPY_PHASE_STRIP = NO;
+			DEBUG_INFORMATION_FORMAT = dwarf;
+			ENABLE_TESTABILITY = YES;
+			SWIFT_OPTIMIZATION_LEVEL = -Onone;
+		}; name = Debug; };
+		6EB065DD8543A569358F3155 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+			ASSETCATALOG_COMPILER_APPICON_NAME = fineTuneIcon;
+			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
+			ARCHS = arm64;
+			CODE_SIGN_STYLE = Automatic;
+			CURRENT_PROJECT_VERSION = 294;
+			EXCLUDED_ARCHS = x86_64;
+			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
+			ENABLE_HARDENED_RUNTIME = YES;
+			GENERATE_INFOPLIST_FILE = NO;
+			INFOPLIST_FILE = Config/Info.plist;
+			LD_RUNPATH_SEARCH_PATHS = (
+				"$(inherited)",
+				"@executable_path/../Frameworks",
+			);
+			MACOSX_DEPLOYMENT_TARGET = 15.4;
+			MARKETING_VERSION = 2.9.0;
+			ONLY_ACTIVE_ARCH = NO;
+			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
+			PRODUCT_NAME = Melo;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_STRICT_CONCURRENCY = complete;
+			SWIFT_VERSION = 6.0;
+			COPY_PHASE_STRIP = YES;
+			DEBUG_INFORMATION_FORMAT = dwarf-with-dsym;
+			SWIFT_COMPILATION_MODE = wholemodule;
+		}; name = Release; };
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		3D29D9F3A882C4202964FB56 /* Build configuration list for PBXProject "Melo" */ = {isa = XCConfigurationList; buildConfigurations = (FAF05FA3B9540408EA10B3FA /* Debug */, C3AD4418E42D5560B4DAA7A3 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		D28A2B497FA98060CD1B56AC /* Build configuration list for PBXNativeTarget "Melo" */ = {isa = XCConfigurationList; buildConfigurations = (A6259B448A9EF72F89722E80 /* Debug */, 6EB065DD8543A569358F3155 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A83F8F4C5F8FF8D759243BF5 /* XCRemoteSwiftPackageReference "FluidMenuBarExtra" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/wadetregaskis/FluidMenuBarExtra.git"; requirement = {kind = exactVersion; version = 1.0.0; }; };
+		DE1BB1ED428C0F768F52D030 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/sindresorhus/KeyboardShortcuts.git"; requirement = {kind = exactVersion; version = 2.4.0; }; };
+		C05EAB06B3FF21DAD54ABBD3 /* XCRemoteSwiftPackageReference "Sparkle" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/sparkle-project/Sparkle.git"; requirement = {kind = exactVersion; version = 2.9.5; }; };
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7B00844468A200406202C396 /* FluidMenuBarExtra */ = {isa = XCSwiftPackageProductDependency; package = A83F8F4C5F8FF8D759243BF5 /* XCRemoteSwiftPackageReference "FluidMenuBarExtra" */; productName = FluidMenuBarExtra; };
+		6658853661A29BB4DE43D72C /* KeyboardShortcuts */ = {isa = XCSwiftPackageProductDependency; package = DE1BB1ED428C0F768F52D030 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */; productName = KeyboardShortcuts; };
+		4EC397D4AD41F140D9BE3546 /* Sparkle */ = {isa = XCSwiftPackageProductDependency; package = C05EAB06B3FF21DAD54ABBD3 /* XCRemoteSwiftPackageReference "Sparkle" */; productName = Sparkle; };
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 7E3160B84040B844D8FB8B4B /* Project object */;
+}

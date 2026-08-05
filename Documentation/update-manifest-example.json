@@ -1,0 +1,10 @@
+{
+  "version": "2.6.1",
+  "build": 261,
+  "minimumSystemVersion": "15.4",
+  "downloadURL": "https://updates.example.com/Melo-macOS-2.6.1.zip",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "signature": "REPLACE_WITH_BASE64_ED25519_SIGNATURE",
+  "releaseNotes": "Improvements and fixes.",
+  "publishedAt": "2026-08-10T18:00:00Z"
+}
