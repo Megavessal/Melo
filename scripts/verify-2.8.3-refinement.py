@@ -55,7 +55,9 @@ theme = require(
     "Sources/Melo/Views/DesignSystem/MeloVisualTheme.swift",
     "PixelRocketGlyph",
     "edgeLane(index: cycleIndex - 1",
-    "cycleIndex.isMultiple(of: 2)",
+    # Direction still alternates per cycle; the lane offset staggers the three
+    # tracks so they do not all cross the same way at once.
+    "(cycleIndex &+ lane).isMultiple(of: 2)",
     "max(-15, min(15, visualAngle))",
     "three-to-five-second rhythm",
     "different rates",
@@ -93,9 +95,9 @@ if "var body: some View {\n        ZStack" in main:
 
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.0":
+if info.get("CFBundleShortVersionString") != "2.9.2":
     failures.append("wrong version")
-if info.get("CFBundleVersion") != "294":
+if info.get("CFBundleVersion") != "297":
     failures.append("wrong build")
 
 if failures:

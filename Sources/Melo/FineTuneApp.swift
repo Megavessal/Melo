@@ -197,6 +197,7 @@ struct MeloApp: App {
         _appSupportCoordinator = State(initialValue: appSupport)
         DispatchQueue.main.async { [appSupport] in
             appSupport.applyDockPreferenceAtLaunch()
+            DockIconAppearanceCoordinator.shared.start()
         }
         let statusService = MediaKeyStatus()
         let popupService = PopupVisibilityService()

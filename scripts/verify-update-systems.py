@@ -80,12 +80,32 @@ require("scripts/templates/download-page.html", "Open Anyway", "__RELEASES_URL__
 # The one-command path must create the repo and enable Pages over the API rather
 # than sending the user into a browser to click through settings.
 require("scripts/publish-setup.sh", "gh repo create", "repos/${SLUG}/pages", "generate_keys", "release.sh")
+
+# Homebrew must not be a hard prerequisite: gh ships a standalone binary and many
+# Macs do not have brew installed.
+gh_lib = require("scripts/lib/gh.sh", "melo_ensure_gh", "cli/cli/releases")
+# The tool must not live under .build-melo — build-app.sh wipes that folder at
+# the start of every build, which deleted gh mid-release once already. Comments
+# are stripped first, since the explanation of this rule names the folder.
+gh_code = "\n".join(
+    line for line in gh_lib.splitlines() if not line.lstrip().startswith("#")
+)
+if ".build-melo" in gh_code:
+    failures.append("lib/gh.sh: installs into the folder build-app.sh wipes")
+if ".tools" not in gh_code:
+    failures.append("lib/gh.sh: does not install into a build-safe .tools folder")
+# release.sh runs standalone for every future release, so it has to find gh
+# itself rather than inheriting a PATH from publish-setup.sh.
+for script in ("scripts/publish-setup.sh", "scripts/release.sh"):
+    text = (root / script).read_text(errors="replace")
+    if "melo_ensure_gh" not in text:
+        failures.append(f"{script}: does not resolve the GitHub CLI itself")
 require("Documentation/MELO-2.7-UPDATES.md", "Sparkle 2.9.5", "three sources")
 
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.0": failures.append("wrong version")
-if info.get("CFBundleVersion") != "294": failures.append("wrong build")
+if info.get("CFBundleShortVersionString") != "2.9.2": failures.append("wrong version")
+if info.get("CFBundleVersion") != "297": failures.append("wrong build")
 if "SUFeedURL" not in info or "SUPublicEDKey" not in info:
     failures.append("Sparkle configuration keys missing")
 

@@ -103,6 +103,7 @@
 		B70D0E487D69CB35DCF954EE /* DeviceIconCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */; };
 		AC91633407D56C84D6B2BDA8 /* MoveToApplicationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */; };
 		35094BE62DB1A29CA2B89BFD /* InstallLocationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */; };
+		7A1C4D0E2FB3419A8C55D001 /* DockIconAppearanceCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */; };
 		16D581A5553A2C8B9E893B84 /* MotionPreference.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */; };
 		EDB4AF6DD943B4ED511DF8D7 /* NotificationAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */; };
 		7BF5DE12F26A3ADC015A5A05 /* DeviceIconResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */; };
@@ -188,7 +189,6 @@
 		D012761D3A99FF645420B717 /* UpdatesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4251251772F3F69C1D8947 /* UpdatesTab.swift */; };
 		E2F036DD1ACE0320D78E175B /* DeviceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 548050A3E439822C21CBCD6A /* DeviceDetailSheet.swift */; };
 		6AC32524C03360DF145882DA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */; };
-		E9AD84E58BD2C887166E1C7C /* Melo.icns in Resources */ = {isa = PBXBuildFile; fileRef = C00E9BD0C6EA243666724851 /* Melo.icns */; };
 		F1F613E9C12FC2C6D3D61236 /* KeyboardShortcuts-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */; };
 		E179C37A1F73DE2B9CBEA53B /* FluidMenuBarExtra-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */; };
 		BC416D313F7DB9B9F3DE44F9 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = EFA11A34099928F69070054E /* LICENSE.txt */; };
@@ -311,6 +311,7 @@
 		6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/DeviceIconCache.swift; sourceTree = SOURCE_ROOT; };
 		840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/MoveToApplicationsView.swift; sourceTree = SOURCE_ROOT; };
 		1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/InstallLocationCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/DockIconAppearanceCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/DesignSystem/MotionPreference.swift; sourceTree = SOURCE_ROOT; };
 		6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/NotificationAuthorization.swift; sourceTree = SOURCE_ROOT; };
 		EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/DeviceIconResolver.swift; sourceTree = SOURCE_ROOT; };
@@ -396,7 +397,6 @@
 		7E4251251772F3F69C1D8947 /* UpdatesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Tabs/UpdatesTab.swift; sourceTree = SOURCE_ROOT; };
 		548050A3E439822C21CBCD6A /* DeviceDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Sheets/DeviceDetailSheet.swift; sourceTree = SOURCE_ROOT; };
 		E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Resources/Assets.xcassets; sourceTree = SOURCE_ROOT; };
-		C00E9BD0C6EA243666724851 /* Melo.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Resources/Melo.icns; sourceTree = SOURCE_ROOT; };
 		E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/KeyboardShortcuts-LICENSE.txt; sourceTree = SOURCE_ROOT; };
 		D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/FluidMenuBarExtra-LICENSE.txt; sourceTree = SOURCE_ROOT; };
 		EFA11A34099928F69070054E /* LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE.txt; sourceTree = SOURCE_ROOT; };
@@ -552,6 +552,7 @@
 			6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */,
 			840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */,
 			1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */,
+			7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */,
 			82F7EFDD695B18927A9C1BBD /* MotionPreference.swift */,
 			6D3B598A6A2AF7A3FEC0FE72 /* NotificationAuthorization.swift */,
 			EDC12EC4DF9C581E56E5CC73 /* DeviceIconResolver.swift */,
@@ -640,7 +641,6 @@
 		22D02A9EFAC9B3FBBAEBE062 /* Resources */ = {isa = PBXGroup; children = (
 			ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */,
 			E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */,
-			C00E9BD0C6EA243666724851 /* Melo.icns */,
 			E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */,
 			D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */,
 			8D324355EE7A9A0C7BE54F85 /* Sparkle-LICENSE.txt */,
@@ -688,7 +688,6 @@
 		C02F1309AF4906C92F1EAD44 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
 			3BC18682302B84B86F8E3733 /* MeloFirstRunIntro.wav in Resources */,
 			6AC32524C03360DF145882DA /* Assets.xcassets in Resources */,
-			E9AD84E58BD2C887166E1C7C /* Melo.icns in Resources */,
 			F1F613E9C12FC2C6D3D61236 /* KeyboardShortcuts-LICENSE.txt in Resources */,
 			E179C37A1F73DE2B9CBEA53B /* FluidMenuBarExtra-LICENSE.txt in Resources */,
 			B82E6E7CD170172A3FBE79D3 /* Sparkle-LICENSE.txt in Resources */,
@@ -809,6 +808,7 @@
 			B70D0E487D69CB35DCF954EE /* DeviceIconCache.swift in Sources */,
 			AC91633407D56C84D6B2BDA8 /* MoveToApplicationsView.swift in Sources */,
 			35094BE62DB1A29CA2B89BFD /* InstallLocationCoordinator.swift in Sources */,
+			7A1C4D0E2FB3419A8C55D001 /* DockIconAppearanceCoordinator.swift in Sources */,
 			16D581A5553A2C8B9E893B84 /* MotionPreference.swift in Sources */,
 			EDB4AF6DD943B4ED511DF8D7 /* NotificationAuthorization.swift in Sources */,
 			7BF5DE12F26A3ADC015A5A05 /* DeviceIconResolver.swift in Sources */,
@@ -925,12 +925,12 @@
 		}; name = Release; };
 		A6259B448A9EF72F89722E80 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG MELO_DEV";
-			ASSETCATALOG_COMPILER_APPICON_NAME = fineTuneIcon;
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 294;
+			CURRENT_PROJECT_VERSION = 297;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -941,7 +941,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.0;
+			MARKETING_VERSION = 2.9.2;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
 			PRODUCT_NAME = Melo;
@@ -955,12 +955,12 @@
 		}; name = Debug; };
 		6EB065DD8543A569358F3155 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
-			ASSETCATALOG_COMPILER_APPICON_NAME = fineTuneIcon;
+			ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 			ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 294;
+			CURRENT_PROJECT_VERSION = 297;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -971,7 +971,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.0;
+			MARKETING_VERSION = 2.9.2;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
 			PRODUCT_NAME = Melo;

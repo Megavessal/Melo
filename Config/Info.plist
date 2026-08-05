@@ -8,8 +8,6 @@
 	<string>Melo</string>
 	<key>CFBundleExecutable</key>
 	<string>Melo</string>
-	<key>CFBundleIconFile</key>
-	<string>Melo</string>
 	<key>CFBundleIdentifier</key>
 	<string>dev.local.Melo</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -19,7 +17,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.9.0</string>
+	<string>2.9.2</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -32,7 +30,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>294</string>
+	<string>297</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>

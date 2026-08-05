@@ -20,7 +20,7 @@ checks = {
     "Menu bar details": ("Sources/Melo/Settings/Types/SettingsUITypes.swift", "enum MenuBarInfoStyle"),
     "Friendly device summary": ("Sources/Melo/Views/Sheets/DeviceDetailSheet.swift", 'title: "Quality"'),
     "Safe signing cleanup": ("scripts/build-app.sh", 'xattr -cr "$APP_BUNDLE"'),
-    "Release version": ("Config/Info.plist", "<string>2.9.0</string>"),
+    "Release version": ("Config/Info.plist", "<string>2.9.2</string>"),
 }
 
 failures = []

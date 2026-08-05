@@ -197,6 +197,11 @@ final class AppSupportCoordinator {
             logger.error("Could not change Dock visibility")
             return
         }
+        // A tile that has just appeared takes whatever icon is set at that
+        // moment, so re-assert the appearance-matched artwork here.
+        if visible {
+            DockIconAppearanceCoordinator.shared.apply()
+        }
         if activate {
             NSApp.activate(ignoringOtherApps: true)
         }

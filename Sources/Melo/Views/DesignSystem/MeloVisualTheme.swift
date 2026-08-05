@@ -244,9 +244,11 @@ private struct AnimatedStarField: View {
 
 // MARK: - Rocket
 
-/// A small pixel-art rocket. Flights alternate direction so the next pass
-/// enters from the edge where the previous pass disappeared. Each cycle picks
-/// a new vertical lane, while the straight flight angle is clamped to ±15°.
+/// Small pixel-art rockets. Three lanes fly independently, each on its own
+/// cycle length and phase, so the sky is usually empty or holds one rocket and
+/// occasionally holds three. The lane periods are deliberately not multiples of
+/// one another — equal periods would make all three cross together every time,
+/// which reads as a formation rather than as traffic.
 private struct RocketFlight: View {
     var isVisible: Bool = true
 
@@ -254,11 +256,25 @@ private struct RocketFlight: View {
 
     private var isStatic: Bool { reduceMotion || !isVisible }
 
+    /// Three at once is the ceiling, not the norm.
+    private static let laneCount = 3
+
+    /// flight, rest, phase offset — per lane, in seconds.
+    private static let laneTiming: [(flight: Double, rest: Double, offset: Double)] = [
+        (10.8, 8.2, 0.0),
+        (12.7, 17.3, 6.4),
+        (9.4, 25.1, 13.9)
+    ]
+
+    /// 15% smaller than the previous 54×26 / 50×24 pair.
+    private static let flyingSize = CGSize(width: 46, height: 22)
+    private static let restingSize = CGSize(width: 43, height: 20)
+
     var body: some View {
         GeometryReader { geometry in
             if isStatic {
                 PixelRocketGlyph(flamePhase: 0)
-                    .frame(width: 50, height: 24)
+                    .frame(width: Self.restingSize.width, height: Self.restingSize.height)
                     .rotationEffect(.degrees(-4))
                     .position(
                         x: max(geometry.size.width - 40, 30),
@@ -271,48 +287,64 @@ private struct RocketFlight: View {
                 // popup.
                 TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: isStatic)) { timeline in
                     let now = timeline.date.timeIntervalSinceReferenceDate
-                    let flightDuration = 10.8
-                    let restDuration = 8.2
-                    let cycleDuration = flightDuration + restDuration
-                    let cycleIndex = Int(floor(now / cycleDuration))
-                    let elapsed = now - Double(cycleIndex) * cycleDuration
-                    let isFlying = elapsed < flightDuration
-                    let rawProgress = min(max(elapsed / flightDuration, 0), 1)
-                    let progress = rawProgress * rawProgress * (3 - 2 * rawProgress)
-                    let travelsRight = cycleIndex.isMultiple(of: 2)
-
-                    let margin: CGFloat = 62
-                    let travelDistance = geometry.size.width + margin * 2
-                    let startLane = edgeLane(index: cycleIndex - 1, height: geometry.size.height)
-                    let proposedEndLane = edgeLane(index: cycleIndex, height: geometry.size.height)
-                    let maxVerticalChange = CGFloat(tan(Double.pi / 12)) * travelDistance
-                    let endLane = min(
-                        max(proposedEndLane, startLane - maxVerticalChange),
-                        startLane + maxVerticalChange
-                    )
-                    let y = startLane + (endLane - startLane) * CGFloat(progress)
-                    let startX = travelsRight ? -margin : geometry.size.width + margin
-                    let endX = travelsRight ? geometry.size.width + margin : -margin
-                    let x = startX + (endX - startX) * CGFloat(progress)
-                    let pathAngle = atan2(Double(endLane - startLane), Double(travelDistance)) * 180 / .pi
-                    let visualAngle = travelsRight ? pathAngle : -pathAngle
-
-                    PixelRocketGlyph(flamePhase: now)
-                        .frame(width: 54, height: 26)
-                        .scaleEffect(x: travelsRight ? 1 : -1, y: 1)
-                        .rotationEffect(.degrees(max(-15, min(15, visualAngle))))
-                        .position(x: x, y: y)
-                        .opacity(isFlying ? 0.70 : 0)
+                    ForEach(0..<Self.laneCount, id: \.self) { lane in
+                        rocket(lane: lane, now: now, size: geometry.size)
+                    }
                 }
             }
         }
     }
 
-    private func edgeLane(index: Int, height: CGFloat) -> CGFloat {
+    @ViewBuilder
+    private func rocket(lane: Int, now: TimeInterval, size: CGSize) -> some View {
+        let timing = Self.laneTiming[lane]
+        let cycleDuration = timing.flight + timing.rest
+        let shifted = now + timing.offset
+        let cycleIndex = Int(floor(shifted / cycleDuration))
+        let elapsed = shifted - Double(cycleIndex) * cycleDuration
+        let isFlying = elapsed < timing.flight
+
+        if isFlying {
+            let rawProgress = min(max(elapsed / timing.flight, 0), 1)
+            let progress = rawProgress * rawProgress * (3 - 2 * rawProgress)
+            let travelsRight = (cycleIndex &+ lane).isMultiple(of: 2)
+
+            let margin: CGFloat = 62
+            let travelDistance = size.width + margin * 2
+            let startLane = edgeLane(index: cycleIndex - 1, lane: lane, height: size.height)
+            let proposedEndLane = edgeLane(index: cycleIndex, lane: lane, height: size.height)
+            let maxVerticalChange = CGFloat(tan(Double.pi / 12)) * travelDistance
+            let endLane = min(
+                max(proposedEndLane, startLane - maxVerticalChange),
+                startLane + maxVerticalChange
+            )
+            let y = startLane + (endLane - startLane) * CGFloat(progress)
+            let startX = travelsRight ? -margin : size.width + margin
+            let endX = travelsRight ? size.width + margin : -margin
+            let x = startX + (endX - startX) * CGFloat(progress)
+            let pathAngle = atan2(Double(endLane - startLane), Double(travelDistance)) * 180 / .pi
+            let visualAngle = travelsRight ? pathAngle : -pathAngle
+
+            PixelRocketGlyph(flamePhase: now + Double(lane) * 0.37)
+                .frame(width: Self.flyingSize.width, height: Self.flyingSize.height)
+                .scaleEffect(x: travelsRight ? 1 : -1, y: 1)
+                .rotationEffect(.degrees(max(-15, min(15, visualAngle))))
+                .position(x: x, y: y)
+                // Lanes further back are fainter, so overlapping passes read as
+                // depth instead of as a collision.
+                .opacity(0.70 - Double(lane) * 0.11)
+        }
+    }
+
+    /// Each lane owns a horizontal band of the popup, so two rockets in the air
+    /// at once never trace the same line.
+    private func edgeLane(index: Int, lane: Int, height: CGFloat) -> CGFloat {
         let usableMin = max(28, height * 0.16)
         let usableMax = max(usableMin + 1, min(height - 30, height * 0.66))
-        let unit = deterministicUnit(index: index, salt: 811)
-        return usableMin + (usableMax - usableMin) * CGFloat(unit)
+        let bandHeight = (usableMax - usableMin) / CGFloat(Self.laneCount)
+        let bandStart = usableMin + bandHeight * CGFloat(lane)
+        let unit = deterministicUnit(index: index, salt: 811 &+ lane &* 197)
+        return bandStart + bandHeight * CGFloat(unit)
     }
 
     private func deterministicUnit(index: Int, salt: Int) -> Double {

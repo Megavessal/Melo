@@ -41,8 +41,8 @@ require("Resources/MeloFirstRunIntro.wav")
 
 with (root / "Config/Info.plist").open("rb") as f:
     info = plistlib.load(f)
-if info.get("CFBundleShortVersionString") != "2.9.0": failures.append("wrong version")
-if info.get("CFBundleVersion") != "294": failures.append("wrong build")
+if info.get("CFBundleShortVersionString") != "2.9.2": failures.append("wrong version")
+if info.get("CFBundleVersion") != "297": failures.append("wrong build")
 
 project = (root / "Melo.xcodeproj/project.pbxproj").read_text()
 for source in (root / "Sources/Melo").rglob("*.swift"):
@@ -52,7 +52,7 @@ for source in (root / "Sources/Melo").rglob("*.swift"):
 if "MeloFirstRunIntro.wav in Resources" not in project:
     failures.append("intro sound is not in the Xcode resources phase")
 
-icon_dir = root / "Resources/Assets.xcassets/fineTuneIcon.appiconset"
+icon_dir = root / "Resources/Assets.xcassets/AppIcon.appiconset"
 for name in ["icon_16x16.png", "icon_128x128@2x.png", "icon_512x512@2x.png"]:
     if not (icon_dir / name).is_file(): failures.append(f"missing restored icon {name}")
 
