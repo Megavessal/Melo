@@ -33,57 +33,10 @@ step "Checking prerequisites"
 command -v git >/dev/null || fail "git is missing. Install Xcode command line tools: xcode-select --install"
 ok "git"
 
-# gh ships a self-contained binary, so Homebrew is not a prerequisite for it.
-# Installing into the project's own tools folder needs no administrator rights
-# and leaves nothing behind on the system.
-TOOLS_DIR="$ROOT/.build-melo/tools"
+# shellcheck source=scripts/lib/gh.sh
+source "$ROOT/scripts/lib/gh.sh"
 
-install_gh_locally() {
-    local arch asset tag version url
-    case "$(uname -m)" in
-        arm64)  arch="arm64" ;;
-        x86_64) arch="amd64" ;;
-        *)      fail "Unsupported architecture: $(uname -m)" ;;
-    esac
-
-    # Resolve the newest release by following GitHub's /latest redirect. If that
-    # is unreachable, fall back to a version known to exist rather than failing.
-    tag="$(curl -fsSL -o /dev/null -w '%{url_effective}' \
-            https://github.com/cli/cli/releases/latest 2>/dev/null \
-          | sed -n 's|.*/tag/\(v[0-9][0-9.]*\)$|\1|p')"
-    [[ -n "$tag" ]] || tag="v2.97.0"
-    version="${tag#v}"
-    asset="gh_${version}_macOS_${arch}.zip"
-    url="https://github.com/cli/cli/releases/download/${tag}/${asset}"
-
-    mkdir -p "$TOOLS_DIR"
-    note "Downloading GitHub CLI ${version}…"
-    curl -fsSL -o "$TOOLS_DIR/gh.zip" "$url" \
-        || fail "Could not download $url — check your connection, or install gh from https://cli.github.com and rerun."
-    rm -rf "$TOOLS_DIR/gh_${version}_macOS_${arch}"
-    /usr/bin/ditto -x -k "$TOOLS_DIR/gh.zip" "$TOOLS_DIR" \
-        || fail "Could not unpack the GitHub CLI download."
-    rm -f "$TOOLS_DIR/gh.zip"
-
-    local binary="$TOOLS_DIR/gh_${version}_macOS_${arch}/bin/gh"
-    [[ -x "$binary" ]] || fail "The GitHub CLI download did not contain an executable at $binary"
-    export PATH="$(dirname "$binary"):$PATH"
-}
-
-if ! command -v gh >/dev/null; then
-    # A previous run may already have put it in the tools folder.
-    EXISTING_GH="$(find "$TOOLS_DIR" -type f -name gh -perm -u+x -print -quit 2>/dev/null || true)"
-    if [[ -n "$EXISTING_GH" ]]; then
-        export PATH="$(dirname "$EXISTING_GH"):$PATH"
-    elif command -v brew >/dev/null; then
-        note "Installing the GitHub CLI with Homebrew…"
-        brew install gh
-    else
-        warn "GitHub CLI is not installed — fetching a local copy."
-        install_gh_locally
-    fi
-fi
-command -v gh >/dev/null || fail "GitHub CLI is still unavailable."
+melo_ensure_gh "$ROOT" || fail "The GitHub CLI is required. Install it from https://cli.github.com and rerun."
 ok "gh $(gh --version | head -1 | awk '{print $3}')"
 
 # ------------------------------------------------------------------ github auth

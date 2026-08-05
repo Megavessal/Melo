@@ -1,6 +1,10 @@
 # Build products
 .build-melo/
 outputs/
+
+# Locally downloaded command line tools (gh). Kept out of .build-melo because
+# build-app.sh wipes that folder at the start of every build.
+.tools/
 *.xcuserdatad
 xcuserdata/
 

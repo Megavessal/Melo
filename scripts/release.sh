@@ -28,7 +28,12 @@ RELEASE_DIR="$ROOT/outputs/sparkle-releases"
 
 # ---- Preconditions ---------------------------------------------------------
 
-command -v gh >/dev/null || fail "GitHub CLI not found. Install it with: brew install gh   (then: gh auth login)"
+# shellcheck source=scripts/lib/gh.sh
+source "$ROOT/scripts/lib/gh.sh"
+
+# Resolved here rather than inherited: this script is run on its own for every
+# release, in a shell that never saw publish-setup.sh.
+melo_ensure_gh "$ROOT" || fail "The GitHub CLI is required. Install it from https://cli.github.com and rerun."
 gh auth status >/dev/null 2>&1 || fail "Not signed in to GitHub. Run: gh auth login"
 
 FEED_URL="$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' Config/Info.plist 2>/dev/null || true)"
@@ -82,6 +87,7 @@ sed -e "s|__OWNER__|${OWNER}|g" \
     -e "s|__REPO__|${REPO}|g" \
     -e "s|__VERSION__|${VERSION}|g" \
     -e "s|__RELEASES_URL__|https://github.com/${SLUG}/releases|g" \
+    -e "s|__DOWNLOAD_URL__|https://github.com/${SLUG}/releases/download/v${VERSION}/Melo-macOS-${VERSION}.zip|g" \
     scripts/templates/download-page.html > "$ROOT/docs/index.html"
 
 # ---- Publish ---------------------------------------------------------------
@@ -104,8 +110,13 @@ git add docs/appcast.xml docs/index.html docs/.nojekyll 2>/dev/null || true
 if git diff --cached --quiet; then
     printf 'Feed unchanged.\n'
 else
-    git commit -m "Publish Melo $VERSION"
-    git push
+    # Identity passed explicitly so this works on a machine where git has no
+    # global user configured — failing at the very last step of a release is a
+    # miserable place to discover that.
+    git -c user.email="${OWNER}@users.noreply.github.com" \
+        -c user.name="${OWNER}" \
+        commit -q -m "Publish Melo $VERSION"
+    git push -q
 fi
 
 cat <<EOF

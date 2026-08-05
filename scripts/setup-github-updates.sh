@@ -57,6 +57,7 @@ sed -e "s|__OWNER__|${OWNER}|g" \
     -e "s|__REPO__|${REPO}|g" \
     -e "s|__VERSION__|${VERSION}|g" \
     -e "s|__RELEASES_URL__|${RELEASES_URL}|g" \
+    -e "s|__DOWNLOAD_URL__|https://github.com/${OWNER}/${REPO}/releases/download/v${VERSION}/Melo-macOS-${VERSION}.zip|g" \
     "$TEMPLATE" > "$ROOT/docs/index.html"
 
 PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c 'Print :SUPublicEDKey' "$ROOT/Config/Info.plist" 2>/dev/null || true)"
