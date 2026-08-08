@@ -311,11 +311,10 @@ final class AudioEngine {
                 // actually plays audio.
                 self.processMonitor.start()
                 self.deviceMonitor.start()
-                // Deliberately conditional. The monitor's first refresh calls
-                // IOBluetoothDevice.pairedDevices(), and that call is what makes
-                // macOS show the Bluetooth prompt — which used to appear about
-                // half a second before the welcome window, with no explanation.
-                self.startBluetoothMonitoringIfEnabled()
+                // Bluetooth is deliberately absent from this block. Launching
+                // Melo is not reaching for a Bluetooth feature, so nothing here
+                // may touch IOBluetooth — see
+                // `startBluetoothMonitoringIfEnabled()`.
 
                 #if !APP_STORE
                 ddc.onProbeCompleted = { [weak self] in
@@ -685,10 +684,24 @@ final class AudioEngine {
         appListCoordinator.setSelectedDeviceUIDsForInactive(identifier: identifier, to: uids)
     }
 
-    /// Starts paired-device discovery if the user has turned Bluetooth features
-    /// on. Safe to call repeatedly; `BluetoothDeviceMonitor.start()` is
-    /// idempotent, so onboarding can call this the moment the user opts in
-    /// without waiting for a relaunch.
+    /// Begins paired-device discovery. **Only a user reaching for a Bluetooth
+    /// feature may call this** — the first call is what makes macOS show its
+    /// Bluetooth prompt, so the caller decides whether that prompt arrives with
+    /// a reason on screen.
+    ///
+    /// It used to be called from the startup task above, behind a second guard
+    /// on `onboardingVersionCompleted`. That guard was described as putting a
+    /// Bluetooth onboarding page ahead of the system dialog; the page has since
+    /// been removed, and `SettingsManager.decodeSettings` stamps onboarding
+    /// complete for every pre-existing install anyway. So on any Mac that
+    /// already had Melo both guards passed and launch touched IOBluetooth
+    /// regardless — the gate only ever protected new installs. Not touching
+    /// IOBluetooth at launch at all is what actually holds, so the guard is
+    /// gone rather than tightened.
+    ///
+    /// `bluetoothFeaturesEnabled` stays: someone who switched the feature off is
+    /// never asked. `BluetoothDeviceMonitor.start()` is idempotent, so calling
+    /// this from more than one entry point is safe.
     func startBluetoothMonitoringIfEnabled() {
         guard settingsManager.appSettings.bluetoothFeaturesEnabled else { return }
         bluetoothDeviceMonitor.start()

@@ -12,7 +12,6 @@ nonisolated enum MenuBarIconImage: Equatable {
     /// The earlier smooth curve, kept selectable for anyone who prefers it.
     case meloMarkSmooth
     case systemSymbol(String)
-    case asset(String)
 }
 
 nonisolated enum VolumeBucket: Equatable {

@@ -9,7 +9,7 @@ final class HUDWindowController: MediaKeyHUDPresenting {
     private let settingsManager: SettingsManager
     private let mediaKeyStatus: MediaKeyStatus
     private let popupVisibility: PopupVisibilityService
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "HUDWindowController")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "HUDWindowController")
 
     private var panel: NSPanel?
     private var hostingView: NSHostingView<AnyView>?

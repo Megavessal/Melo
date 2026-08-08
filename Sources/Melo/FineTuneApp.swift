@@ -6,12 +6,17 @@ import FluidMenuBarExtra
 import AppKit
 import os
 
-private let logger = Logger(subsystem: "dev.local.Melo", category: "App")
+private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "App")
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var audioEngine: AudioEngine?
     var menuBarPopupController: MenuBarPopupController?
+    /// `UNUserNotificationCenter` allows exactly one delegate and macOS expects
+    /// it to be the app delegate, so a notification response arrives here and
+    /// nowhere else. The controller decides what each button means; this only
+    /// gets the message to it.
+    var sparkleUpdateController: SparkleUpdateController?
 
     func application(_ application: NSApplication, open urls: [URL]) {
         guard let audioEngine = audioEngine else {
@@ -34,6 +39,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
         completionHandler([.banner])
+    }
+
+    /// Without this the update notification was a dead end: the system's
+    /// default response is to activate the app, and Melo is an `LSUIElement`
+    /// with no Dock tile and no window, so tapping the one thing that announces
+    /// a new version brought nothing at all to the screen.
+    ///
+    /// Only Sendable values cross the isolation hop — `UNNotificationResponse`
+    /// is not Sendable, so the two identifiers are read here and the object
+    /// itself is left behind.
+    nonisolated func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let actionIdentifier = response.actionIdentifier
+        let categoryIdentifier = response.notification.request.content.categoryIdentifier
+        // Called here rather than inside the Task below. The completion handler
+        // is not Sendable, so it cannot cross the hop to the main actor — and
+        // it does not need to: its contract is "everything I needed from this
+        // response has been read", which is true on the line above. What
+        // follows is Melo's own work on its own state, not the system's.
+        completionHandler()
+        Task { @MainActor in
+            self.sparkleUpdateController?.handleNotificationResponse(
+                actionIdentifier: actionIdentifier,
+                categoryIdentifier: categoryIdentifier
+            )
+        }
     }
 
     /// LSUIElement agent — closing the Settings window must not terminate the app.
@@ -71,6 +105,7 @@ struct MeloApp: App {
     @State private var installLocationCoordinator: InstallLocationCoordinator
     @State private var guidedTourCoordinator: GuidedTourCoordinator
     @State private var whatsNewCoordinator: WhatsNewCoordinator
+    @State private var analyticsConsentPrompt: AnalyticsConsentPrompt
     @State private var resolver: TargetAppResolver
     @State private var appSupportCoordinator: AppSupportCoordinator
     @StateObject private var sparkleUpdateController: SparkleUpdateController
@@ -142,6 +177,15 @@ struct MeloApp: App {
         // running copy; anything above this line would run during that check.
         UpdateStartupConfirmation.handlePreflightAndExitIfNeeded()
 
+        // Before the first line that reads UserDefaults. Melo's bundle identifier
+        // changed from its pre-2.9.4 placeholder, and macOS keys the defaults
+        // store by identifier and nothing else — so on the first launch after the rename
+        // the two constructors below would find an empty domain and treat an
+        // upgrade as a first install. SparkleUpdateController's initialiser reads
+        // the skip and the check settings; DeveloperUpdateManager's reads the
+        // folder-check flag. Both must see the migrated values, not the defaults.
+        LegacyDefaultsMigration.runIfNeeded()
+
         let sparkleUpdater = SparkleUpdateController()
         let developerUpdater = DeveloperUpdateManager()
         _sparkleUpdateController = StateObject(wrappedValue: sparkleUpdater)
@@ -184,8 +228,7 @@ struct MeloApp: App {
             audioPrimer: audioPrimer,
             guidedTour: guidedTour,
             popupController: popupController,
-            audioEngine: engine,
-            sparkle: sparkleUpdater
+            audioEngine: engine
         )
         _onboardingController = State(initialValue: onboarding)
         let installLocation = InstallLocationCoordinator()
@@ -197,6 +240,12 @@ struct MeloApp: App {
             popupController: popupController
         )
         _whatsNewCoordinator = State(initialValue: whatsNew)
+        let analyticsConsent = AnalyticsConsentPrompt(settings: settings)
+        _analyticsConsentPrompt = State(initialValue: analyticsConsent)
+        // Reads the stored answer and, only if it is already `.granted` from a
+        // previous run, starts the vendor SDKs. On a fresh install and on any
+        // install that declined, this call starts nothing at all.
+        TelemetryService.shared.configure(settings: settings)
         let appSupport = AppSupportCoordinator(
             settings: settings,
             onboarding: onboarding,
@@ -304,7 +353,7 @@ struct MeloApp: App {
         // to a SwiftUI `.task` on the popup content so the FluidMenuBarExtra
         // status item has been materialized before any hotkey can fire.
         let resolver = TargetAppResolver(
-            ownBundleID: Bundle.main.bundleIdentifier ?? "dev.local.Melo"
+            ownBundleID: Bundle.main.bundleIdentifier ?? "io.github.megavessal.Melo"
         )
         resolver.start()
         let registry = ShortcutsRegistry(
@@ -321,6 +370,9 @@ struct MeloApp: App {
         // Pass engine to AppDelegate
         _appDelegate.wrappedValue.audioEngine = engine
         _appDelegate.wrappedValue.menuBarPopupController = popupController
+        // Assigned before the delegate is set below, so a notification response
+        // can never arrive at a delegate that has nothing to route it to.
+        _appDelegate.wrappedValue.sparkleUpdateController = sparkleUpdater
 
         // DeviceVolumeMonitor is now created and started inside AudioEngine
         // This ensures proper initialization order: deviceMonitor.start() -> deviceVolumeMonitor.start()
@@ -346,10 +398,48 @@ struct MeloApp: App {
             let setupPending = onboarding.isSetupPending
             onboarding.showIfNeeded()
             whatsNew.showIfNeeded(suppressedByOnboarding: setupPending)
+            // Last, and only if the launch is otherwise quiet. New users answer
+            // this inside setup; this window exists for people who upgraded into
+            // the release that added the question. Both suppressions are passed
+            // as facts rather than inferred from a delay — `isPresenting` is read
+            // after `showIfNeeded` precisely because that is when the answer is
+            // known.
+            analyticsConsent.showIfNeeded(
+                suppressedByOnboarding: setupPending,
+                suppressedByWhatsNew: whatsNew.isPresenting
+            )
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
             UpdateStartupConfirmation.confirmCurrentBuild()
         }
+
+        #if MELO_DEV
+        // Renders the real UI offscreen and exits. Scheduled after the windows
+        // above so nothing races a setup sheet into the capture, and gated on an
+        // environment variable so a normal `--dev` build is unaffected.
+        if SnapshotHarness.isRequested {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                MainActor.assumeIsolated { () -> Void in
+                    SnapshotHarness.run(
+                        SnapshotScenes.all(
+                            audioEngine: engine,
+                            deviceVolumeMonitor: engine.deviceVolumeMonitor as! DeviceVolumeMonitor,
+                            sparkle: sparkleUpdater,
+                            developerUpdates: developerUpdater,
+                            permission: permission,
+                            accessibility: accessibilityService,
+                            mediaKeyStatus: statusService,
+                            popupVisibility: popupService,
+                            hudController: hud,
+                            mediaKeyMonitor: monitor,
+                            guidedTour: guidedTour,
+                            settings: settings
+                        )
+                    )
+                }
+            }
+        }
+        #endif
 
         // Flush debounced settings + tear down the CGEventTap before dealloc.
         NotificationCenter.default.addObserver(

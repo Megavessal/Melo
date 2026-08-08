@@ -14,6 +14,12 @@ final class CallDuckingManager {
     private var currentGain: Float = 1.0
     private var started = false
 
+    /// One detector per candidate app. Per-app rather than one shared detector
+    /// because "has been making sound for 750 ms" is a fact about a process:
+    /// pooling the polls would let a chime from one app top up the run started
+    /// by a chime from another.
+    private var detectors: [pid_t: CallActivityDetector] = [:]
+
     private(set) var activeCallAppNames: [String] = []
 
     private static let knownBundleIDs: Set<String> = [
@@ -30,11 +36,6 @@ final class CallDuckingManager {
     private static let knownNameFragments = [
         "zoom", "facetime", "discord", "slack", "microsoft teams", "webex"
     ]
-
-    /// Peak level above which a selected communication app is treated as
-    /// actively producing call audio. Kept intentionally low so quiet speech
-    /// triggers promptly without reacting to numerical noise.
-    private static let activeLevelThreshold: Float = 0.008
 
     init(audioEngine: AudioEngine) {
         self.audioEngine = audioEngine
@@ -95,6 +96,7 @@ final class CallDuckingManager {
         gainRampTask?.cancel()
         gainRampTask = nil
         activeCallAppNames = []
+        detectors = [:]
         currentGain = 1.0
         audioEngine.setCallDuckingGain(1.0)
         audioEngine.setCallDucking(active: false, communicationPIDs: [])
@@ -108,6 +110,7 @@ final class CallDuckingManager {
             restoreTask?.cancel()
             restoreTask = nil
             activeCallAppNames = []
+            detectors = [:]
             gainRampTask?.cancel()
             gainRampTask = nil
             currentGain = 1.0
@@ -126,8 +129,15 @@ final class CallDuckingManager {
         let candidatePIDs = Set(candidateApps.map(\.id))
         audioEngine.setCallDuckingMonitoringPIDs(candidatePIDs)
 
-        let soundingCallApps = candidateApps.filter {
-            audioEngine.getAudioLevel(for: $0) >= Self.activeLevelThreshold
+        // Detectors for apps that quit would otherwise keep their run counter
+        // forever, so a relaunched PID could inherit a half-finished onset.
+        detectors = detectors.filter { candidatePIDs.contains($0.key) }
+
+        let soundingCallApps = candidateApps.filter { app in
+            var detector = detectors[app.id] ?? CallActivityDetector()
+            let onCall = detector.update(peak: audioEngine.getAudioLevel(for: app))
+            detectors[app.id] = detector
+            return onCall
         }
 
         guard !soundingCallApps.isEmpty else {
@@ -151,7 +161,7 @@ final class CallDuckingManager {
     private func scheduleRestoreIfNeeded() {
         guard !activeCallAppNames.isEmpty, restoreTask == nil else { return }
         restoreTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(1_500))
+            try? await Task.sleep(for: .milliseconds(CallActivityDetector.releaseMilliseconds))
             guard !Task.isCancelled, let self else { return }
             self.activeCallAppNames = []
             self.rampGain(to: 1.0, milliseconds: 260, deactivateAfter: true)

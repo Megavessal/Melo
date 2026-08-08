@@ -100,6 +100,7 @@ final class DeviceVolumeMonitor: DeviceVolumeProviding {
 
     /// Debounce task for alert volume writes (NSAppleScript is heavy — throttle during drag)
     private var alertVolumeDebounceTask: Task<Void, Never>?
+    private var alertVolumeReadTask: Task<Void, Never>?
 
     private var defaultDeviceAddress = AudioObjectPropertyAddress(
         mSelector: kAudioHardwarePropertyDefaultOutputDevice,
@@ -330,6 +331,8 @@ final class DeviceVolumeMonitor: DeviceVolumeProviding {
 
         cancelAllBluetoothConfirmationTasks()
         cancelAllVolumeLogTasks()
+        alertVolumeReadTask?.cancel()
+        alertVolumeReadTask = nil
 
         volumes.removeAll()
         muteStates.removeAll()
@@ -685,17 +688,64 @@ final class DeviceVolumeMonitor: DeviceVolumeProviding {
 
     // MARK: - Alert Volume
 
-    /// Reads the current system alert volume via AppleScript.
-    /// No CoreAudio property exists for alert volume — AppleScript is the canonical API.
-    /// Safe to call periodically for live sync; skip if a debounced write is pending.
+    /// Reads the current system alert volume. No CoreAudio property exists for it,
+    /// so this is an Apple event either way; what matters is which thread waits.
+    ///
+    /// This used to be an in-process `NSAppleScript.executeAndReturnError` called
+    /// straight from `start()`, so launch blocked the main actor inside
+    /// `AESendMessage` waiting for another process to answer. Measured at 218 ms
+    /// on an idle Mac — 66 ms compiling the script, 141 ms in `AEDefaultActiveProc`,
+    /// which is an *unbounded* wait: if macOS puts up its Automation consent dialog,
+    /// the main thread stays blocked behind it with a spinning beachball for as long
+    /// as the dialog is up. Nothing about that is bounded by anything Melo controls.
+    ///
+    /// `setAlertVolume` below already solved this for the write, and says why in its
+    /// own comment. The read now uses the same mechanism, so this file has one way
+    /// of talking to the volume settings instead of two.
     func refreshAlertVolume() {
-        guard alertVolumeDebounceTask == nil else { return }
+        // A pending write is newer than anything a read can return.
+        guard alertVolumeDebounceTask == nil, alertVolumeReadTask == nil else { return }
 
-        let script = NSAppleScript(source: "get alert volume of (get volume settings)")
-        var error: NSDictionary?
-        if let result = script?.executeAndReturnError(&error) {
-            let pct = Int(result.int32Value)
-            alertVolume = Float(pct) / 100.0
+        alertVolumeReadTask = Task { @MainActor [weak self] in
+            let percent = await Self.readAlertVolumePercent()
+            guard let self else { return }
+            self.alertVolumeReadTask = nil
+            // Re-checked after the await, not only before it: a write started
+            // while the subprocess was running holds the newer value, and
+            // applying the read would silently undo the user's drag.
+            guard self.alertVolumeDebounceTask == nil, let percent else { return }
+            self.alertVolume = Float(min(100, max(0, percent))) / 100.0
+        }
+    }
+
+    /// Runs `osascript` as a child process off the main actor and parses its stdout.
+    /// stdout is drained before `waitUntilExit()`; the other order deadlocks once the
+    /// reply outgrows the pipe buffer.
+    private nonisolated static func readAlertVolumePercent() async -> Int? {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+                process.arguments = ["-e", "get alert volume of (get volume settings)"]
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = FileHandle.nullDevice
+                do {
+                    try process.run()
+                } catch {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+                guard process.terminationStatus == 0 else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let text = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                continuation.resume(returning: text.flatMap(Int.init))
+            }
         }
     }
 

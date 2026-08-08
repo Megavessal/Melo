@@ -10,6 +10,16 @@ struct GeneralTab: View {
     let audioEngine: AudioEngine
     let onResetAll: () -> Void
     let onSettingsRestored: () -> Void
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
+    /// Where the scroll view is parked. `scrollPosition` reads this during the
+    /// scroll view's own layout, which is why the Guide's target is copied into
+    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
+    /// after the tab appears rendered nothing at all, and nothing could see that
+    /// it had not.
+    @State private var scrolledSection: String?
 
     @State private var showResetConfirmation = false
     @State private var showEraseConfirmation = false
@@ -25,13 +35,22 @@ struct GeneralTab: View {
                 generalSection
                 menuBarSection
                 supportSection
+                privacySection
                 dataSection
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .scrollPosition(id: $scrolledSection, anchor: .top)
+        // `initial: true` because the tab the reader is sent to is usually
+        // built *after* the Guide set the target, so there is no change left
+        // to observe by the time this view exists.
+        .onChange(of: sectionTarget, initial: true) { _, target in
+            if let target { scrolledSection = target.section }
+        }
         .confirmationDialog(
             "Reset all settings?",
             isPresented: $showResetConfirmation,
@@ -91,6 +110,7 @@ struct GeneralTab: View {
                     .controlSize(.small)
             }
         }
+        .id("Getting Started")
     }
 
     private var generalSection: some View {
@@ -188,6 +208,7 @@ struct GeneralTab: View {
                     }
             }
         }
+        .id("General")
     }
 
     private var menuBarSection: some View {
@@ -218,6 +239,7 @@ struct GeneralTab: View {
                 PopupSizeTilePicker(selection: $settings.appSettings.popupSize)
             }
         }
+        .id("Menu Bar")
     }
 
     private var supportSection: some View {
@@ -246,6 +268,46 @@ struct GeneralTab: View {
                 .padding(.vertical, 8)
             }
         }
+        .id("Help and Diagnostics")
+    }
+
+    /// The switch reads `.granted` as on and both `.denied` and `.unasked` as
+    /// off, but writing never produces `.unasked` again: once this control has
+    /// been touched the question has definitively been answered, and the
+    /// one-time launch prompt must not come back afterwards.
+    private var analyticsSharingBinding: Binding<Bool> {
+        Binding(
+            get: { settings.appSettings.analyticsConsent == .granted },
+            set: { isOn in
+                var appSettings = settings.appSettings
+                appSettings.analyticsConsent = isOn ? .granted : .denied
+                settings.appSettings = appSettings
+                TelemetryService.shared.refreshConsent()
+            }
+        )
+    }
+
+    private var privacySection: some View {
+        SettingsSection("Privacy") {
+            SettingsRow(
+                "Share Anonymous Usage",
+                description: "Help decide what to improve next. Off unless you turn it on."
+            ) {
+                Toggle("", isOn: analyticsSharingBinding)
+                    .toggleStyle(.switch).controlSize(.small).labelsHidden()
+            }
+            SettingsRowDivider()
+            // Spelled out rather than linked to a privacy policy: the promise
+            // that matters here is that app and device names never leave the
+            // machine, and it should be readable at the switch that controls it.
+            SettingsRow(
+                "What Melo Collects",
+                description: "Melo’s version, your macOS version, roughly which Mac chip you have, your language, and which features were used. Never the names of your apps, your audio devices, or your Mac, and never what you listen to."
+            ) {
+                EmptyView()
+            }
+        }
+        .id("Privacy")
     }
 
     private var dataSection: some View {
@@ -283,6 +345,7 @@ struct GeneralTab: View {
                     .controlSize(.small)
             }
         }
+        .id("Data")
     }
 
     private func saveBackup() {

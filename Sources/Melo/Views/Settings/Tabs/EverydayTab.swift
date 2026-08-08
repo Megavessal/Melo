@@ -8,6 +8,16 @@ struct EverydayTab: View {
     @Bindable var audioEngine: AudioEngine
     @Bindable var automationManager: ConsumerAutomationManager
     @Bindable var sleepTimer: SleepTimerManager
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
+    /// Where the scroll view is parked. `scrollPosition` reads this during the
+    /// scroll view's own layout, which is why the Guide's target is copied into
+    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
+    /// after the tab appears rendered nothing at all, and nothing could see that
+    /// it had not.
+    @State private var scrolledSection: String?
 
     @State private var showCreateScene = false
     @State private var showCreateAutomation = false
@@ -32,8 +42,16 @@ struct EverydayTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .scrollPosition(id: $scrolledSection, anchor: .top)
+        // `initial: true` because the tab the reader is sent to is usually
+        // built *after* the Guide set the target, so there is no change left
+        // to observe by the time this view exists.
+        .onChange(of: sectionTarget, initial: true) { _, target in
+            if let target { scrolledSection = target.section }
+        }
         .sheet(isPresented: $showCreateScene) {
             CreateConsumerSceneSheet { name, symbol in
                 let scene = audioEngine.saveCurrentConsumerScene(name: name, symbolName: symbol)
@@ -116,6 +134,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .id("Scenes")
     }
 
     private func sceneCard(_ scene: ConsumerScene) -> some View {
@@ -201,6 +220,7 @@ struct EverydayTab: View {
                 }
                 .padding(12)
             }
+            .id("Compare")
         }
     }
 
@@ -264,6 +284,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .id("Automations")
     }
 
     private func automationRow(_ automation: ConsumerAutomation) -> some View {
@@ -319,6 +340,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .id("Focus & Shortcuts")
     }
 
     private func openShortcuts() {
@@ -360,6 +382,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .id("Sleep Timer")
     }
 
     private var recentChangesSection: some View {
@@ -404,6 +427,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .id("Recent Changes")
     }
 
     private var helpSection: some View {
@@ -447,6 +471,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .id("Audio Help")
     }
 
     private func friendlyEmptyState(symbol: String, title: String, message: String) -> some View {

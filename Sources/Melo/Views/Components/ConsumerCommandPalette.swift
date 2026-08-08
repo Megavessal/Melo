@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension Notification.Name {
-    static let meloOpenGuide = Notification.Name("dev.local.Melo.openGuide")
+    static let meloOpenGuide = Notification.Name("io.github.megavessal.Melo.openGuide")
 }
 
 @MainActor
@@ -44,6 +44,7 @@ struct ConsumerCommandPalette: View {
 
                 Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
 
                 TextField("What would you like Melo to do?", text: $searchText)
                     .textFieldStyle(.plain)
@@ -117,6 +118,7 @@ struct ConsumerCommandPalette: View {
                             .padding(.horizontal, 14)
                             .padding(.top, DesignTokens.Spacing.md)
                             .padding(.bottom, 3)
+                            .accessibilityAddTraits(.isHeader)
 
                         ForEach(group.commands) { command in
                             commandButton(command, isSelected: command.id == selectedID)
@@ -145,9 +147,10 @@ struct ConsumerCommandPalette: View {
             Image(systemName: "sparkle.magnifyingglass")
                 .font(.system(size: 25, weight: .medium))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
             Text("No close match")
                 .font(DesignTokens.Typography.Scale.body(.semibold))
-            Text("Try “mute Music,” “Spotify to 40%,” “headphones,” “fix audio,” or “help.”")
+            Text("Try “mute Music,” “Spotify to 200%,” “headphones,” “fix audio,” or “help.”")
                 .font(DesignTokens.Typography.Scale.caption())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -193,6 +196,7 @@ struct ConsumerCommandPalette: View {
                     .foregroundStyle(.tint)
                     .frame(width: 28, height: 28)
                     .background(Circle().fill(.tint.opacity(0.12)))
+                    .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(command.title)
                         .font(.system(size: 12, weight: .medium))
@@ -206,6 +210,7 @@ struct ConsumerCommandPalette: View {
                 Image(systemName: "return")
                     .font(DesignTokens.Typography.Scale.caption2())
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.6))
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, DesignTokens.Spacing.md)
             .padding(.vertical, 7)
@@ -223,6 +228,11 @@ struct ConsumerCommandPalette: View {
                 )
                 .padding(.horizontal, DesignTokens.Spacing.xs2)
         )
+        // The title is the whole label: the subtitle is a rationale, not a
+        // name, and reading it into the label makes every row take three
+        // seconds to hear in a list you are meant to skim.
+        .accessibilityLabel(command.title)
+        .accessibilityHint(command.subtitle)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -247,8 +257,21 @@ struct ConsumerCommandPalette: View {
         return IntentSearch.rank(candidates, limit: 12) { $0.score(query) }
     }
 
+    /// What the palette offers before anything is typed.
+    ///
+    /// The per-app commands used to be absent from this list entirely — they
+    /// only existed once a query had been typed — so a palette opened in an app
+    /// whose whole purpose is per-app volume suggested scenes, devices and
+    /// Settings, and never a single app. The first app's three commands are
+    /// included for the same reason four scenes and three devices are: they are
+    /// what someone opening this is most likely to have come for.
+    ///
+    /// `prefix(3)` is one app, not three: `appCommands` emits mute / raise /
+    /// lower per app, and every app contributing three rows is what buried the
+    /// answer in its own results when this list was longer.
     private var suggestedCommands: [Command] {
         var result: [Command] = []
+        result.append(contentsOf: appCommands.prefix(3))
         result.append(contentsOf: sceneCommands.prefix(4))
         result.append(contentsOf: deviceCommands.prefix(3))
         result.append(contentsOf: generalCommands)
@@ -287,9 +310,39 @@ struct ConsumerCommandPalette: View {
         }
     }
 
+    // MARK: - What a percent means here
+
+    // One definition, shared with the app row's readout, the row's slider and
+    // editable field, and the "Set App Volume in Melo" shortcut: a percent is
+    // **effective gain × 100, in 0...400** — the app's base volume multiplied by
+    // its boost. Reading `getVolume(for:)` on its own reported an app boosted to
+    // 2× as "100%" while its row said "200%", and clamping to a gain of 1.0 made
+    // "Raise Music" do nothing for every boosted app.
+
+    /// Loudest gain Melo will apply to one app, as a percent. Matches
+    /// `EditablePercentage(range: 0...400)` in `AppRowControls` and the 0–400
+    /// range `SetMeloAppVolumeIntent` documents.
+    private static let maximumPercent = 400
+
+    private func effectivePercent(for app: AudioApp) -> Int {
+        let gain = audioEngine.getVolume(for: app) * audioEngine.getBoost(for: app).rawValue
+        return Int((Double(max(0, min(4, gain))) * 100).rounded())
+    }
+
+    /// Writes a percent back through Melo's persisted base-volume + boost pair,
+    /// using the same decomposition the slider uses so the two cannot drift.
+    private func setEffectivePercent(_ percent: Int, for app: AudioApp) {
+        let clamped = max(0, min(Self.maximumPercent, percent))
+        let components = VolumeMapping.components(forEffectiveGain: Float(clamped) / 100)
+        audioEngine.setBoost(for: app, to: components.boost)
+        audioEngine.setVolume(for: app, to: components.volume)
+    }
+
     private var appCommands: [Command] {
         audioEngine.apps.flatMap { app in
-            let currentPercent = Int((audioEngine.getVolume(for: app) * 100).rounded())
+            let currentPercent = effectivePercent(for: app)
+            let raisedPercent = min(Self.maximumPercent, currentPercent + 10)
+            let loweredPercent = max(0, currentPercent - 10)
             let muted = audioEngine.getMute(for: app)
             return [
                 Command(
@@ -304,24 +357,26 @@ struct ConsumerCommandPalette: View {
                 Command(
                     id: "app-up-\(app.id)",
                     title: "Raise \(app.name)",
-                    subtitle: "Increase it from \(currentPercent)% by 10%",
+                    // The row it will change shows a number; so does this, and
+                    // the number it promises is the number the action writes.
+                    subtitle: raisedPercent == currentPercent
+                        ? "Already at \(currentPercent)%, as loud as Melo goes"
+                        : "Now \(currentPercent)% — this makes it \(raisedPercent)%",
                     symbol: "speaker.plus.fill",
                     category: .controls,
                     aliases: ["louder", "turn up", "increase"],
-                    action: {
-                        audioEngine.setVolume(for: app, to: min(1, audioEngine.getVolume(for: app) + 0.10))
-                    }
+                    action: { setEffectivePercent(raisedPercent, for: app) }
                 ),
                 Command(
                     id: "app-down-\(app.id)",
                     title: "Lower \(app.name)",
-                    subtitle: "Reduce it from \(currentPercent)% by 10%",
+                    subtitle: loweredPercent == currentPercent
+                        ? "Already at 0%"
+                        : "Now \(currentPercent)% — this makes it \(loweredPercent)%",
                     symbol: "speaker.minus.fill",
                     category: .controls,
                     aliases: ["quieter", "turn down", "decrease"],
-                    action: {
-                        audioEngine.setVolume(for: app, to: max(0, audioEngine.getVolume(for: app) - 0.10))
-                    }
+                    action: { setEffectivePercent(loweredPercent, for: app) }
                 ),
             ]
         }
@@ -405,11 +460,13 @@ struct ConsumerCommandPalette: View {
             result.append(Command(
                 id: "direct-volume-\(app.id)-\(percent)",
                 title: "Set \(app.name) to \(percent)%",
-                subtitle: "Change only this app",
+                subtitle: percent > 100
+                    ? "Louder than this app can go on its own"
+                    : "Change only this app",
                 symbol: "slider.horizontal.3",
                 category: .controls,
                 aliases: [query],
-                action: { audioEngine.setVolume(for: app, to: Float(percent) / 100) }
+                action: { setEffectivePercent(percent, for: app) }
             ))
         }
 

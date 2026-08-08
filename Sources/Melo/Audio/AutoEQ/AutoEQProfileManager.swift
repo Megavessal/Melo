@@ -17,7 +17,7 @@ final class AutoEQProfileManager {
     private(set) var profiles: [String: AutoEQProfile] = [:]
 
     private let fetcher: AutoEQFetcher
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "AutoEQProfileManager")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "AutoEQProfileManager")
     private let loader: AutoEQProfileLoader
 
     /// Pre-sorted catalog entries for fast search.
@@ -36,11 +36,17 @@ final class AutoEQProfileManager {
             profiles[profile.id] = profile
         }
 
-        // Load catalog from cache/GitHub
-        Task { @MainActor in
-            await self.fetcher.loadCatalog()
-            self.rebuildSearchIndex()
-        }
+        // Cache only. Launch must not put a request on the wire.
+        self.fetcher.loadCachedCatalog()
+        rebuildSearchIndex()
+    }
+
+    /// Brings the catalog up to date, going to GitHub only if the cache cannot
+    /// answer. Call this from the surface that discloses the download — opening
+    /// the AutoEQ panel — and from nowhere else.
+    func prepareCatalog() async {
+        await fetcher.refreshCatalogIfNeeded()
+        rebuildSearchIndex()
     }
 
     // MARK: - Catalog State (forwarded from fetcher)

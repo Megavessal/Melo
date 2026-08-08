@@ -43,7 +43,7 @@ protocol PerAppHUDPresenting: AnyObject {
 @Observable
 final class ShortcutsRegistry {
     private static let logger = Logger(
-        subsystem: "dev.local.Melo",
+        subsystem: "io.github.megavessal.Melo",
         category: "ShortcutsRegistry"
     )
 

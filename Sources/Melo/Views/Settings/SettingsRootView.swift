@@ -24,6 +24,12 @@ struct SettingsRootView: View {
     }
 
     @State private var selection: Section = .everyday
+    /// The section the reader was sent to, handed to whichever tab holds it so
+    /// that tab scrolls to it.
+    @State private var sectionTarget: SettingsSectionTarget?
+    /// Numbers each navigation so asking for the same section twice is two
+    /// different values. See `SettingsSectionTarget.serial`.
+    @State private var navigationCount = 0
 
     /// The search row sits above the tabs rather than inside them, so the window
     /// grows by its height instead of stealing it from whichever tab is showing.
@@ -31,7 +37,7 @@ struct SettingsRootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SettingsSearchField(onSelect: { navigate(to: $0) })
+            SettingsSearchField(onSelect: { navigate(to: $0, location: $1) })
                 .frame(height: Self.searchBarHeight)
                 // The results list is an overlay that hangs past the row's own
                 // bounds; without a raised zIndex the TabView below paints over it.
@@ -72,10 +78,25 @@ struct SettingsRootView: View {
     /// The Guide's model deliberately does not depend on this view, so the two
     /// enums are matched by raw value. An unknown case leaves the tab alone
     /// rather than guessing.
-    private func navigate(to destination: SettingsDestination) {
+    ///
+    /// Switching tab is only half the answer — Audio holds six sections and
+    /// General six more, so a bare tab switch can land a reader well above the
+    /// thing they asked for. The section the location line names is handed to
+    /// the tab, which scrolls to it.
+    ///
+    /// This replaced a bar that printed "Settings › Audio › Calls" across the
+    /// top of the window and left the reader to find Calls themselves. Telling
+    /// someone where a control is, in a window that could simply show it to
+    /// them, is a description of the feature rather than the feature.
+    private func navigate(to destination: SettingsDestination, location: String?) {
         guard let section = Section(rawValue: destination.rawValue) else { return }
+        navigationCount += 1
+        let target = SettingsGuideEntry.sectionTitle(inLocation: location).map {
+            SettingsSectionTarget(section: $0, serial: navigationCount)
+        }
         withAnimation(DesignTokens.Animation.quick) {
             selection = section
+            sectionTarget = target
         }
     }
 
@@ -85,9 +106,10 @@ struct SettingsRootView: View {
                 settings: settings,
                 audioEngine: audioEngine,
                 automationManager: consumerAutomationManager,
-                sleepTimer: sleepTimerManager
+                sleepTimer: sleepTimerManager,
+                sectionTarget: sectionTarget
             )
-            .tabItem { Label("Everyday", systemImage: "sparkles") }
+            .tabItem { Label("Everyday", systemImage: "house") }
             .tag(Section.everyday)
 
             GeneralTab(
@@ -107,7 +129,8 @@ struct SettingsRootView: View {
                     callDuckingManager.checkNow()
                     powerSourceMonitor.refresh()
                     MeloAppShortcuts.updateAppShortcutParameters()
-                }
+                },
+                sectionTarget: sectionTarget
             )
             .tabItem { Label("General", systemImage: "gearshape") }
             .tag(Section.general)
@@ -117,13 +140,14 @@ struct SettingsRootView: View {
                 audioEngine: audioEngine,
                 deviceVolumeMonitor: deviceVolumeMonitor,
                 callDuckingManager: callDuckingManager,
-                powerSourceMonitor: powerSourceMonitor
+                powerSourceMonitor: powerSourceMonitor,
+                sectionTarget: sectionTarget
             )
             .tabItem { Label("Audio", systemImage: "speaker.wave.2") }
             .tag(Section.audio)
 
             AudioUnitsTab(host: audioEngine.audioUnitHost, audioEngine: audioEngine)
-                .tabItem { Label("Effects", systemImage: "waveform.path.ecg") }
+                .tabItem { Label("Effects", systemImage: "waveform.path") }
                 .tag(Section.effects)
 
             ShortcutsTab(
@@ -131,12 +155,13 @@ struct SettingsRootView: View {
                 accessibility: accessibility,
                 mediaKeyStatus: mediaKeyStatus,
                 mediaKeyMonitor: mediaKeyMonitor,
-                shortcutsRegistry: shortcutsRegistry
+                shortcutsRegistry: shortcutsRegistry,
+                sectionTarget: sectionTarget
             )
             .tabItem { Label("Shortcuts", systemImage: "command") }
             .tag(Section.shortcuts)
 
-            SettingsGuideView(onNavigate: { navigate(to: $0) })
+            SettingsGuideView(onNavigate: { navigate(to: $0, location: $1) })
                 .tabItem { Label("Guide", systemImage: "questionmark.circle") }
                 .tag(Section.guide)
 
@@ -163,7 +188,9 @@ struct SettingsRootView: View {
 /// the Guide is findable here, and selecting a result opens its tab.
 @MainActor
 private struct SettingsSearchField: View {
-    let onSelect: (SettingsDestination) -> Void
+    /// The location travels with the destination, so a result found here lands
+    /// on the same heading the Guide's own "Show me" lands on.
+    let onSelect: (SettingsDestination, String?) -> Void
 
     @State private var query = ""
     @State private var selectedIndex = 0
@@ -291,7 +318,7 @@ private struct SettingsSearchField: View {
     }
 
     private func activate(_ entry: SettingsGuideEntry) {
-        onSelect(destination(for: entry))
+        onSelect(destination(for: entry), entry.location)
         query = ""
         focused = false
     }

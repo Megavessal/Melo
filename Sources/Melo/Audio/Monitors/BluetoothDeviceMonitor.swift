@@ -17,6 +17,17 @@ final class BluetoothDeviceMonitor {
     /// Whether the Bluetooth hardware is powered on.
     private(set) var isBluetoothOn: Bool = false
 
+    /// False from `start()` until the first power-state read comes back.
+    ///
+    /// The view cannot be honest without it. `isBluetoothOn` is `false` in three
+    /// different situations — Melo has not asked yet, macOS is showing its
+    /// permission prompt right now, and the answer came back negative — and the
+    /// only copy that fits the third ("Turn on Bluetooth") is wrong advice in
+    /// the second, about a switch that is very likely already on. The first read
+    /// is also the call that raises the prompt, so this stays false for exactly
+    /// as long as the prompt is up.
+    private(set) var hasCompletedFirstScan = false
+
     /// Paired-but-disconnected audio BT devices, sorted by name.
     private(set) var pairedDevices: [PairedBluetoothDevice] = []
 
@@ -29,7 +40,7 @@ final class BluetoothDeviceMonitor {
     // MARK: - Private
 
     private let logger = Logger(
-        subsystem: "dev.local.Melo",
+        subsystem: "io.github.megavessal.Melo",
         category: "BluetoothDeviceMonitor"
     )
 
@@ -58,11 +69,14 @@ final class BluetoothDeviceMonitor {
     @ObservationIgnored private nonisolated(unsafe) var powerOnObserver: NSObjectProtocol?
     @ObservationIgnored private nonisolated(unsafe) var powerOffObserver: NSObjectProtocol?
 
-    /// Gate for the whole monitor. Every path that reaches IOBluetooth runs
-    /// through `refresh()`, and the first such call is what makes macOS show the
-    /// Bluetooth prompt — including the popup's on-appear refresh, which would
-    /// otherwise sidestep any gating done at startup. One flag here covers every
-    /// call site.
+    /// Gate for the whole monitor, and the answer to "has Melo touched
+    /// Bluetooth yet".
+    ///
+    /// Every path that reaches IOBluetooth — `refresh()`, `connect()`,
+    /// `notifyDeviceAppearedInCoreAudio()` — returns early on it, so the Core
+    /// Audio device callbacks that fire while devices enumerate at launch stay
+    /// inert until a user has actually reached for a Bluetooth feature. One
+    /// flag covers every call site, which is why no caller needs its own guard.
     private(set) var isStarted = false
 
     // MARK: - Lifecycle
@@ -72,10 +86,12 @@ final class BluetoothDeviceMonitor {
         if let powerOffObserver { NotificationCenter.default.removeObserver(powerOffObserver) }
     }
 
+    /// The first call raises the macOS Bluetooth prompt. Reach it only from a
+    /// surface where the user has asked for something Bluetooth does; launching
+    /// Melo and opening the popup are both explicitly not that.
     func start() {
-        // Idempotent: onboarding calls this the moment the user opts in, and
-        // launch may have called it already. Registering the observers twice
-        // would double every refresh.
+        // Idempotent: more than one surface can be the first one a given user
+        // touches. Registering the observers twice would double every refresh.
         guard isStarted == false else { return }
         isStarted = true
         powerOnObserver = NotificationCenter.default.addObserver(
@@ -114,6 +130,7 @@ final class BluetoothDeviceMonitor {
             }
             guard !Task.isCancelled else { return }
 
+            hasCompletedFirstScan = true
             isBluetoothOn = powered
 
             guard powered else {
@@ -146,6 +163,7 @@ final class BluetoothDeviceMonitor {
 
     /// Initiates a Bluetooth connection for the given paired device.
     func connect(device: PairedBluetoothDevice) {
+        guard isStarted else { return }
         let mac = device.id
         guard !connectingIDs.contains(mac) else { return }
 
@@ -179,6 +197,11 @@ final class BluetoothDeviceMonitor {
     /// via Melo) are removed. If a Melo-initiated connection is in flight,
     /// clears the connecting state for devices that succeeded.
     func notifyDeviceAppearedInCoreAudio() {
+        // Reached from Core Audio device changes, which fire during launch while
+        // devices enumerate. The `connectingIDs` branch calls pairedDevices()
+        // directly rather than going through the gated refresh(), so it needs
+        // its own guard.
+        guard isStarted else { return }
         if !connectingIDs.isEmpty {
             Task {
                 let stillDisconnected = await Self.runOnBTQueue {

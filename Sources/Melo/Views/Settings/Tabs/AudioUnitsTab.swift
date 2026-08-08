@@ -285,7 +285,7 @@ private struct AudioUnitBrowserView: View {
                                     dismiss()
                                 } label: {
                                     HStack(spacing: 11) {
-                                        Image(systemName: "waveform.path.ecg")
+                                        Image(systemName: "waveform.path")
                                             .font(.system(size: 17))
                                             .foregroundStyle(.tint)
                                             .frame(width: 26)

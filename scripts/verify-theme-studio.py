@@ -43,7 +43,7 @@ require("Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift", "@preconcurre
 build_coordinator = require("Sources/Melo/Updates/UpdateBuildCoordinator.swift", "Build Melo.command", "scripts/build-app.sh")
 if "/usr/bin/xcodebuild" in build_coordinator and "xcodebuild\"," in build_coordinator:
     failures.append("UpdateBuildCoordinator.swift: builds must go through build-app.sh, not a direct xcodebuild invocation")
-project = require("Melo.xcodeproj/project.pbxproj", "ARCHS = arm64;", "EXCLUDED_ARCHS = x86_64;", "MARKETING_VERSION = 2.9.3;", "CURRENT_PROJECT_VERSION = 298;")
+project = require("Melo.xcodeproj/project.pbxproj", "ARCHS = arm64;", "EXCLUDED_ARCHS = x86_64;", "MARKETING_VERSION = 2.9.4;", "CURRENT_PROJECT_VERSION = 299;")
 build = require("scripts/build-app.sh", "ARCHS=arm64", "EXCLUDED_ARCHS=x86_64", "Removed Intel slices", '[[ "$ARCHS" == "arm64" ]]')
 if "ARCHS='arm64 x86_64'" in build or "ARCHS=arm64 x86_64" in build:
     failures.append("universal build flag remains in build script")
@@ -51,8 +51,8 @@ if '"$(inherited) @executable_path/../Frameworks"' in project:
     failures.append("malformed combined runtime search path remains")
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.3": failures.append("wrong version")
-if info.get("CFBundleVersion") != "298": failures.append("wrong build")
+if info.get("CFBundleShortVersionString") != "2.9.4": failures.append("wrong version")
+if info.get("CFBundleVersion") != "299": failures.append("wrong build")
 
 # Exactly one app icon source. Declaring both CFBundleIconFile and an asset
 # catalog let macOS choose between two near-identical files, so the icon changed

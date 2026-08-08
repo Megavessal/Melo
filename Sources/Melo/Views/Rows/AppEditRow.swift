@@ -74,6 +74,10 @@ struct AppEditRow: View {
             .buttonStyle(.meloHover)
             .onHover { isEyeHovered = $0 }
             .help(isIgnored ? "Stop ignoring" : "Ignore app")
+            // The pin button beside it names the app; this one announced only
+            // its glyph, so two adjacent toggles read as "eye" and "Always
+            // show Music".
+            .accessibilityLabel(isIgnored ? "Stop ignoring \(name)" : "Ignore \(name)")
             .animation(DesignTokens.Animation.quick, value: isEyeHovered)
         }
         .frame(height: DesignTokens.Dimensions.rowContentHeight)

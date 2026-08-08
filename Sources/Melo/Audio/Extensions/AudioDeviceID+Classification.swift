@@ -65,30 +65,213 @@ nonisolated extension AudioDeviceID {
 // MARK: - AutoEQ Eligibility
 
 extension AudioDeviceID {
-    /// Returns `true` if this device is likely headphones and can benefit from AutoEQ correction.
-    /// HDMI, DisplayPort, AirPlay, virtual, and known speaker-only devices return `false`.
-    /// Built-in devices delegate to `builtInHasHeadphonesActive()` for headphone jack detection.
+    /// Returns `true` when Melo should offer AutoEQ headphone correction for this
+    /// output.
+    ///
+    /// An AutoEQ profile is a headphone measurement corrected toward a
+    /// head-related target. Applied to a loudspeaker it is not a small
+    /// improvement in the wrong direction — it is the wrong correction, and it
+    /// makes the speaker measurably worse. So this asks "is there reason to
+    /// believe this is a personal listening device, and no reason to believe
+    /// otherwise", and answers only the parts CoreAudio can actually answer.
+    ///
+    /// **What this deliberately cannot know, and what that costs.** CoreAudio
+    /// exposes nothing that separates a two-channel USB DAC feeding headphones
+    /// from one feeding desktop speakers, and nothing that separates a Bluetooth
+    /// headset from a Bluetooth speaker when neither name says so. The decisive
+    /// Bluetooth signal is the peer's Bluetooth minor device class (Headphones /
+    /// Hands-free versus Loudspeaker), which lives in IOBluetooth rather than
+    /// CoreAudio and is not read here.
+    ///
+    /// So this rule still offers the picker on `Bose SoundLink Mini II`,
+    /// `Sonos Roam`, `Genelec 8010` and `KRK Rokit 5` — real loudspeakers whose
+    /// names say nothing. `autoEQEligibilityKnownLimitations` in
+    /// `scripts/verify-volume-and-eq.py` pins that behaviour so the gap is
+    /// visible and dated rather than discovered again.
+    ///
+    /// The permissive branch is kept because a false negative here is
+    /// **unrecoverable**: `DeviceRow.swift` and `AudioEngine.applyAutoEQToTap`
+    /// both hard-gate on this one Bool, so a device Melo refuses has no way to
+    /// be told otherwise. The fix that would let this exclude by default is a
+    /// per-device user override, and it needs `SettingsManager`, `DeviceRow`
+    /// and `AutoEQPicker` — see the round-2 report.
     func supportsAutoEQ() -> Bool {
-        let transport = readTransportType()
+        Self.autoEQEligibility(
+            name: (try? readDeviceName()) ?? "",
+            transport: readTransportType(),
+            isAggregate: isAggregateDevice(),
+            outputChannelCount: outputChannelCount(),
+            inputChannelCount: autoEQInputChannelCount(),
+            builtInHeadphonesActive: builtInHasHeadphonesActive()
+        )
+    }
+
+    /// The eligibility rule with the CoreAudio reads hoisted out, so the
+    /// vocabulary and the ordering can be exercised without a live device — the
+    /// same reason `iconSymbol(forName:transport:)` below is a static.
+    ///
+    /// Order matters twice. The name is read before the structural facts,
+    /// because a name that says what a thing is beats a channel count that
+    /// only says what shape it is. And within the name, **the loudspeaker
+    /// vocabulary is read first**, because it is made of form-factor words
+    /// while the headphone vocabulary also carries brands: `Beats Pill Speaker`
+    /// is a Bluetooth speaker, and "beats" must not outvote "speaker".
+    static func autoEQEligibility(
+        name: String,
+        transport: TransportType,
+        isAggregate: Bool,
+        outputChannelCount: Int,
+        inputChannelCount: Int,
+        builtInHeadphonesActive: Bool
+    ) -> Bool {
+        // An aggregate or multi-output device is several outputs at once. One
+        // headphone correction cannot be right for all of them, and Melo wraps
+        // aggregates in its own aggregate anyway.
+        if isAggregate { return false }
 
         switch transport {
-        case .hdmi, .displayPort, .airPlay, .virtual:
+        case .hdmi, .displayPort, .airPlay, .virtual, .aggregate:
+            // A television, a projector, a receiver, an AirPlay speaker, a
+            // loopback device. None of these is worn on a head.
+            return false
+        case .thunderbolt:
+            // Nothing that goes over your ears connects by Thunderbolt. A
+            // Thunderbolt audio device is a studio interface or a display, and
+            // the interface is the "feeding monitors" case exactly.
             return false
         case .builtIn:
-            return builtInHasHeadphonesActive()
+            // The only positive evidence macOS gives away for free: the active
+            // data source is the headphone jack.
+            return builtInHeadphonesActive
         default:
             break
         }
 
-        // Exclude known speaker-only devices by name
-        let name = (try? readDeviceName()) ?? ""
-        let excludedNames = ["HomePod", "Apple TV", "Studio Display", "Pro Display XDR"]
-        for excluded in excludedNames {
-            if name.localizedCaseInsensitiveContains(excluded) { return false }
+        if nameIndicatesLoudspeaker(name) { return false }
+        if nameIndicatesHeadphones(name) { return true }
+
+        // A pair of headphones is one stereo pair. More output channels than
+        // that is a multichannel interface or a surround device. `0` means the
+        // stream configuration could not be read, which is not evidence.
+        if outputChannelCount > 2 { return false }
+
+        // A device that *captures* stereo is an audio interface or a
+        // speakerphone, not a headset: a headset's microphone is mono. This is
+        // what catches the two-channel interfaces — `Scarlett Solo USB`,
+        // `MOTU M2` — that the output-channel test walks straight past, and it
+        // is the "interface feeding monitors" case at its most common size.
+        // A headset with a genuine stereo microphone is the false negative this
+        // buys. How common that is has not been measured here — one output
+        // device on this machine and no survey — so the mitigation is the
+        // ordering above: any such device whose name says "headset" or
+        // "headphones" never reaches this line.
+        if inputChannelCount > 1 { return false }
+
+        // USB, Bluetooth, Bluetooth LE, unknown, with a name that says nothing
+        // either way. See the note on `supportsAutoEQ()`.
+        return true
+    }
+
+    /// Words that mean "worn on a head", plus the two brands that only make
+    /// them. Checked *after* `nameIndicatesLoudspeaker`: the brands are weaker
+    /// evidence than a form factor, and `Beats Pill Speaker` is a speaker.
+    static func nameIndicatesHeadphones(_ name: String) -> Bool {
+        let (padded, tokens) = normalizedNameParts(name)
+        if !tokens.isDisjoint(with: headphoneWords) { return true }
+        return headphonePhrases.contains { padded.contains(" \($0) ") }
+    }
+
+    /// Form-factor words that mean "sits in a room". See `loudspeakerWords`.
+    static func nameIndicatesLoudspeaker(_ name: String) -> Bool {
+        let (padded, tokens) = normalizedNameParts(name)
+        if !tokens.isDisjoint(with: loudspeakerWords) { return true }
+        return loudspeakerPhrases.contains { padded.contains(" \($0) ") }
+    }
+
+    // Token matching rather than `localizedCaseInsensitiveContains`, so "tv"
+    // matches "Living Room TV" and not "Sony MDR-1AM2 TV-less Edition", and so
+    // hyphens and punctuation in product names do not hide a word.
+    private static func normalizedNameParts(_ name: String) -> (padded: String, tokens: Set<String>) {
+        let folded = name
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .lowercased()
+        var cleaned = ""
+        cleaned.reserveCapacity(folded.count)
+        for character in folded {
+            cleaned.append(character.isLetter || character.isNumber ? character : " ")
+        }
+        let tokens = cleaned.split(separator: " ").map(String.init)
+        return (" " + tokens.joined(separator: " ") + " ", Set(tokens))
+    }
+
+    private static let headphoneWords: Set<String> = [
+        "headphone", "headphones", "headset", "headsets",
+        "earphone", "earphones", "earbud", "earbuds", "earpiece",
+        "airpod", "airpods", "beats", "iem", "iems", "buds"
+    ]
+
+    private static let headphonePhrases: [String] = [
+        "in ear", "on ear", "over ear"
+    ]
+
+    /// Words that mean "sits in a room". Includes the product names the
+    /// original rule hardcoded — HomePod, Apple TV, Studio Display, Pro Display
+    /// XDR — which `homepod`, `tv` and `display` all cover.
+    ///
+    /// **`monitor` was here and has been removed.** A studio monitor is a
+    /// loudspeaker, but "monitor" in a CoreAudio device name is far more often
+    /// part of a headphone product name — `Beyerdynamic DT 990 Studio Monitor`
+    /// is headphones, and the rule refused it. Against that, none of the real
+    /// monitors a Mac actually sees (`Genelec 8010`, `KRK Rokit 5`) carry the
+    /// word at all; they arrive named after the interface in front of them. It
+    /// bought false negatives and caught nothing. `receiver` went with it for
+    /// the same reason, minus the false negatives.
+    private static let loudspeakerWords: Set<String> = [
+        "speaker", "speakers", "loudspeaker", "loudspeakers",
+        "soundbar", "soundbars", "subwoofer", "woofer",
+        "display", "displays",
+        "tv", "television", "homepod", "homepods"
+    ]
+
+    private static let loudspeakerPhrases: [String] = [
+        "sound bar", "apple tv", "studio display", "pro display xdr"
+    ]
+
+    /// Total input channels across this device's input streams.
+    ///
+    /// Written here rather than beside `outputChannelCount()` in
+    /// `AudioDeviceID+Streams.swift` only because that file belongs to another
+    /// piece this round. If both survive, they should be one function taking a
+    /// scope.
+    ///
+    /// Returns `0` when the stream configuration cannot be read, which
+    /// `autoEQEligibility` treats as absence of evidence rather than as
+    /// evidence of absence.
+    func autoEQInputChannelCount() -> Int {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreamConfiguration,
+            mScope: kAudioObjectPropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(self, &address, 0, nil, &size) == noErr,
+              size >= UInt32(MemoryLayout<AudioBufferList>.size) else {
+            return 0
         }
 
-        // Bluetooth, USB, Thunderbolt, aggregate, unknown → likely headphones
-        return true
+        let raw = UnsafeMutableRawPointer.allocate(
+            byteCount: Int(size),
+            alignment: MemoryLayout<AudioBufferList>.alignment
+        )
+        defer { raw.deallocate() }
+
+        let list = raw.bindMemory(to: AudioBufferList.self, capacity: 1)
+        var mutableSize = size
+        guard AudioObjectGetPropertyData(self, &address, 0, nil, &mutableSize, list) == noErr else {
+            return 0
+        }
+        return UnsafeMutableAudioBufferListPointer(list).reduce(0) { $0 + Int($1.mNumberChannels) }
     }
 
     /// Checks if the built-in audio device currently has headphones plugged in
@@ -155,8 +338,8 @@ extension AudioDeviceID {
         if name.contains("Beats") { return "beats.headphones" }
         
         // Mac variants
-        if name.contains("Mac Studio") { return "macstudio.fill" }
-        if name.contains("Mac mini") { return "macmini.fill" }
+        if name.contains("Mac Studio") { return "macstudio" }
+        if name.contains("Mac mini") { return "macmini" }
         if name.contains("MacBook") { return "macbook" }
         if name.contains("iMac") { return "desktopcomputer" }
         
@@ -189,7 +372,7 @@ extension AudioDeviceID {
         if name.contains("Beats") { return "beats.headphones" }
 
         // MacBook built-in
-        if name.contains("MacBook") { return "laptopcomputer" }
+        if name.contains("MacBook") { return "macbook" }
         
         // Display mic
         if name.contains("Studio Display") { return "display" }

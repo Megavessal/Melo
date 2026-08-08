@@ -135,6 +135,41 @@ final class ProcessTapController: ProcessTapControlling {
     private nonisolated(unsafe) var rampCoefficient: Float = 0.0007
     private nonisolated(unsafe) var secondaryRampCoefficient: Float = 0.0007
     private nonisolated(unsafe) var eqProcessor: EQProcessor?
+    /// Where the per-app EQ's automatic headroom is *heading*, as a linear
+    /// multiplier applied immediately before the band filters. See
+    /// `EQSettings.preampDB` for why it exists; `AutoEQProcessor` already does
+    /// the same thing for imported profiles. Written on the main thread, read on
+    /// the HAL thread — an aligned Float32 store is atomic on the architectures
+    /// Melo ships for.
+    ///
+    /// One target serves both callbacks: `updateEQSettings` writes the same
+    /// `EQSettings` to the primary and secondary processors, and
+    /// `createSecondaryTap` copies the primary's current settings, so the two
+    /// taps are never running different curves.
+    private nonisolated(unsafe) var eqPreampTargetGain: Float = 1.0
+    /// Where the headroom *is*, per callback, ramped toward the target one frame
+    /// at a time exactly as `currentVol` and the stereo-field gains are.
+    ///
+    /// A preset change moves this by up to 7 dB. Applied as a step, that is a
+    /// discontinuity at a buffer boundary — a click — on the most reachable
+    /// control in the panel, and every neighbouring gain in this callback is
+    /// smoothed for precisely that reason. `AutoEQProcessor` gets away with a
+    /// step because a correction profile is chosen once; presets are dragged
+    /// through.
+    ///
+    /// Ramping also dissolves an ordering hazard that publishing order could
+    /// not fix. `updateEQSettings` cannot make the target and the biquad
+    /// coefficients change in the same instant, so one direction is always
+    /// briefly wrong: raising a band before the headroom arrives overshoots
+    /// (SoftLimiter's job, and it is bounded by the ramp), and removing a band
+    /// before the headroom leaves under-shoots by a few dB for ~30 ms, which is
+    /// inaudible. A step gets the same two states *plus* a click.
+    ///
+    /// The two callbacks keep separate values for the same reason they keep
+    /// separate `currentVol`: during a crossfade both run concurrently on
+    /// different HAL threads.
+    private nonisolated(unsafe) var primaryEQPreampGain: Float = 1.0
+    private nonisolated(unsafe) var secondaryEQPreampGain: Float = 1.0
     private nonisolated(unsafe) var autoEQProcessor: AutoEQProcessor?
     private nonisolated(unsafe) var loudnessCompensator: LoudnessCompensator?
     private nonisolated(unsafe) var loudnessEqualizerProcessor: LoudnessEqualizer?
@@ -272,6 +307,11 @@ final class ProcessTapController: ProcessTapControlling {
     // MARK: - Public Methods
 
     func updateEQSettings(_ settings: EQSettings) {
+        // Publish the headroom target before the coefficients so the ramp is
+        // already moving when the new curve lands. It does not and cannot make
+        // the two changes atomic — see `primaryEQPreampGain` for why the ramp,
+        // not the ordering, is what makes both directions safe.
+        eqPreampTargetGain = settings.preampGainLinear
         eqProcessor?.updateSettings(settings)
         secondaryEQProcessor?.updateSettings(settings)
     }
@@ -899,6 +939,11 @@ final class ProcessTapController: ProcessTapControlling {
         _primaryMonoAudioEnabled = initial.monoAudioEnabled
         _secondaryMonoAudioEnabled = initial.monoAudioEnabled
 
+        // Seeded, not ramped to: a tap that started at unity would run its
+        // curve's whole boost undamped for the first ~30 ms of audio.
+        eqPreampTargetGain = initial.eqSettings.preampGainLinear
+        primaryEQPreampGain = eqPreampTargetGain
+        secondaryEQPreampGain = eqPreampTargetGain
         eqProcessor?.updateSettings(initial.eqSettings)
         autoEQProcessor?.setPreampEnabled(initial.autoEQPreampEnabled)
         if let profile = initial.autoEQProfile {
@@ -1297,6 +1342,11 @@ final class ProcessTapController: ProcessTapControlling {
         secondaryRampCoefficient = 1 - exp(-1 / (Float(sampleRate) * rampTimeSeconds))
 
         _secondaryCurrentVolume = _primaryCurrentVolume
+        // Adopts the primary's *current* headroom rather than the target, for
+        // the same reason it adopts the primary's current volume: the new tap
+        // joins a ramp already in progress, and starting it at unity would put
+        // the old curve's whole boost through the new tap for 30 ms.
+        secondaryEQPreampGain = primaryEQPreampGain
         _secondaryStereoFieldEnabled = _primaryStereoFieldEnabled
         _secondaryStereoFieldPosition = _primaryStereoFieldPosition
         _secondaryStereoFieldLeftGain = _primaryStereoFieldLeftGain
@@ -1423,6 +1473,10 @@ final class ProcessTapController: ProcessTapControlling {
         }
 
         _primaryCurrentVolume = _secondaryCurrentVolume
+        // Promoted with the volume it rode in on. Resetting this to 1.0 the way
+        // `_secondaryCurrentVolume` is reset to 0 would hand the promoted tap a
+        // step of up to 7 dB at the moment the crossfade ends.
+        primaryEQPreampGain = secondaryEQPreampGain
         _secondaryCurrentVolume = 0
         _primaryPreferredStereoLeftChannel = _secondaryPreferredStereoLeftChannel
         _primaryPreferredStereoRightChannel = _secondaryPreferredStereoRightChannel
@@ -1659,6 +1713,15 @@ final class ProcessTapController: ProcessTapControlling {
         stereoFieldRightGain: inout Float,
         monoAudioEnabled: Bool,
         eqProc: EQProcessor?,
+        /// Linear headroom applied immediately before the band filters, ramped
+        /// one frame at a time from `eqPreampGain` toward `eqPreampTargetGain`.
+        ///
+        /// Neither has a default value, deliberately. A default is what lets a
+        /// caller stop passing the headroom and still compile — the feature goes
+        /// inert and every source-level check that names the symbol stays green.
+        /// Without one, severing this wire is a build failure.
+        eqPreampGain: inout Float,
+        eqPreampTargetGain: Float,
         autoEQProc: AutoEQProcessor?,
         loudnessEqualizerProc: LoudnessEqualizer?,
         loudnessCompensatorProc: LoudnessCompensator?,
@@ -1799,6 +1862,24 @@ final class ProcessTapController: ProcessTapControlling {
             }
 
             if let eq = eq, eq.isEnabled, eqCanProcessStereoInterleaved {
+                // Automatic headroom, ahead of the band filters — the same place
+                // AutoEQProcessor applies an imported profile's preamp, and the
+                // only place it can go: after the filters it is a plain volume
+                // cut that does nothing about what the filters already did.
+                //
+                // Ramped rather than stepped, with the same coefficient the
+                // per-app volume uses, so a preset change is a 30 ms slide and
+                // not a click. The `at rest` fast path costs one compare per
+                // buffer and skips the loop entirely for a cut-only curve.
+                let preampAtRest = eqPreampGain == eqPreampTargetGain && eqPreampGain == 1
+                if !preampAtRest {
+                    for frame in 0..<frameCount {
+                        eqPreampGain += (eqPreampTargetGain - eqPreampGain) * rampCoefficient
+                        let base = frame * outputChannels
+                        outputSamples[base] *= eqPreampGain
+                        outputSamples[base + 1] *= eqPreampGain
+                    }
+                }
                 eq.process(input: outputSamples, output: outputSamples, frameCount: frameCount)
             }
 
@@ -1895,6 +1976,8 @@ final class ProcessTapController: ProcessTapControlling {
         stereoFieldRightGain: inout Float,
         monoAudioEnabled: Bool = false,
         eqProc: EQProcessor?,
+        eqPreampGain: Float = 1,
+        eqPreampTargetGain: Float? = nil,
         autoEQProc: AutoEQProcessor?,
         loudnessEqualizerProc: LoudnessEqualizer?,
         loudnessCompensatorProc: LoudnessCompensator?,
@@ -1902,6 +1985,7 @@ final class ProcessTapController: ProcessTapControlling {
         systemAudioUnitChain: StereoAudioUnitEffectChain? = nil,
         audioTimestamp: AudioTimeStamp = AudioTimeStamp()
     ) {
+        var preamp = eqPreampGain
         processMappedBuffersRT(
             inputBuffers: inputBuffers,
             outputBuffers: outputBuffers,
@@ -1918,6 +2002,10 @@ final class ProcessTapController: ProcessTapControlling {
             stereoFieldRightGain: &stereoFieldRightGain,
             monoAudioEnabled: monoAudioEnabled,
             eqProc: eqProc,
+            eqPreampGain: &preamp,
+            // A test caller that names only one value is asking for a settled
+            // headroom, not a ramp in progress.
+            eqPreampTargetGain: eqPreampTargetGain ?? eqPreampGain,
             autoEQProc: autoEQProc,
             loudnessEqualizerProc: loudnessEqualizerProc,
             loudnessCompensatorProc: loudnessCompensatorProc,
@@ -2089,6 +2177,7 @@ final class ProcessTapController: ProcessTapControlling {
         var stereoFieldRightGain: Float
         let monoAudioEnabled: Bool
         let eqProc: EQProcessor?
+        var eqPreampGain: Float
         let autoEQProc: AutoEQProcessor?
         let loudnessEqualizerProc: LoudnessEqualizer?
         let loudnessCompensatorProc: LoudnessCompensator?
@@ -2110,6 +2199,7 @@ final class ProcessTapController: ProcessTapControlling {
             stereoFieldRightGain = _primaryStereoFieldRightGain
             monoAudioEnabled = _primaryMonoAudioEnabled
             eqProc = eqProcessor
+            eqPreampGain = primaryEQPreampGain
             autoEQProc = autoEQProcessor
             loudnessEqualizerProc = loudnessEqualizerProcessor
             loudnessCompensatorProc = loudnessCompensator
@@ -2129,6 +2219,7 @@ final class ProcessTapController: ProcessTapControlling {
             stereoFieldRightGain = _secondaryStereoFieldRightGain
             monoAudioEnabled = _secondaryMonoAudioEnabled
             eqProc = secondaryEQProcessor
+            eqPreampGain = secondaryEQPreampGain
             autoEQProc = secondaryAutoEQProcessor
             loudnessEqualizerProc = secondaryLoudnessEqualizerProcessor
             loudnessCompensatorProc = secondaryLoudnessCompensator
@@ -2152,6 +2243,8 @@ final class ProcessTapController: ProcessTapControlling {
             stereoFieldRightGain: &stereoFieldRightGain,
             monoAudioEnabled: monoAudioEnabled,
             eqProc: eqProc,
+            eqPreampGain: &eqPreampGain,
+            eqPreampTargetGain: eqPreampTargetGain,
             autoEQProc: autoEQProc,
             loudnessEqualizerProc: loudnessEqualizerProc,
             loudnessCompensatorProc: loudnessCompensatorProc,
@@ -2172,10 +2265,12 @@ final class ProcessTapController: ProcessTapControlling {
 
         if isPrimary {
             _primaryCurrentVolume = currentVol
+            primaryEQPreampGain = eqPreampGain
             _primaryStereoFieldLeftGain = stereoFieldLeftGain
             _primaryStereoFieldRightGain = stereoFieldRightGain
         } else {
             _secondaryCurrentVolume = currentVol
+            secondaryEQPreampGain = eqPreampGain
             _secondaryStereoFieldLeftGain = stereoFieldLeftGain
             _secondaryStereoFieldRightGain = stereoFieldRightGain
         }

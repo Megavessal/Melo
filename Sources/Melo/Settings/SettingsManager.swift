@@ -14,6 +14,22 @@ nonisolated enum MeloExperienceVersion {
     static let guidedTour = 2
 }
 
+// MARK: - Analytics Consent
+
+/// Three states, not a Bool, because "has not been asked yet" and "said no"
+/// have to behave differently: the first may raise a prompt exactly once, the
+/// second must never raise one again. Collapsing them into `false` is how an
+/// opt-in prompt turns into a nag.
+///
+/// `.unasked` is the only permitted default, and only a control the user
+/// operated may write `.granted`. `scripts/verify-telemetry.py` fails the build
+/// if either of those stops being true.
+nonisolated enum AnalyticsConsent: String, Codable, Sendable {
+    case unasked
+    case granted
+    case denied
+}
+
 // MARK: - Pinned App Info
 
 struct PinnedAppInfo: Codable, Equatable {
@@ -60,6 +76,9 @@ nonisolated struct AppSettings: Codable, Equatable {
     var lastSeenReleaseBuild: Int = 0
     var quietMoveDelay: QuietMoveDelayOption = .never
     var showInDock: Bool = false
+    /// Off until asked, and off if the answer was no. Nothing in Melo may
+    /// change this except a control the user operated — see `AnalyticsConsent`.
+    var analyticsConsent: AnalyticsConsent = .unasked
 
     // Audio
     var defaultNewAppVolume: Float = 1.0      // 100% (unity gain)
@@ -127,6 +146,12 @@ nonisolated struct AppSettings: Codable, Equatable {
         quietMoveDelay = try c.decodeIfPresent(QuietMoveDelayOption.self, forKey: .quietMoveDelay)
             ?? .never
         showInDock = try c.decodeIfPresent(Bool.self, forKey: .showInDock) ?? false
+        // An older settings file has no key here, and an absent key means the
+        // question was never put to this person — not that they declined, and
+        // certainly not that they agreed. Restoring a backup from a Mac where
+        // analytics were on carries the answer across, which is the same
+        // promise every other preference in this file makes.
+        analyticsConsent = try c.decodeIfPresent(AnalyticsConsent.self, forKey: .analyticsConsent) ?? .unasked
         defaultNewAppVolume = try c.decodeIfPresent(Float.self, forKey: .defaultNewAppVolume) ?? 1.0
         lockInputDevice = try c.decodeIfPresent(Bool.self, forKey: .lockInputDevice) ?? true
         showDeviceDisconnectAlerts = try c.decodeIfPresent(Bool.self, forKey: .showDeviceDisconnectAlerts) ?? true
@@ -1321,13 +1346,14 @@ final class SettingsManager {
         // releases did not store onboarding/tour completion, so mark those
         // experiences complete instead of replaying them after an update.
         // Stamping the *current* version here also opts that cohort out of the
-        // version-bump replay, which is intentional: they predate the key
-        // entirely and the migration below already answers the new Bluetooth
-        // question on their behalf. Installs that do carry the key sit below the
+        // version-bump replay. Installs that do carry the key sit below the
         // current version and get the added pages once.
-        // Someone already running Melo has already answered the Bluetooth
-        // prompt one way or the other. Turning the feature off underneath them
-        // would look like a regression, so only new installs start gated.
+        //
+        // Bluetooth stays *available* for this cohort, which is not the same as
+        // Melo touching it: nothing reaches IOBluetooth until the user asks for
+        // something Bluetooth does, so `true` here costs a pre-existing install
+        // no prompt it would not otherwise get. Defaulting them to `false`
+        // instead would silently take away a feature they already had.
         if !hadBluetoothKey {
             decoded.appSettings.bluetoothFeaturesEnabled = true
         }

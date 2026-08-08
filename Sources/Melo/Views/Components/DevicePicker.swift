@@ -96,6 +96,11 @@ struct DevicePicker: View {
         }
     }
 
+    /// Names the control rather than its current setting. Both triggers are
+    /// icon-first — the icon-only one has no text at all — so without this
+    /// VoiceOver announced the SF Symbol name and nothing else.
+    private var pickerAccessibilityLabel: String { "Output device" }
+
     /// Text for single-mode display (also used as fallback for empty multi-mode)
     private var singleModeText: String {
         if isFollowingDefault {
@@ -150,7 +155,7 @@ struct DevicePicker: View {
     @ViewBuilder
     private var singleModeIcon: some View {
         if isFollowingDefault {
-            Image(systemName: "globe")
+            Image(systemName: "speaker.wave.2.circle")
                 .font(.system(size: 15))
                 .symbolRenderingMode(.hierarchical)
         } else if let device = devices.first(where: { $0.uid == selectedDeviceUID }),
@@ -241,6 +246,7 @@ struct DevicePicker: View {
                     .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(isExpanded ? -180 : 0))
                     .animation(DesignTokens.Animation.present, value: isExpanded)
+                    .accessibilityHidden(true)
             }
             .padding(.horizontal, DesignTokens.Spacing.sm)
             .padding(.vertical, 4)
@@ -248,6 +254,11 @@ struct DevicePicker: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.meloHover)
+        // What the control is, and separately what it is currently set to —
+        // rather than one derived string in which the device name is the only
+        // thing spoken and nothing says what it is the name *of*.
+        .accessibilityLabel(pickerAccessibilityLabel)
+        .accessibilityValue(triggerText)
         .background {
             DesignTokens.Dimensions.Shape.sm
                 .fill(.regularMaterial)
@@ -282,6 +293,8 @@ struct DevicePicker: View {
         }
         .buttonStyle(.meloHover)
         .help(triggerText)
+        .accessibilityLabel(pickerAccessibilityLabel)
+        .accessibilityValue(triggerText)
         .onHover { isButtonHovered = $0 }
         .animation(DesignTokens.Animation.hover, value: isButtonHovered)
     }
@@ -532,6 +545,7 @@ private struct DevicePickerRow: View {
                     Image(systemName: "star.fill")
                         .font(.system(size: 9))
                         .foregroundStyle(DesignTokens.Colors.textTertiary)
+                        .accessibilityHidden(true)
                 }
             }
             .font(.system(size: 11))
@@ -557,7 +571,25 @@ private struct DevicePickerRow: View {
         .buttonStyle(.meloHover)
         .disabled(isDisabled)
         .whenHovered { isHovered = $0 }
+        // Selection is carried by the trait. Left to derive itself, the label
+        // began with the state glyph's own name — "checkmark square fill,
+        // AirPods Pro" — which is the redundancy Apple's criteria call out.
+        .accessibilityLabel(accessibilityRowLabel)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    /// The row's spoken name: the device, plus the one fact the star conveys.
+    private var accessibilityRowLabel: String {
+        switch item {
+        case .systemAudio:
+            return isDisabled
+                ? "System Audio, not available in multi mode"
+                : "System Audio, follows the macOS default"
+        case .device(let device):
+            return isDefaultDevice
+                ? "\(device.name), macOS default device"
+                : device.name
+        }
     }
 
     @ViewBuilder
@@ -586,7 +618,7 @@ private struct DevicePickerRow: View {
     private var itemIcon: some View {
         switch item {
         case .systemAudio:
-            Image(systemName: "globe")
+            Image(systemName: "speaker.wave.2.circle")
                 .font(.system(size: 13))
                 .frame(width: 16)
                 .foregroundStyle(isDisabled ? DesignTokens.Colors.textQuaternary : DesignTokens.Colors.textSecondary)

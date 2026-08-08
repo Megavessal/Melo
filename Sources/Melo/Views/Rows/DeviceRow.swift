@@ -43,6 +43,11 @@ struct DeviceRow: View {
     let onAutoEQPreampToggle: (() -> Void)?
     let isFocused: Bool
     let iconOverrideSymbol: String?
+    /// Marks this row as the one the guided tour's "choose an output" step
+    /// points at. Only one row may set it: the anchor is keyed by target and
+    /// last write wins, so leaving it on for every row would put the pointer on
+    /// whichever row happened to lay out last.
+    let isGuidedTourAnchor: Bool
 
     @State private var sliderValue: Double
     @State private var isEditing = false
@@ -94,7 +99,8 @@ struct DeviceRow: View {
         autoEQPreampEnabled: Bool = true,
         onAutoEQPreampToggle: (() -> Void)? = nil,
         isFocused: Bool = false,
-        iconOverrideSymbol: String? = nil
+        iconOverrideSymbol: String? = nil,
+        isGuidedTourAnchor: Bool = false
     ) {
         self.device = device
         self.isDefault = isDefault
@@ -118,6 +124,7 @@ struct DeviceRow: View {
         self.onAutoEQPreampToggle = onAutoEQPreampToggle
         self.isFocused = isFocused
         self.iconOverrideSymbol = iconOverrideSymbol
+        self.isGuidedTourAnchor = isGuidedTourAnchor
         self._sliderValue = State(initialValue: Self.volumeToSlider(volume, backend: volumeBackend))
     }
 
@@ -136,6 +143,15 @@ struct DeviceRow: View {
             }
             .hoverableRow()
             .keyboardFocusRing(isFocused)
+            // `onTapGesture` is not an accessibility action, so the row's
+            // primary job — making this device the output — existed only for a
+            // pointer. `.contain` keeps the slider, mute and percentage
+            // reachable as their own elements.
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(isDefault ? "\(device.name), current output" : device.name)
+            .accessibilityAction(named: "Use as output") {
+                if !isDefault { onSetDefault() }
+            }
     }
 
     // MARK: - Device Header
@@ -147,6 +163,7 @@ struct DeviceRow: View {
             // badge plus bold device name; the row-level gesture in `body`
             // handles tap-to-set-default.
             DeviceBadge(icon: displayIcon, isSelected: isDefault)
+                .guidedTourTarget(.deviceSelection, when: isGuidedTourAnchor)
 
             // Device name + optional AutoEQ profile subtitle + AutoEQ picker
             HStack(spacing: DesignTokens.Spacing.xs) {
@@ -190,7 +207,11 @@ struct DeviceRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             // Mute button
-            MuteButton(isMuted: showMutedIcon, levelFraction: sliderValue) {
+            MuteButton(
+                isMuted: showMutedIcon,
+                levelFraction: sliderValue,
+                subject: device.name
+            ) {
                 if showMutedIcon {
                     // Unmute: restore to default if displayed as 0%
                     if displayedPercentage == 0 {
@@ -240,6 +261,7 @@ struct DeviceRow: View {
                     set: { sliderValue = Double($0) / 100.0 }
                 ),
                 range: 0...100,
+                subject: device.name,
                 isRowFocused: isFocused
             )
         }

@@ -23,7 +23,7 @@ final class DeviceInspectorViewModel {
     private var errorClearTask: Task<Void, Never>?
 
     private static let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "dev.local.Melo",
+        subsystem: Bundle.main.bundleIdentifier ?? "io.github.megavessal.Melo",
         category: "DeviceInspectorViewModel"
     )
 

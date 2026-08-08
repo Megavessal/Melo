@@ -59,8 +59,12 @@ struct DeviceEditRow<ExpandedContent: View>: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
                 .frame(width: 16)
+                // A grab handle is an affordance for a pointer. To VoiceOver it
+                // was an element called "line 3 horizontal" that did nothing.
+                .accessibilityHidden(true)
 
             EditablePriority(
+                deviceName: device.name,
                 index: priorityIndex,
                 count: deviceCount,
                 onReorder: onReorder
@@ -206,6 +210,7 @@ struct DeviceEditRow<ExpandedContent: View>: View {
 /// Inline editable priority number — click to type a new position.
 /// Same interaction pattern as `EditablePercentage` but displays just a number.
 private struct EditablePriority: View {
+    let deviceName: String
     let index: Int
     let count: Int
     let onReorder: (Int) -> Void
@@ -269,8 +274,24 @@ private struct EditablePriority: View {
         .frame(width: 16, alignment: .center)
         .contentShape(Rectangle())
         .onTapGesture { if !isEditing { startEditing() } }
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("Edit priority position")
+        // Reordering was drag-and-drop or click-and-type: neither is reachable
+        // with VoiceOver, so device priority — the whole point of this mode —
+        // could be read but never changed. Increment moves the device later in
+        // the list so the spoken number rises with the value, rather than
+        // "increase" making the position number go down.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(deviceName) priority")
+        .accessibilityValue("\(displayNumber) of \(count)")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                moveBy(1)
+            case .decrement:
+                moveBy(-1)
+            @unknown default:
+                break
+            }
+        }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -286,6 +307,16 @@ private struct EditablePriority: View {
         }
         .animation(DesignTokens.Animation.quick, value: isEditing)
         .animation(DesignTokens.Animation.hover, value: isHovered)
+    }
+
+    /// One position per step — a priority list has no smaller move than the
+    /// next place, and a step of more than one would skip a device the user is
+    /// trying to get past.
+    private func moveBy(_ delta: Int) {
+        let target = index + delta
+        guard (0..<count).contains(target) else { return }
+        onReorder(target)
+        Haptics.step()
     }
 
     private func startEditing() {

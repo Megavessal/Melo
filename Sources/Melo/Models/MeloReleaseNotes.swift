@@ -17,6 +17,13 @@ struct MeloReleaseNote: Identifiable, Sendable {
     /// `target` decides whether this item can be part of the optional spotlight
     /// walkthrough. Something with no control to point at — an icon, a change in
     /// what Melo asks for at launch — leaves it nil and is simply listed.
+    ///
+    /// Set it only when the popup holds the thing the sentence is about.
+    /// "It is configured somewhere behind this gear" is not that: every note
+    /// here once claimed `.settings` on those grounds, and the walkthrough
+    /// spotlighted one button four times running. `tourSteps` now gives a
+    /// control to the first note that claims it, so a hopeful target is
+    /// silently dropped rather than repeated.
     struct Item: Identifiable, Sendable {
         let id: String
         let title: String
@@ -30,6 +37,26 @@ enum MeloReleaseNotes {
     /// in Info.plist has no entry here, if its build number disagrees, or if any
     /// entry ships with no items — so a release cannot go out silent.
     static let all: [MeloReleaseNote] = [
+        MeloReleaseNote(
+            id: "2.9.4",
+            version: "2.9.4",
+            build: 299,
+            headline: "Your call on what Melo shares",
+            items: [
+                MeloReleaseNote.Item(
+                    id: "2.9.4-analytics-choice",
+                    title: "You decide whether Melo shares anything",
+                    detail: "Melo can send anonymous notes about which features get used, so the next version improves the parts you actually reach for. It stays off until you say yes, Melo only asks once, and the names of your apps, your audio devices, and your Mac never leave your machine. The switch is in Settings → General.",
+                    target: .settings
+                ),
+                MeloReleaseNote.Item(
+                    id: "2.9.4-bluetooth-order",
+                    title: "The Bluetooth request waits its turn",
+                    detail: "macOS used to ask about Bluetooth the moment Melo launched, before anything had explained why. Now the request only appears after you have read what the feature does and asked for it.",
+                    target: nil
+                )
+            ]
+        ),
         MeloReleaseNote(
             id: "2.9.3",
             version: "2.9.3",
@@ -46,18 +73,30 @@ enum MeloReleaseNotes {
                     id: "2.9.3-menu-bar-mark",
                     title: "The menu bar mark matches it",
                     detail: "The icon in your menu bar was redrawn to match. If you want it to, it can now react gently to what is playing — that motion is off unless you turn it on.",
-                    target: .settings
+                    // The menu bar is not inside the popup, so a walkthrough
+                    // that shares the popup's overlay has nothing honest to
+                    // point at. It used to point at the Settings gear while the
+                    // card talked about the menu bar.
+                    target: nil
                 ),
                 MeloReleaseNote.Item(
                     id: "2.9.3-bluetooth",
                     title: "Bluetooth is your choice now",
                     detail: "Melo used to ask macOS for your Bluetooth devices as soon as it started, which made the system prompt appear out of nowhere. Now it only asks once you switch Bluetooth features on.",
-                    target: .settings
+                    // A change in when a system prompt appears. Nothing on
+                    // screen is the thing that changed.
+                    target: nil
                 ),
                 MeloReleaseNote.Item(
                     id: "2.9.3-setup",
-                    title: "Setup covers more ground",
-                    detail: "The welcome flow now walks through Bluetooth, how the menu bar icon looks, and how you would like updates handled.",
+                    title: "Setup you can try, not just read",
+                    // Kept in step with FirstRunOnboardingView by hand. It used
+                    // to promise pages on Bluetooth, the menu bar icon and
+                    // update handling; all three were deleted and this sentence
+                    // went on describing them in What's New and in Settings →
+                    // Updates for two releases. If a page here is renamed or
+                    // removed again, this line is the thing that goes stale.
+                    detail: "The welcome flow points out Melo's mark up in the menu bar, explains the system audio access Melo needs and asks macOS for it while a sound is playing, offers to hook up your volume keys, and finishes on a real app row — same icon, same slider, same percentage — for you to try.",
                     target: nil
                 ),
                 MeloReleaseNote.Item(
@@ -84,7 +123,7 @@ enum MeloReleaseNotes {
                     id: "2.9.2-rockets",
                     title: "Calmer rockets in the themes",
                     detail: "The rockets that drift across the Space, Galaxy and Aurora themes are smaller, so they read as scenery instead of competing with your sliders.",
-                    target: .settings
+                    target: nil
                 )
             ]
         ),
@@ -98,7 +137,7 @@ enum MeloReleaseNotes {
                     id: "2.9.0-updates",
                     title: "Melo updates itself",
                     detail: "New versions are published openly and Melo can check for them, download them and install them for you. You decide how much of that happens automatically.",
-                    target: .settings
+                    target: nil
                 ),
                 MeloReleaseNote.Item(
                     id: "2.9.0-applications",

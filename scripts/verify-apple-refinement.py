@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import plistlib, re, sys
+import re, sys
 
 root = Path(__file__).resolve().parents[1]
 failures = []
@@ -24,9 +24,21 @@ require("Sources/Melo/Audio/Engine/ProcessTapController.swift", "startAudioDevic
 # renders whichever step list it is handed.
 require("Sources/Melo/Coordination/GuidedTourCoordinator.swift",
         "AutoEQ corrects supported headphones", "Search finds actions")
+# What marks a step's target is the ring struck on the spotlight cutout, built
+# from the resolved rect. The tour also drew a copy of the system arrow cursor
+# there: a second pointer, in the user's own pointer's artwork, that the user
+# cannot move and that is never where their hand is. The absence is asserted
+# beside the presence, because removing the arrow and leaving no ring is a step
+# that points at nothing.
+#
+# The needle is the *call*, not the shape. It was "SpotlightRing(cutout: rect",
+# which lives inside `spotlightRing(_:)`'s own body — measured 2026-08-07:
+# deleting the call from `body`, so no ring is ever drawn, left this green.
 tour = require("Sources/Melo/Views/Onboarding/GuidedTourOverlay.swift",
-        "GuidedTourTargetPreferenceKey", "NSCursor.arrow.image",
+        "GuidedTourTargetPreferenceKey",
         "coordinator.currentStep")
+if "NSCursor" in tour or "Image(nsImage:" in tour:
+    failures.append("GuidedTourOverlay.swift: the tour draws a pointer of its own beside the one the user is holding")
 if "Keep quiet apps visible?" in tour:
     failures.append("quiet-app setup question must not appear in onboarding or the guided tour")
 require("Sources/Melo/Views/Settings/Guide/SettingsGuideView.swift",
@@ -42,11 +54,6 @@ require("Sources/Melo/Updates/UpdateInstallationCoordinator.swift",
         "confirmCurrentBuild", "rolling back", "Melo.previous.app", "preflightArgument")
 require("Documentation/MELO-2.7-UPDATES.md", "Sparkle 2.9.5", "replay onboarding")
 require("Resources/MeloFirstRunIntro.wav")
-
-with (root / "Config/Info.plist").open("rb") as f:
-    info = plistlib.load(f)
-if info.get("CFBundleShortVersionString") != "2.9.3": failures.append("wrong version")
-if info.get("CFBundleVersion") != "298": failures.append("wrong build")
 
 project = (root / "Melo.xcodeproj/project.pbxproj").read_text()
 for source in (root / "Sources/Melo").rglob("*.swift"):

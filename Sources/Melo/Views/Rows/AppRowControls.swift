@@ -96,7 +96,11 @@ struct AppRowControls: View {
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             // Mute button
-            MuteButton(isMuted: showMutedIcon, levelFraction: sliderValue) {
+            MuteButton(
+                isMuted: showMutedIcon,
+                levelFraction: sliderValue,
+                subject: appName
+            ) {
                 if showMutedIcon {
                     if displayedPercentage == 0 {
                         setEffectiveGain(1.0)
@@ -122,6 +126,10 @@ struct AppRowControls: View {
             .frame(width: DesignTokens.Dimensions.sliderWidth)
             .opacity(showMutedIcon ? 0.5 : 1.0)
             .scrollWheelStep(sliderBinding, in: 0.0...1.0)
+            // The tour's first step is about this slider and nothing else.
+            // Unconditional because only one app row is open at a time, so
+            // exactly one of these exists whenever the step is on screen.
+            .guidedTourTarget(.appVolume)
 
             // Unified effective gain percentage: 100% is normal maximum;
             // 101...400% is the continuous boost range.
@@ -133,13 +141,14 @@ struct AppRowControls: View {
                     }
                 ),
                 range: 0...400,
+                subject: appName,
                 isRowFocused: isRowFocused
             )
 
             // The boost shortcut and slider now describe the same effective gain.
-            BoostChevrons(level: boost, onTap: {
-                setEffectiveGain(boost.next.rawValue)
-            })
+            BoostChevrons(level: boost) { target in
+                setEffectiveGain(target.rawValue)
+            }
 
             DevicePicker(
                 devices: devices,

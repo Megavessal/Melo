@@ -43,6 +43,12 @@ final class WhatsNewCoordinator {
         Int(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0") ?? 0
     }
 
+    /// Whether release notes are actually on screen. Read straight after
+    /// `showIfNeeded(suppressedByOnboarding:)` by the launch sequence, so the
+    /// analytics prompt can stand down for this launch instead of opening a
+    /// second window on top of this one.
+    var isPresenting: Bool { window != nil }
+
     // MARK: - Presentation
 
     /// - Parameter suppressedByOnboarding: true when first-run setup is about to
@@ -73,7 +79,7 @@ final class WhatsNewCoordinator {
             stamp(current)
             return
         }
-        present(pending)
+        present(pending, showsFullHistory: false)
     }
 
     /// Reopened from Settings → About. Shows everything released up to and
@@ -83,10 +89,10 @@ final class WhatsNewCoordinator {
         window?.close()
         window = nil
         let history = MeloReleaseNotes.notes(after: 0, upTo: Self.currentBuild)
-        present(history.isEmpty ? MeloReleaseNotes.all : history)
+        present(history.isEmpty ? MeloReleaseNotes.all : history, showsFullHistory: true)
     }
 
-    private func present(_ notes: [MeloReleaseNote]) {
+    private func present(_ notes: [MeloReleaseNote], showsFullHistory: Bool) {
         if let window {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
@@ -106,6 +112,7 @@ final class WhatsNewCoordinator {
 
         let view = WhatsNewView(
             notes: notes,
+            showsFullHistory: showsFullHistory,
             onDone: { [weak self, weak window] in
                 self?.stampCurrentBuild()
                 window?.close()
@@ -128,6 +135,7 @@ final class WhatsNewCoordinator {
         self.window = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        TelemetryService.shared.send(.whatsNewShown(noteCount: TelemetryBucket(count: notes.count)))
     }
 
     // MARK: - Spotlight walkthrough
@@ -135,18 +143,43 @@ final class WhatsNewCoordinator {
     /// Only items with an anchor can be spotlighted; the rest were already read
     /// in the window. Order follows the notes, so the newest release is toured
     /// first.
+    ///
+    /// One control is toured once. Several of these releases changed something
+    /// that lives behind the Settings gear, and every one of them claimed it:
+    /// four consecutive steps cut an identical hole around the same button
+    /// while the cards described an app icon, a Bluetooth prompt and a theme.
+    /// The first note to claim a control is the only one that points at it, and
+    /// the rest are still read in the window above.
     static func tourSteps(for notes: [MeloReleaseNote]) -> [SpotlightStep] {
-        notes.flatMap { note in
-            note.items.compactMap { item in
-                guard let target = item.target else { return nil }
-                return SpotlightStep(
-                    id: item.id,
-                    title: item.title,
-                    message: item.detail,
-                    target: target
+        var claimed: Set<GuidedTourTarget> = []
+        var steps: [SpotlightStep] = []
+        for note in notes {
+            for item in note.items {
+                guard let target = item.target, claimed.insert(target).inserted else { continue }
+                steps.append(
+                    SpotlightStep(
+                        id: item.id,
+                        title: item.title,
+                        message: item.detail,
+                        target: target,
+                        // The first-run tour hand-writes these. A tour built out
+                        // of data has no author to write them, so a future note
+                        // about an app control would have rendered as a centred
+                        // card with no spotlight and no pointer, its copy still
+                        // describing a control that was not there.
+                        unavailable: target.absenceFallback.map { fallback in
+                            SpotlightStep.Alternate(
+                                target: fallback.target,
+                                pointerTarget: fallback.pointer,
+                                title: item.title,
+                                message: "\(item.detail) \(fallback.note)"
+                            )
+                        }
+                    )
                 )
             }
         }
+        return steps
     }
 
     private func startTour(for notes: [MeloReleaseNote]) {

@@ -10,7 +10,7 @@ import os
 enum NotificationAuthorization {
     // nonisolated: the authorization callback arrives on an arbitrary queue, and a
     // MainActor-isolated logger cannot be captured by that Sendable closure.
-    private nonisolated static let logger = Logger(subsystem: "dev.local.Melo", category: "Notifications")
+    private nonisolated static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "Notifications")
     private static var didRequest = false
 
     static func requestIfNeeded() {

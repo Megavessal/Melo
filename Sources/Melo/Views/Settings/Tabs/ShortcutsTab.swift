@@ -9,6 +9,16 @@ struct ShortcutsTab: View {
     @Bindable var mediaKeyStatus: MediaKeyStatus
     let mediaKeyMonitor: MediaKeyMonitor
     let shortcutsRegistry: ShortcutsRegistry
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
+    /// Where the scroll view is parked. `scrollPosition` reads this during the
+    /// scroll view's own layout, which is why the Guide's target is copied into
+    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
+    /// after the tab appears rendered nothing at all, and nothing could see that
+    /// it had not.
+    @State private var scrolledSection: String?
 
     var body: some View {
         ScrollView {
@@ -20,8 +30,16 @@ struct ShortcutsTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .scrollPosition(id: $scrolledSection, anchor: .top)
+        // `initial: true` because the tab the reader is sent to is usually
+        // built *after* the Guide set the target, so there is no change left
+        // to observe by the time this view exists.
+        .onChange(of: sectionTarget, initial: true) { _, target in
+            if let target { scrolledSection = target.section }
+        }
         .onChange(of: settings.appSettings.mediaKeyControlEnabled) { _, _ in
             mediaKeyMonitor.reconcile()
         }
@@ -45,6 +63,7 @@ struct ShortcutsTab: View {
                 .fixedSize()
             }
         }
+        .id("Volume")
     }
 
     // MARK: - Media Keys
@@ -87,6 +106,7 @@ struct ShortcutsTab: View {
                 }
             }
         }
+        .id("Media Keys")
     }
 
     // MARK: - Hotkeys
@@ -106,6 +126,7 @@ struct ShortcutsTab: View {
                 }
             }
         }
+        .id("Hotkeys")
     }
 
     private func description(for action: ShortcutAction) -> String {

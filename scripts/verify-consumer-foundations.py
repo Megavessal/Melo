@@ -24,7 +24,7 @@ def require(relative: str, *needles: str) -> str:
 # 1. Onboarding
 require("Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",
         'title: "Melo"', 'title: audioAccessTitle',
-        'title: "Take a Quick Tour"', 'Button("Skip")')
+        'title: "Try It Once"', 'Button("Skip")')
 require("Sources/Melo/Coordination/OnboardingWindowController.swift", "showIfNeeded()")
 require("Sources/Melo/FineTuneApp.swift", "onboarding.showIfNeeded()")
 
@@ -44,9 +44,31 @@ if "quietMoveDelaySeconds" in popup or ".seconds(15)" in popup:
     failures.append("MenuBarPopupView still contains the old hardcoded quiet delay")
 require("Sources/Melo/Views/Rows/AppEditRow.swift", 'Always show this app', 'accessibilityLabel')
 
-# 4. Call lowering
-require("Sources/Melo/Coordination/CallDuckingManager.swift",
-        "activeLevelThreshold", "setCallDuckingMonitoringPIDs", "rampGain(to: 0.20", "1_500")
+# 4. Call lowering.
+#
+# This used to pin the markers `activeLevelThreshold` and `1_500`. Both were
+# satisfied by a constant merely existing — the shape CLAUDE.md lists as a dead
+# pattern — and neither could tell a working duck from one that never comes back
+# up. The trigger rule now lives in `CallActivityDetector` and is *executed*
+# against chime-shaped and call-shaped level sequences by
+# scripts/verify-unasked-actions.py; what is checked here is the wiring around
+# it, which that file does not look at.
+ducking = require_file("Sources/Melo/Coordination/CallDuckingManager.swift")
+if "setCallDuckingMonitoringPIDs" not in ducking:
+    failures.append("CallDuckingManager: no longer tells the engine which PIDs to meter")
+if "CallActivityDetector" not in ducking:
+    failures.append("CallDuckingManager: the call-versus-notification distinction must stay in CallActivityDetector")
+ramps = [
+    (float(target), deactivate == "true")
+    for target, deactivate in re.findall(
+        r"rampGain\(to: ([0-9.]+), milliseconds: \d+, deactivateAfter: (true|false)\)",
+        ducking,
+    )
+]
+if not any(target < 1.0 and not deactivate for target, deactivate in ramps):
+    failures.append("CallDuckingManager: nothing ramps the other apps down when a call starts")
+if not any(target == 1.0 and deactivate for target, deactivate in ramps):
+    failures.append("CallDuckingManager: nothing ramps the other apps back up and clears the ducking flag — a duck with no release is silent audio")
 engine = require("Sources/Melo/Audio/Engine/AudioEngine.swift",
                  "callDuckingGain", "setCallDuckingMonitoringPIDs", "communicationAppPIDs")
 require("Sources/Melo/Views/Settings/Tabs/AudioTab.swift", '"Lower Other Apps During Calls"', '"Choose Call Apps"')
@@ -80,7 +102,6 @@ require("Sources/Melo/Audio/Engine/CrossfadeOrchestrator.swift", "equal-power", 
 settings = require("Sources/Melo/Settings/SettingsManager.swift",
                    "onboardingVersionCompleted", "quietMoveDelay", "lowerOtherAppsDuringCalls",
                    "monoAudioEnabled", "pauseOnHeadphoneDisconnect", "reduceProcessingOnBattery")
-require("Config/Info.plist", "<string>2.9.3</string>", "<string>298</string>")
 
 if failures:
     print("Consumer foundation verification failed:")

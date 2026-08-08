@@ -14,7 +14,7 @@ struct DeviceDetailSheet: View {
     @State private var viewModel: DeviceInspectorViewModel
     @State private var showTechnicalDetails = false
 
-    private static let logger = Logger(subsystem: "dev.local.Melo", category: "DeviceDetailSheet")
+    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "DeviceDetailSheet")
 
     init(
         device: AudioDevice,

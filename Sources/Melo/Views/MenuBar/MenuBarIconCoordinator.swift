@@ -6,6 +6,7 @@
 
 @preconcurrency import AppKit
 import AudioToolbox
+import Combine
 import Observation
 import os
 
@@ -17,7 +18,7 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
     private let appSupport: AppSupportCoordinator
     private let popupController: MenuBarPopupController
     private let levelProvider: @MainActor () -> Float
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "MenuBarIconCoordinator")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "MenuBarIconCoordinator")
 
     private weak var cachedButton: NSStatusBarButton?
     private var rightMouseMonitor: Any?
@@ -31,6 +32,7 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
     private var levelTimer: Timer?
     private var motionPollTimer: Timer?
     private let motion = MenuBarIconMotion()
+    private var cancellables: Set<AnyCancellable> = []
 
     init(
         deviceVolumeMonitor: DeviceVolumeMonitor,
@@ -58,8 +60,23 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
         attemptInitialApply(retriesLeft: 20)
         scheduleApplyTracking()
         scheduleDeviceChangeTracking()
+        schedulePendingUpdateTracking()
         syncLevelTimer()
         syncMotionTimer()
+    }
+
+    /// `SparkleUpdateController` is an `ObservableObject` rather than
+    /// `@Observable`, so it is outside `withObservationTracking`. Delivering on
+    /// the main run loop rather than reacting inline matters: `@Published`
+    /// fires in `willSet`, and `apply()` has to read the committed value or the
+    /// badge lags one update behind.
+    private func schedulePendingUpdateTracking() {
+        appSupport.updates.$updateReminder
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                MainActor.assumeIsolated { self?.apply() }
+            }
+            .store(in: &cancellables)
     }
 
     /// Cancel pending work and drop references. Called on app termination.
@@ -79,6 +96,7 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
         }
         rightMouseMonitor = nil
         globalRightMouseMonitor = nil
+        cancellables.removeAll()
         cachedButton = nil
     }
 
@@ -140,14 +158,102 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
     private func apply() {
         guard let button = resolveButton() else { return }
         let state = computeState()
-        guard let image = state.image.nsImage(motionOffsetCells: motion.offsetCells) else { return }
+        let waiting = appSupport.updates.updateReminder
+        guard var image = state.image.nsImage(
+            accessibilityDescription: waiting.map { "Melo — \($0.displayName) is available" } ?? "Melo",
+            motionOffsetCells: motion.offsetCells
+        ) else { return }
+        if waiting != nil {
+            image = Self.badged(image)
+        }
         addFadeTransition(to: button)
         button.image = image
         let title = menuBarInfoTitle()
         button.title = title
         button.imagePosition = title.isEmpty ? .imageOnly : .imageLeading
         button.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        button.toolTip = title.isEmpty ? "Melo" : "Melo — \(title)"
+        let base = title.isEmpty ? "Melo" : "Melo — \(title)"
+        button.toolTip = waiting.map { "\(base)\n\($0.displayName) is available" } ?? base
+    }
+
+    /// Marks the icon the user already chose, rather than adding one they did
+    /// not. A menu bar extra is a template image, so a coloured dot is not
+    /// available: the badge has to read as a *shape*. It is drawn as a filled
+    /// dot inside a punched-out ring, so it stays a separate mark against the
+    /// artwork underneath instead of merging into it, and it stays inside the
+    /// existing 22×18 canvas so the item's width — and every neighbour's
+    /// position — does not move when an update arrives.
+    ///
+    /// **The two constants below are load-bearing and were measured, not
+    /// chosen.** At the previous `diameter: 6, gap: 1.5` the punched ring had a
+    /// 4.5pt radius centred at (17.5, 13.5), which swallowed the pixel mark's
+    /// entire right-hand peak — rows 1–4, columns 12–15 of `pixelMarkRows` —
+    /// plus five cells of its baseline bar, and cut the outer arc off
+    /// `speaker.wave.3.fill`. The badge did not sit beside the glyph, it
+    /// replaced a third of it, and the result read as a blob with a crumb
+    /// beside it rather than as Melo's mark wearing a badge.
+    ///
+    /// At `diameter: 4, gap: 0.75` the cleared disc has a 2.75pt radius centred
+    /// at (19.25, 15.25). The pixel mark is empty above row 4 and right of
+    /// column 15, so that disc lands entirely in the void and removes **no**
+    /// cell of the mark at 1x or 2x; on the SF Symbol styles it takes only the
+    /// tip of the outermost wave, which stays three waves. Anything larger
+    /// starts eating artwork again, so do not grow these without rendering the
+    /// `menubar-icon-after` frame and counting cells.
+    ///
+    /// Rejected, both on rendered evidence rather than taste:
+    /// - **`arrow.down.circle.fill` at badge size** — the macOS vocabulary for
+    ///   "an update is available", and the glyph `PendingUpdateBanner` already
+    ///   uses for this exact fact. Rasterized at 22×18pt it is a grey donut at
+    ///   1x *and* 2x: the stem and head are below one device pixel. To resolve
+    ///   at all it needs ~8pt, which destroys the mark outright.
+    /// - **A square on the mark's own 1pt pixel grid** — equally harmless to
+    ///   the pixel mark and more consistent with it, but this one function
+    ///   badges all five icon styles and three of them are SF Symbols, beside
+    ///   which a hard square reads as a rendering artefact rather than a mark.
+    ///
+    /// A monochrome dot cannot, by itself, say "update". Nothing available to a
+    /// template image can: Apple's own convention for this is a red numeric
+    /// Dock badge, and a menu bar extra has neither colour nor room for a
+    /// numeral. What carries the meaning is what the dot is attached to — the
+    /// `accessibilityDescription` and tooltip below both name the waiting
+    /// version, and the first item of the menu it opens is that version. The
+    /// dot's job is the same as an unread dot in a Mail sidebar: *something
+    /// here is new*, with the surface it opens saying what.
+    private static func badged(_ base: NSImage) -> NSImage {
+        let size = MenuBarIconImage.canvasSize
+        let diameter: CGFloat = 4
+        let gap: CGFloat = 0.75
+        // Inset by the gap as well as the radius, so the punched ring's outer
+        // edge lands on the canvas edge rather than past it — a clipped ring
+        // would leave the dot fused to the artwork on two sides.
+        let center = NSPoint(
+            x: size.width - diameter / 2 - gap,
+            y: size.height - diameter / 2 - gap
+        )
+        let badged = NSImage(size: size, flipped: false) { _ in
+            base.draw(in: NSRect(origin: .zero, size: size))
+            let ring = NSRect(
+                x: center.x - diameter / 2 - gap,
+                y: center.y - diameter / 2 - gap,
+                width: diameter + gap * 2,
+                height: diameter + gap * 2
+            )
+            NSGraphicsContext.current?.compositingOperation = .clear
+            NSBezierPath(ovalIn: ring).fill()
+            NSGraphicsContext.current?.compositingOperation = .sourceOver
+            NSColor.black.setFill()
+            NSBezierPath(ovalIn: NSRect(
+                x: center.x - diameter / 2,
+                y: center.y - diameter / 2,
+                width: diameter,
+                height: diameter
+            )).fill()
+            return true
+        }
+        badged.isTemplate = true
+        badged.accessibilityDescription = base.accessibilityDescription
+        return badged
     }
 
     private func menuBarInfoTitle() -> String {
@@ -351,6 +457,65 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
     func makeStatusItemContextMenu() -> NSMenu {
         let menu = NSMenu(title: "Melo")
 
+        // A waiting update goes at the top of the menu the badge is attached
+        // to, so the badge is explicable from the thing it is drawn on. Melo
+        // used to answer this with a second status item of its own, which the
+        // HIG forbids twice over: the user decides what is in their menu bar,
+        // and an app must not depend on an extra being visible, because the
+        // system hides them when the bar is crowded.
+        if let waiting = appSupport.updates.updateReminder {
+            let header = NSMenuItem(
+                title: "\(waiting.displayName) is available",
+                action: nil,
+                keyEquivalent: ""
+            )
+            header.isEnabled = false
+            menu.addItem(header)
+
+            let install = NSMenuItem(
+                title: "Update Now",
+                action: #selector(installUpdateFromStatusItem),
+                keyEquivalent: ""
+            )
+            install.target = self
+            menu.addItem(install)
+
+            if waiting.notesURL != nil {
+                let notes = NSMenuItem(
+                    title: "What’s New…",
+                    action: #selector(openUpdateNotesFromStatusItem),
+                    keyEquivalent: ""
+                )
+                notes.target = self
+                menu.addItem(notes)
+            }
+
+            // Deferring has to be as easy as refusing, or the permanent answer
+            // becomes the one people click to get quiet.
+            let later = NSMenuItem(
+                title: "Remind Me Later",
+                action: #selector(remindLaterFromStatusItem),
+                keyEquivalent: ""
+            )
+            later.target = self
+            menu.addItem(later)
+
+            // "Skip This Version", worded exactly as Settings → Updates words
+            // it. This said "Skip Melo 2.9.5" — the same act under two names in
+            // one app, which is the rule PendingUpdateBanner already follows
+            // for Remind Me Later. The version is named by the item directly
+            // above this one, so nothing is lost by dropping it here.
+            let skip = NSMenuItem(
+                title: "Skip This Version",
+                action: #selector(skipUpdateFromStatusItem),
+                keyEquivalent: ""
+            )
+            skip.target = self
+            menu.addItem(skip)
+
+            menu.addItem(.separator())
+        }
+
         let openItem = NSMenuItem(
             title: "Open Melo",
             action: #selector(openPopupFromStatusItem),
@@ -449,6 +614,22 @@ final class MenuBarIconCoordinator: NSObject, MediaKeyIconFlashing {
 
     @objc private func checkForUpdatesFromStatusItem() {
         appSupport.checkForUpdates()
+    }
+
+    @objc private func installUpdateFromStatusItem() {
+        appSupport.updates.installPendingUpdate()
+    }
+
+    @objc private func openUpdateNotesFromStatusItem() {
+        appSupport.updates.openPendingReleaseNotes()
+    }
+
+    @objc private func remindLaterFromStatusItem() {
+        appSupport.updates.remindLater()
+    }
+
+    @objc private func skipUpdateFromStatusItem() {
+        appSupport.updates.skipPendingUpdate()
     }
 
     @objc private func reportProblemFromStatusItem() {

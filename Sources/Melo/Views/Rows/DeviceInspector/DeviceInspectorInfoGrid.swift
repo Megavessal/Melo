@@ -121,7 +121,12 @@ private struct SampleRatePickerValue: View {
         .overlay(pickerBorder)
         .onHover { isHovered = $0 }
         .animation(DesignTokens.Animation.hover, value: isHovered)
-        .accessibilityLabel("Sample rate: \(currentDisplay). Activate to change.")
+        // Name, then current setting, then what activating does — rather than
+        // one sentence in the label slot, which VoiceOver reads in full every
+        // time the cursor passes over it.
+        .accessibilityLabel("Sample rate")
+        .accessibilityValue(currentDisplay)
+        .accessibilityHint("Choose a different sample rate")
     }
 
     private var pickerLabel: some View {

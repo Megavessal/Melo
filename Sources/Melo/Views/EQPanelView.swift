@@ -47,6 +47,24 @@ struct EQPanelView: View {
     /// Whether the current curve is custom (doesn't match any preset).
     private var isCustomCurve: Bool { selectedPickerItem == nil }
 
+    // MARK: - Headroom
+
+    /// The automatic preamp, as a labelled dB string, or `nil` when the curve
+    /// needs no headroom — a flat or cut-only curve shows nothing rather than
+    /// "−0.0 dB", which would be a label about the absence of a thing.
+    ///
+    /// The word "Headroom" is *in* the visible string, not only in the
+    /// `accessibilityLabel`. A bare "−7.0 dB" beside an EQ switch is a number
+    /// with no noun: the one reading it needs is "the level was lowered", and a
+    /// sighted user should not have to hover a tooltip to get the word that a
+    /// VoiceOver user is handed.
+    private var headroomLabel: String? {
+        let dB = settings.preampDB
+        guard dB < 0 else { return nil }
+        let value = String(format: "%.1f dB", dB).replacingOccurrences(of: "-", with: "\u{2212}")
+        return "Headroom \(value)"
+    }
+
     var body: some View {
         // Entire EQ panel content inside recessed background
         VStack(spacing: 12) {
@@ -54,16 +72,34 @@ struct EQPanelView: View {
             HStack {
                 // EQ toggle on left
                 HStack(spacing: 6) {
+                    // The visible "EQ" text is a sibling, not this control's
+                    // label, so `labelsHidden()` left VoiceOver with a switch
+                    // that had no name at all.
                     Toggle("", isOn: $settings.isEnabled)
                         .toggleStyle(.switch)
                         .scaleEffect(0.7)
                         .labelsHidden()
+                        .accessibilityLabel("Equalizer")
                         .onChange(of: settings.isEnabled) { _, _ in
                             onSettingsChanged(settings)
                         }
                     Text("EQ")
                         .font(DesignTokens.Typography.pickerText)
                         .foregroundStyle(.primary)
+
+                    // A boosting curve is automatically pulled back by its
+                    // largest lift so it cannot drive the limiter (see
+                    // `EQSettings.preampDB`). Melo does this to imported AutoEQ
+                    // profiles too, and tells the user there; a level drop the
+                    // user cannot see the reason for reads as a bug.
+                    if let headroom = headroomLabel {
+                        Text(headroom)
+                            .font(DesignTokens.Typography.Scale.caption2())
+                            .foregroundStyle(DesignTokens.Colors.textTertiary)
+                            .help("This curve boosts, so Melo lowers the level first. The shape of the curve is unchanged; only its loudness is. Search the Guide for “quieter after a preset”.")
+                            .accessibilityLabel(headroom)
+                            .accessibilityHint("This curve boosts, so Melo lowers the level first to keep it from clipping.")
+                    }
                 }
 
                 if isRenaming {
@@ -98,6 +134,11 @@ struct EQPanelView: View {
                         onDeleteUserPreset: onDeleteUserPreset,
                         onRenameUserPreset: onRenameUserPreset
                     )
+                    // The step's sentence starts "Start from a preset", so the
+                    // mark goes on the picker rather than the panel it sits in —
+                    // the panel's centre is the blank gap between the 500 Hz and
+                    // 1 k columns. Shared by AppRow and InactiveAppRow.
+                    .guidedTourTarget(.eqPreset)
                 }
             }
             .zIndex(1)  // Ensure dropdown renders above sliders

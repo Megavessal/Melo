@@ -16,7 +16,7 @@ import os
 /// location: if it was in the wrong place before, it still is.
 @MainActor
 final class InstallLocationCoordinator {
-    private static let logger = Logger(subsystem: "dev.local.Melo", category: "InstallLocation")
+    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "InstallLocation")
 
     private enum Keys {
         /// Stores the build the user last dismissed, so "Not Now" is honoured for

@@ -41,7 +41,7 @@ final class AppSupportCoordinator {
     private let whatsNew: WhatsNewCoordinator
     private let audioEngine: AudioEngine
     private let sparkle: SparkleUpdateController
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "AppSupport")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "AppSupport")
 
     private(set) var isCreatingReport = false
     private(set) var reportStatusMessage: String?
@@ -49,6 +49,12 @@ final class AppSupportCoordinator {
     var canCheckForPublishedUpdates: Bool {
         sparkle.isConfigured && sparkle.canCheckForUpdates
     }
+
+    /// The menu bar icon badges itself and offers the waiting update in its
+    /// context menu, so it needs the update state rather than just the "check
+    /// now" verb. Exposed here because this coordinator is already what the
+    /// icon holds for every other app-level action.
+    var updates: SparkleUpdateController { sparkle }
 
     init(
         settings: SettingsManager,
@@ -99,7 +105,7 @@ final class AppSupportCoordinator {
         let snapshot = settings.makeDiagnosticsSnapshot()
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
-        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "dev.local.Melo"
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "io.github.megavessal.Melo"
         let diagnosticsEndpoint = (Bundle.main.object(forInfoDictionaryKey: "MeloDiagnosticsEndpoint") as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
@@ -152,7 +158,7 @@ final class AppSupportCoordinator {
                 .appendingPathComponent("melo-reset-\(UUID().uuidString).sh")
             let appURL = Bundle.main.bundleURL
             let pid = ProcessInfo.processInfo.processIdentifier
-            let bundleIdentifier = Bundle.main.bundleIdentifier ?? "dev.local.Melo"
+            let bundleIdentifier = Bundle.main.bundleIdentifier ?? "io.github.megavessal.Melo"
             let home = FileManager.default.homeDirectoryForCurrentUser.path
 
             let script = """
@@ -162,6 +168,7 @@ final class AppSupportCoordinator {
             APP=\(Self.shellQuote(appURL.path))
             HOME_DIR=\(Self.shellQuote(home))
             BUNDLE_ID=\(Self.shellQuote(bundleIdentifier))
+            LEGACY_BUNDLE_ID=\(Self.shellQuote(LegacyDefaultsMigration.legacyDomain))
 
             for i in {1..120}; do
               kill -0 "$OLD_PID" 2>/dev/null || break
@@ -169,6 +176,12 @@ final class AppSupportCoordinator {
             done
 
             /usr/bin/defaults delete "$BUNDLE_ID" >/dev/null 2>&1 || true
+            # The pre-rename domain too. LegacyDefaultsMigration copies out of it
+            # on first launch and records that it has done so in the domain being
+            # deleted on the line above — so erasing only the new domain would
+            # hand every erased preference straight back on the restart below.
+            /usr/bin/defaults delete "$LEGACY_BUNDLE_ID" >/dev/null 2>&1 || true
+            rm -f "$HOME_DIR/Library/Preferences/$LEGACY_BUNDLE_ID.plist"
             rm -rf "$HOME_DIR/Library/Application Support/Melo"
             rm -rf "$HOME_DIR/Library/Caches/$BUNDLE_ID"
             rm -rf "$HOME_DIR/Library/Saved Application State/$BUNDLE_ID.savedState"

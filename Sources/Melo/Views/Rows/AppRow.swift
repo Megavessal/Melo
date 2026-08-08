@@ -41,6 +41,11 @@ struct AppRow: View {
     @State private var localEQSettings: EQSettings
     @State private var localStereoFieldSettings: StereoFieldSettings
 
+    /// Effective gain × 100, in 0...400 — base volume multiplied by boost.
+    /// This is the one definition of a percent in Melo; the row's slider and
+    /// editable field (`AppRowControls`), Find an Action
+    /// (`ConsumerCommandPalette`), the phrase parser (`IntentSearch`) and the
+    /// "Set App Volume in Melo" shortcut all report and accept the same number.
     private var displayedPercentage: Int {
         Int(round(Double(max(0, min(4, volume * boost.rawValue))) * 100))
     }
@@ -162,6 +167,10 @@ struct AppRow: View {
                         .buttonStyle(.meloHover)
                         .help(isEQExpanded ? "Hide \(app.name) controls" : "Show all \(app.name) controls")
                         .accessibilityLabel(isEQExpanded ? "Hide app controls" : "Show all app controls")
+                        // Only the open row publishes this, so the tour step
+                        // about the disclosure arrow highlights the one row it
+                        // is talking about rather than the last row drawn.
+                        .guidedTourTarget(.appDisclosure, when: isEQExpanded)
                     }
 
                     if let subtitle = DevicePicker.routingSubtitle(
@@ -180,9 +189,13 @@ struct AppRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 if isMutedExternal {
+                    // Not decorative — it is the only place a collapsed row
+                    // says the app is muted, and colour is the only other
+                    // channel carrying it.
                     Image(systemName: "speaker.slash.fill")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DesignTokens.Colors.mutedIndicator)
+                        .accessibilityLabel("Muted")
                 }
 
                 Text("\(displayedPercentage)%")
@@ -238,6 +251,9 @@ struct AppRow: View {
                     onDeleteUserPreset: onDeleteUserPreset,
                     onRenameUserPreset: onRenameUserPreset
                 )
+                // The equalizer step is about the ten bands, not about the row
+                // that contains them alongside volume and balance.
+                .guidedTourTarget(.equalizer)
 
                 StereoFieldControlView(
                     settings: $localStereoFieldSettings,

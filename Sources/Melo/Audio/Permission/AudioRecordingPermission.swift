@@ -4,7 +4,7 @@ import AudioToolbox
 import Foundation
 import os
 
-private let logger = Logger(subsystem: "dev.local.Melo", category: "Permission")
+private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "Permission")
 
 // MARK: - Permission Status
 

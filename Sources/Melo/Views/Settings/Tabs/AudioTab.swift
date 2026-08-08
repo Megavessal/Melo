@@ -8,6 +8,16 @@ struct AudioTab: View {
     @Bindable var deviceVolumeMonitor: DeviceVolumeMonitor
     @Bindable var callDuckingManager: CallDuckingManager
     @Bindable var powerSourceMonitor: PowerSourceMonitor
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
+    /// Where the scroll view is parked. `scrollPosition` reads this during the
+    /// scroll view's own layout, which is why the Guide's target is copied into
+    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
+    /// after the tab appears rendered nothing at all, and nothing could see that
+    /// it had not.
+    @State private var scrolledSection: String?
 
     @State private var showCallAppPicker = false
 
@@ -39,8 +49,16 @@ struct AudioTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .scrollPosition(id: $scrolledSection, anchor: .top)
+        // `initial: true` because the tab the reader is sent to is usually
+        // built *after* the Guide set the target, so there is no change left
+        // to observe by the time this view exists.
+        .onChange(of: sectionTarget, initial: true) { _, target in
+            if let target { scrolledSection = target.section }
+        }
         .onAppear { updateSortedDevices() }
         .onChange(of: audioEngine.outputDevices) { _, _ in updateSortedDevices() }
         .onChange(of: settings.appSettings.lockInputDevice) { oldValue, newValue in
@@ -102,6 +120,7 @@ struct AudioTab: View {
                     .controlSize(.small)
             }
         }
+        .id("Calls")
     }
 
     // MARK: - Accessibility
@@ -134,6 +153,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
+        .id("Listening")
     }
 
     // MARK: - Privacy
@@ -164,6 +184,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
+        .id("Privacy")
     }
 
     // MARK: - Adaptive Audio
@@ -219,6 +240,7 @@ struct AudioTab: View {
                 }
             }
         }
+        .id("Smart Sound")
     }
 
     // MARK: - Volume
@@ -246,6 +268,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
+        .id("Volume")
     }
 
     // MARK: - Devices
@@ -314,6 +337,7 @@ struct AudioTab: View {
                 }
             }
         }
+        .id("Devices")
     }
 
     private func updateSortedDevices() {

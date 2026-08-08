@@ -28,7 +28,13 @@ final class OnboardingWindowController {
     private let guidedTour: GuidedTourCoordinator
     private let popupController: MenuBarPopupController
     private let audioEngine: AudioEngine
-    private let sparkle: SparkleUpdateController
+    /// `nonisolated(unsafe)` because `deinit` is nonisolated under Swift 6 and
+    /// this token has to be unregistered there — a `@MainActor` property read
+    /// from `deinit` does not compile. The access is safe in fact: the token is
+    /// written once from the main actor in `observeGuideRequests()` and read
+    /// only in `deinit`, which cannot run concurrently with anything else on
+    /// this instance.
+    nonisolated(unsafe) private var guideRequestObserver: NSObjectProtocol?
 
     init(
         settings: SettingsManager,
@@ -36,8 +42,7 @@ final class OnboardingWindowController {
         audioPrimer: FirstRunAudioPrimer,
         guidedTour: GuidedTourCoordinator,
         popupController: MenuBarPopupController,
-        audioEngine: AudioEngine,
-        sparkle: SparkleUpdateController
+        audioEngine: AudioEngine
     ) {
         self.settings = settings
         self.accessibility = accessibility
@@ -45,7 +50,48 @@ final class OnboardingWindowController {
         self.guidedTour = guidedTour
         self.popupController = popupController
         self.audioEngine = audioEngine
-        self.sparkle = sparkle
+        observeGuideRequests()
+    }
+
+    deinit {
+        if let guideRequestObserver {
+            NotificationCenter.default.removeObserver(guideRequestObserver)
+        }
+    }
+
+    /// The Guide can ask for a control to be shown, and most of Melo's controls
+    /// are in the menu bar popup rather than in a Settings tab. This controller
+    /// is the one place that holds both the popup controller and the tour
+    /// coordinator, so it is where that request is served; the Guide posts
+    /// rather than calls because `SettingsRootView` is built by `FineTuneApp`
+    /// and cannot be handed either dependency from here.
+    private func observeGuideRequests() {
+        guideRequestObserver = NotificationCenter.default.addObserver(
+            forName: .meloShowControlInPopup,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let request = note.object as? GuideSpotlightRequest else { return }
+            MainActor.assumeIsolated {
+                self?.showInPopup(request)
+            }
+        }
+    }
+
+    private func showInPopup(_ request: GuideSpotlightRequest) {
+        guidedTour.begin(steps: [
+            SpotlightStep(
+                id: "guide-\(request.id)",
+                title: request.title,
+                message: request.message,
+                target: request.target
+            )
+        ])
+        // Same handoff the end of setup uses: the overlay has to be armed before
+        // the popup opens, or the first layout pass has nothing to spotlight.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.popupController.toggle()
+        }
     }
 
     /// Whether `showIfNeeded()` would actually put setup on screen. Exposed so
@@ -74,7 +120,14 @@ final class OnboardingWindowController {
         appSettings.onboardingVersionCompleted = MeloExperienceVersion.onboarding
         appSettings.guidedTourVersionCompleted = MeloExperienceVersion.guidedTour
         appSettings.guidedTourPending = false
+        // Closing the window without answering the analytics page is a no. The
+        // alternative — leaving it `.unasked` — would pop the standalone prompt
+        // at the next launch, i.e. re-ask a question they closed a window on.
+        if appSettings.analyticsConsent == .unasked {
+            appSettings.analyticsConsent = .denied
+        }
         settings.appSettings = appSettings
+        TelemetryService.shared.refreshConsent()
     }
 
     func replay() {
@@ -92,14 +145,20 @@ final class OnboardingWindowController {
         }
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 590, height: 470),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            contentRect: NSRect(x: 0, y: 0, width: 590, height: 560),
+            // Resizable vertically: the view is fixed at 590 wide but grows
+            // downwards, and at large accessibility text sizes a 470pt window
+            // makes every page a scroller. Letting it be dragged taller is the
+            // difference between reading a permission ask and scrolling one.
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Welcome to Melo"
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        window.contentMinSize = NSSize(width: 590, height: 480)
+        window.contentMaxSize = NSSize(width: 590, height: 1200)
         window.center()
 
         let view = FirstRunOnboardingView(
@@ -107,7 +166,6 @@ final class OnboardingWindowController {
             accessibility: accessibility,
             audioPrimer: audioPrimer,
             audioEngine: audioEngine,
-            sparkle: sparkle,
             onClose: { [weak self, weak window] startTour in
                 guard let self else { return }
                 self.audioPrimer.cancel()

@@ -1,9 +1,12 @@
 // Melo/Views/MenuBarPopupView.swift
 import AudioToolbox
+import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct MenuBarPopupView: View {
+    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "MenuBarPopupView")
+
     @Bindable var audioEngine: AudioEngine
     @Bindable var deviceVolumeMonitor: DeviceVolumeMonitor
     @ObservedObject var sparkleUpdateController: SparkleUpdateController
@@ -255,7 +258,7 @@ struct MenuBarPopupView: View {
                 syncNavOrder()
             }
             .onChange(of: guidedTour.currentStep?.id) { _, _ in
-                prepareGuidedTour(for: guidedTour.currentStep)
+                syncNavOrder()
             }
             .onChange(of: guidedTour.isActive) { _, active in
                 handleGuidedTourActivityChanged(active)
@@ -381,12 +384,14 @@ struct MenuBarPopupView: View {
         }
     }
 
+    /// The tour's own expansion is derived from the current step, so ending the
+    /// tour closes it with no cleanup. What still has to be undone is anything
+    /// the user opened by clicking through the spotlight.
     private func handleGuidedTourActivityChanged(_ active: Bool) {
-        if active {
-            prepareGuidedTour(for: guidedTour.currentStep)
-        } else {
+        if !active {
             expandedRowID = nil
         }
+        syncNavOrder()
     }
 
     private func handlePriorityEditingChanged(_ editing: Bool) {
@@ -599,6 +604,14 @@ struct MenuBarPopupView: View {
     /// `isEditingDevicePriority` so Escape collapses the row first rather than
     /// tearing down edit mode entirely.
     private func handleEscape() {
+        // Two Escape handlers are live during a tour: this hidden button and the
+        // overlay's cancelAction on Skip Tour. Which one wins is not defined, so
+        // both do the same thing rather than one of them closing the popup with
+        // the tour still pending.
+        if guidedTour.isActive {
+            guidedTour.skip()
+            return
+        }
         if showCommandPalette {
             withAnimation(DesignTokens.Animation.panel) {
                 showCommandPalette = false
@@ -684,7 +697,22 @@ struct MenuBarPopupView: View {
     @ViewBuilder
     private func mainContent(scrollProxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
-            if areDevicesExpanded {
+            // A waiting update belongs in the menu bar extra the user chose,
+            // not in a second one Melo adds for itself. Above the device list
+            // because it is the only thing here that expires.
+            if let waiting = sparkleUpdateController.updateReminder {
+                PendingUpdateBanner(
+                    update: waiting,
+                    onInstall: { sparkleUpdateController.installPendingUpdate() },
+                    onReleaseNotes: waiting.notesURL == nil
+                        ? nil
+                        : { sparkleUpdateController.openPendingReleaseNotes() },
+                    onRemindLater: { sparkleUpdateController.remindLater() }
+                )
+                .padding(.bottom, DesignTokens.Spacing.xs)
+            }
+
+            if showsDeviceList {
                 // Output/input controls and rows collapse together.
                 devicesSection
                     .guidedTourTarget(.devices)
@@ -701,6 +729,11 @@ struct MenuBarPopupView: View {
             }
 
             // Apps section (active + pinned inactive + hidden in edit mode)
+            // Section-level anchor, for a walkthrough addressing the app list as
+            // a whole. The first-run tour uses the per-row anchors instead: a
+            // spotlight the size of this section highlights the header, Smart
+            // Sound and every row at once, which points at nothing in
+            // particular.
             appsSection(scrollProxy: scrollProxy)
                 .guidedTourTarget(.apps)
 
@@ -760,6 +793,11 @@ struct MenuBarPopupView: View {
             }
             .buttonStyle(.meloHover)
             .help("Output Devices")
+            // The glyph is the whole button, so without a label VoiceOver
+            // announces the symbol name. Selection is a trait rather than part
+            // of the label, so it is not spoken twice.
+            .accessibilityLabel("Output devices")
+            .accessibilityAddTraits(showingInputDevices ? [] : .isSelected)
 
             // Input (mic) button
             Button {
@@ -783,6 +821,8 @@ struct MenuBarPopupView: View {
             }
             .buttonStyle(.meloHover)
             .help("Input Devices")
+            .accessibilityLabel("Input devices")
+            .accessibilityAddTraits(showingInputDevices ? .isSelected : [])
         }
         .padding(3)
         .background(
@@ -802,6 +842,15 @@ struct MenuBarPopupView: View {
         devicesContent
     }
 
+    /// The row the "choose an output" step puts its pointer on. Prefers a
+    /// device that is not already the main output, because that is the row
+    /// where clicking does what the step describes.
+    private var guidedTourDeviceUID: String? {
+        let devices = sortedDevices
+        let candidate = devices.first { $0.id != deviceVolumeMonitor.defaultDeviceID }
+        return (candidate ?? devices.first)?.uid
+    }
+
     private var devicesContent: some View {
         VStack(spacing: 0) {
             if isEditingDevicePriority {
@@ -814,11 +863,25 @@ struct MenuBarPopupView: View {
                 }
 
                 // Paired Bluetooth devices (output tab only)
-                if !showingInputDevices {
-                    if !isBluetoothOn {
-                        Text("Turn on Bluetooth to connect devices")
+                if !showingInputDevices && audioEngine.settingsManager.appSettings.bluetoothFeaturesEnabled {
+                    if audioEngine.bluetoothDeviceMonitor.isStarted
+                        && !audioEngine.bluetoothDeviceMonitor.hasCompletedFirstScan {
+                        // Entering edit mode is what starts discovery, and the first
+                        // read is the call macOS puts its permission dialog in front
+                        // of, so this is also what shows while that dialog is up.
+                        Text("Looking for paired devices…")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                            .padding(.top, DesignTokens.Spacing.xs)
+                    } else if audioEngine.bluetoothDeviceMonitor.hasCompletedFirstScan && !isBluetoothOn {
+                        // `powerState` reports "not on" for hardware-off and for
+                        // permission-denied alike, with no way found to tell them
+                        // apart, so naming only one cause would be a guess.
+                        Text("Melo can’t see Bluetooth. Check that Bluetooth is on, and that Melo is allowed to use it in System Settings › Privacy & Security › Bluetooth.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, DesignTokens.Spacing.xs)
                     } else {
                         // Filter out any device already in the output list (handles
@@ -917,7 +980,8 @@ struct MenuBarPopupView: View {
                             audioEngine.setAutoEQPreampEnabled(!audioEngine.autoEQPreampEnabled)
                         },
                         isFocused: hasKeyboardEngaged && selectedRow == .device(uid: device.uid),
-                        iconOverrideSymbol: audioEngine.settingsManager.getDeviceIconOverride(for: device.uid)
+                        iconOverrideSymbol: audioEngine.settingsManager.getDeviceIconOverride(for: device.uid),
+                        isGuidedTourAnchor: device.uid == guidedTourDeviceUID
                     )
                     .id(PopupKeyboardNavModel.RowID.device(uid: device.uid))
                 }
@@ -1017,9 +1081,16 @@ struct MenuBarPopupView: View {
         HStack {
             Spacer()
             VStack(spacing: DesignTokens.Spacing.sm) {
-                Image(systemName: "speaker.slash")
+                // `app.dashed`, not `speaker.slash`: this state is the absence
+                // of apps, and `speaker.slash.fill` already means muted on
+                // every app row and both HUDs. Matches the "no app" glyph the
+                // HUD uses when it has no icon to show.
+                Image(systemName: "app.dashed")
                     .font(.title)
                     .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    // The sentence below already says this. Left visible to
+                    // VoiceOver it announces "app dashed" ahead of it.
+                    .accessibilityHidden(true)
                 Text("No user apps are open")
                     .font(.callout)
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -1033,6 +1104,9 @@ struct MenuBarPopupView: View {
             Spacer()
         }
         .padding(.vertical, DesignTokens.Spacing.xl)
+        // Anchored so the app steps have something real to point at on a first
+        // run, when nothing is playing and there are no rows yet.
+        .guidedTourTarget(.emptyApps)
     }
 
     @ViewBuilder
@@ -1049,6 +1123,10 @@ struct MenuBarPopupView: View {
                     Image(systemName: "chevron.right")
                         .font(DesignTokens.Typography.Scale.caption2(.bold))
                         .rotationEffect(.degrees(areInactiveAppsExpanded ? 90 : 0))
+                        // A disclosure arrow inside a button's label is spoken
+                        // as "chevron right" between the section name and its
+                        // count. The button's own label carries the state.
+                        .accessibilityHidden(true)
 
                     if !inactiveDisplayableApps.isEmpty {
                         Text("\(inactiveDisplayableApps.count) quiet")
@@ -1060,6 +1138,7 @@ struct MenuBarPopupView: View {
             }
             .buttonStyle(.meloHover)
             .help(areInactiveAppsExpanded ? "Hide quiet and remembered apps" : "Show quiet and remembered apps")
+            .accessibilityLabel(areInactiveAppsExpanded ? "Hide quiet and remembered apps" : "Show quiet and remembered apps")
 
             Spacer()
             if !hiddenApps.isEmpty && !isEditingDevicePriority {
@@ -1072,6 +1151,7 @@ struct MenuBarPopupView: View {
                         Image(systemName: "chevron.right")
                             .font(DesignTokens.Typography.Scale.caption2(.semibold))
                             .rotationEffect(.degrees(areHiddenAppsExpanded ? 90 : 0))
+                            .accessibilityHidden(true)
                         Text("Hidden Apps (\(hiddenApps.count))")
                     }
                     .font(DesignTokens.Typography.caption)
@@ -1107,13 +1187,15 @@ struct MenuBarPopupView: View {
         } else {
             if activeDisplayableApps.isEmpty {
                 noActiveAudioView
+                    .guidedTourTarget(.emptyApps, when: !showsQuietApps)
             } else {
                 appsContent(activeDisplayableApps, scrollProxy: scrollProxy)
             }
 
-            if areInactiveAppsExpanded && !inactiveDisplayableApps.isEmpty {
+            if showsQuietApps && !inactiveDisplayableApps.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "moon.zzz.fill")
+                        .accessibilityHidden(true)
                     Text("Quiet & Remembered")
                 }
                 .font(DesignTokens.Typography.Scale.caption2(.semibold))
@@ -1122,6 +1204,7 @@ struct MenuBarPopupView: View {
                 .tracking(0.6)
                 .padding(.top, DesignTokens.Spacing.sm)
                 .padding(.horizontal, DesignTokens.Spacing.sm)
+                .accessibilityAddTraits(.isHeader)
 
                 appsContent(inactiveDisplayableApps, scrollProxy: scrollProxy)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -1134,30 +1217,86 @@ struct MenuBarPopupView: View {
         }
     }
 
-    private var guidedTourEqualizerAppID: String? {
+    /// The one row every app step talks about. A single row for all three keeps
+    /// the tour coherent: the same app is introduced, opened, and equalized.
+    private var guidedTourAppID: String? {
         activeDisplayableApps.first?.id ?? inactiveDisplayableApps.first?.id
     }
 
-    /// Steps are data now rather than an enum, so this matches on the step id.
-    /// The ids are the old case names, kept precisely so this mapping survived
-    /// the refactor. An unknown id (a What's New step, say) just collapses rows.
-    private func prepareGuidedTour(for step: SpotlightStep?) {
-        guard guidedTour.isActive, let step else { return }
+    /// What the current step needs open for its spotlight to land on something
+    /// real. Steps are data now rather than an enum, so this matches on the step
+    /// id; the ids are the old case names. An unknown id — every What's New
+    /// step — falls through to what the step's *target* needs, which is the only
+    /// thing a walkthrough built out of release notes can be read from.
+    ///
+    /// This is derived rather than assigned. Writing the same expansion into
+    /// `@State` from `onAppear` is one layout pass late: the anchors the
+    /// overlay measures still describe the popup as it was before the row
+    /// opened, so the first frame of a step highlights where the control used to
+    /// be. It also meant the tour left its expansions behind as if the user had
+    /// made them.
+    private func guidedTourReveal(
+        for step: SpotlightStep?
+    ) -> (devices: Bool, quietApps: Bool, openRow: Bool) {
+        guard guidedTour.isActive, let step else { return (false, false, false) }
 
         switch step.id {
         case "devices", "autoEQ":
-            areDevicesExpanded = true
-            expandedRowID = nil
+            return (true, false, false)
+        case "appList", "appControls":
+            return (false, true, true)
         case "equalizer":
-            guard let targetID = guidedTourEqualizerAppID else { return }
-            let activeIDs = Set(activeDisplayableApps.map(\.id))
-            if !activeIDs.contains(targetID) {
-                areInactiveAppsExpanded = true
-            }
-            expandedRowID = targetID
+            return (false, true, true)
         default:
-            expandedRowID = nil
+            return reveal(forTarget: step.target)
+                ?? step.unavailable?.target.flatMap(reveal(forTarget:))
+                ?? (false, false, false)
         }
+    }
+
+    /// The same question answered from the target rather than the step id, for
+    /// every walkthrough nobody hand-wrote a mapping for. Without it a release
+    /// note pointing inside a collapsed device list or an unopened app row
+    /// spotlit whatever happened to be at those coordinates.
+    private func reveal(
+        forTarget target: GuidedTourTarget?
+    ) -> (devices: Bool, quietApps: Bool, openRow: Bool)? {
+        switch target {
+        case .devices, .deviceSelection, .autoEQ:
+            return (true, false, false)
+        case .appRow:
+            return (false, true, false)
+        // The disclosure arrow is only anchored while the row is open, so a
+        // step naming it needs the row open too.
+        case .appDisclosure, .appControls, .appVolume, .equalizer, .eqPreset:
+            return (false, true, true)
+        case .apps, .emptyApps, .smartAudio, .smartSoundLevel, .search, .settings, .none:
+            return nil
+        }
+    }
+
+    private var guidedTourReveal: (devices: Bool, quietApps: Bool, openRow: Bool) {
+        guidedTourReveal(for: guidedTour.currentStep)
+    }
+
+    /// The device list, opened by the user or by the step that is about it.
+    private var showsDeviceList: Bool {
+        areDevicesExpanded || guidedTourReveal.devices
+    }
+
+    /// A remembered app sits in the collapsed quiet lane, where a step pointing
+    /// at it would be pointing at something nobody can see.
+    private var showsQuietApps: Bool {
+        areInactiveAppsExpanded
+            || (guidedTourReveal.quietApps
+                && !activeDisplayableApps.contains { $0.id == guidedTourAppID })
+    }
+
+    /// Open because the user opened it, or because the step being shown is about
+    /// what is inside it.
+    private func isRowOpen(_ id: String) -> Bool {
+        if expandedRowID == id { return true }
+        return guidedTourReveal.openRow && id == guidedTourAppID
     }
 
     private var activeDisplayableApps: [DisplayableApp] {
@@ -1181,6 +1320,7 @@ struct MenuBarPopupView: View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Image(systemName: "waveform.slash")
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
+                .accessibilityHidden(true)
             Text("No apps are playing audio")
                 .font(DesignTokens.Typography.caption)
                 .foregroundStyle(DesignTokens.Colors.textSecondary)
@@ -1220,6 +1360,7 @@ struct MenuBarPopupView: View {
                         Image(systemName: "eye")
                             .font(DesignTokens.Typography.Scale.caption(.semibold))
                             .foregroundStyle(themeAccent)
+                            .accessibilityHidden(true)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
@@ -1228,6 +1369,7 @@ struct MenuBarPopupView: View {
                 }
                 .buttonStyle(.meloHover)
                 .help("Show \(info.displayName) again")
+                .accessibilityLabel("Show \(info.displayName) again")
             }
         }
         .accessibilityElement(children: .contain)
@@ -1416,16 +1558,16 @@ struct MenuBarPopupView: View {
                 onRenameUserPreset: { id, newName in
                     audioEngine.settingsManager.updateUserPreset(id: id, name: newName)
                 },
-                isEQExpanded: expandedRowID == displayableApp.id,
+                isEQExpanded: isRowOpen(displayableApp.id),
                 onEQToggle: {
                     toggleEQ(for: displayableApp.id, scrollProxy: scrollProxy)
                 },
                 isFocused: hasKeyboardEngaged && selectedRow == .app(persistenceID: displayableApp.id)
             )
             .frame(maxWidth: .infinity, alignment: .leading)
-            .guidedTourTarget(
-                .equalizer,
-                when: displayableApp.id == guidedTourEqualizerAppID
+            .guidedTourAppAnchors(
+                isTourApp: displayableApp.id == guidedTourAppID,
+                isExpanded: isRowOpen(displayableApp.id)
             )
             .contentShape(Rectangle())
             .id(PopupKeyboardNavModel.RowID.app(persistenceID: displayableApp.id))
@@ -1536,16 +1678,16 @@ struct MenuBarPopupView: View {
             onRenameUserPreset: { id, newName in
                 audioEngine.settingsManager.updateUserPreset(id: id, name: newName)
             },
-            isEQExpanded: expandedRowID == displayableApp.id,
+            isEQExpanded: isRowOpen(displayableApp.id),
             onEQToggle: {
                 toggleEQ(for: displayableApp.id, scrollProxy: scrollProxy)
             },
             isFocused: hasKeyboardEngaged && selectedRow == .app(persistenceID: displayableApp.id)
         )
         .frame(maxWidth: .infinity, alignment: .leading)
-        .guidedTourTarget(
-            .equalizer,
-            when: displayableApp.id == guidedTourEqualizerAppID
+        .guidedTourAppAnchors(
+            isTourApp: displayableApp.id == guidedTourAppID,
+            isExpanded: isRowOpen(displayableApp.id)
         )
         .contentShape(Rectangle())
         .id(PopupKeyboardNavModel.RowID.app(persistenceID: displayableApp.id))
@@ -1622,6 +1764,10 @@ struct MenuBarPopupView: View {
                 ? audioEngine.prioritySortedInputDevices
                 : audioEngine.prioritySortedOutputDevices
             isEditingDevicePriority = true
+            // Entering edit mode on the output tab is the only way to see paired
+            // devices, so it is the first moment a user has asked for something
+            // Bluetooth does — and therefore the right moment for the system prompt.
+            if !showingInputDevices { audioEngine.startBluetoothMonitoringIfEnabled() }
         }
     }
 
@@ -1838,20 +1984,26 @@ struct MenuBarPopupView: View {
 
     /// Kept as a named action rather than an inline closure so the SwiftUI body
     /// remains tractable for the Swift 6 release-mode type checker.
+    /// The scrim blocks the mouse everywhere except the highlighted control, but
+    /// nothing blocked keys: arrows moved the selection behind the overlay, and
+    /// m or a digit changed an app the user could not see. The tour's own card
+    /// handles Return, the arrows and Escape.
     private func processPopupKeyPress(_ keyPress: KeyPress) -> KeyPress.Result {
-        guard !showCommandPalette else { return .ignored }
+        guard !showCommandPalette, !guidedTour.isActive else { return .ignored }
         return handleKeyPress(keyPress)
     }
 
     private func syncNavOrder() {
-        let activeDevices = areDevicesExpanded
+        // Matches what is on screen rather than what the user last toggled, so
+        // keyboard order still follows the list a tour step has opened.
+        let activeDevices = showsDeviceList
             ? (showingInputDevices ? sortedInputDevices : sortedDevices)
             : []
         navModel.syncOrder(
             activeDevices: activeDevices,
             appPersistenceIDs: (
                 activeDisplayableApps
-                    + (areInactiveAppsExpanded ? inactiveDisplayableApps : [])
+                    + (showsQuietApps ? inactiveDisplayableApps : [])
             ).map(\.id),
             isEditingPriority: isEditingDevicePriority
         )
@@ -2220,19 +2372,112 @@ struct MenuBarPopupView: View {
         let runningApp = NSWorkspace.shared.runningApplications.first { $0.processIdentifier == pid }
         runningApp?.activate()
 
-        // Step 2: Try to restore minimized windows via AppleScript
-        if let bundleID = bundleID {
-            // reopen + activate restores minimized windows for most apps
-            let script = NSAppleScript(source: """
+        // Step 2: Restore minimized windows. `reopen` + `activate` does that for
+        // most apps, and it has to be an Apple event — but sent from a child
+        // process, never in-process.
+        //
+        // `NSAppleScript.executeAndReturnError` is synchronous on whichever
+        // thread sends it, and this is the main actor inside a click handler.
+        // Measured against a real launch with `sample`, the equivalent call in
+        // `DeviceVolumeMonitor` cost 218 ms, 133 ms of it parked inside
+        // `AEDefaultActiveProc` — an unbounded wait on the *target* process.
+        // Here the target is an arbitrary third-party app that may itself be
+        // hung, and Automation consent is granted per target, so the first
+        // click on each app can park the main thread behind a consent dialog
+        // for as long as the user takes to answer it.
+        //
+        // No pipe: nothing reads osascript's output, and a pipe that is drained
+        // after `waitUntilExit()` rather than before deadlocks once the reply
+        // outgrows the buffer. `Process.run()` is fork+exec and returns at once.
+        if let bundleID {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            // Passed as argv, not through a shell, so the bundle ID cannot be
+            // read as script beyond the string literal it sits in.
+            process.arguments = [
+                "-e",
+                """
                 tell application id "\(bundleID)"
                     reopen
                     activate
                 end tell
-                """)
-            script?.executeAndReturnError(nil)
+                """
+            ]
+            process.terminationHandler = { proc in
+                if proc.terminationStatus != 0 {
+                    Self.logger.warning(
+                        "osascript exited \(proc.terminationStatus, privacy: .public) activating \(bundleID, privacy: .public)"
+                    )
+                }
+            }
+            do {
+                try process.run()
+            } catch {
+                Self.logger.warning("Failed to launch osascript to activate \(bundleID, privacy: .public)")
+            }
         }
     }
 }
+
+#if MELO_DEV
+extension MenuBarPopupView {
+    /// Seeds the popup's own `@State` so the surfaces that only exist behind a
+    /// click can be rendered. Only the snapshot harness calls this — the popup
+    /// has no other seam, so ⌘K's palette, the Input tab, priority-edit mode
+    /// and an opened app row had never appeared in any frame.
+    ///
+    /// Declared in an extension rather than the struct body so the memberwise
+    /// initialiser every real call site uses stays synthesised.
+    ///
+    /// `editableDeviceOrder` is seeded here too: `toggleDevicePriorityEdit()`
+    /// is what normally fills it, and starting already-editing never calls it,
+    /// so edit mode would otherwise render as a list of nothing.
+    init(
+        audioEngine: AudioEngine,
+        deviceVolumeMonitor: DeviceVolumeMonitor,
+        sparkleUpdateController: SparkleUpdateController,
+        permission: AudioRecordingPermission,
+        accessibility: AccessibilityPermissionService,
+        mediaKeyStatus: MediaKeyStatus,
+        popupVisibility: PopupVisibilityService,
+        hudController: HUDWindowController,
+        mediaKeyMonitor: MediaKeyMonitor,
+        guidedTour: GuidedTourCoordinator,
+        commandPaletteOpen: Bool = false,
+        showingInputDevices: Bool = false,
+        editingDevicePriority: Bool = false,
+        quietAppsExpanded: Bool = false,
+        expandedRowID: String? = nil
+    ) {
+        self.audioEngine = audioEngine
+        self.deviceVolumeMonitor = deviceVolumeMonitor
+        self.sparkleUpdateController = sparkleUpdateController
+        self.permission = permission
+        self.accessibility = accessibility
+        self.mediaKeyStatus = mediaKeyStatus
+        self.popupVisibility = popupVisibility
+        self.hudController = hudController
+        self.mediaKeyMonitor = mediaKeyMonitor
+        self.guidedTour = guidedTour
+
+        _showCommandPalette = State(initialValue: commandPaletteOpen)
+        _showingInputDevices = State(initialValue: showingInputDevices)
+        _isEditingDevicePriority = State(initialValue: editingDevicePriority)
+        _wasEditingInputDevices = State(initialValue: showingInputDevices)
+        // A remembered app sits in the collapsed quiet lane, so seeding an
+        // expanded row without this opens a row that is not on screen.
+        _areInactiveAppsExpanded = State(initialValue: quietAppsExpanded)
+        _expandedRowID = State(initialValue: expandedRowID)
+        _editableDeviceOrder = State(
+            initialValue: editingDevicePriority
+                ? (showingInputDevices
+                    ? audioEngine.prioritySortedInputDevices
+                    : audioEngine.prioritySortedOutputDevices)
+                : []
+        )
+    }
+}
+#endif
 
 // MARK: - Previews
 

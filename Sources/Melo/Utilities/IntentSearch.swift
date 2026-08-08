@@ -209,13 +209,26 @@ nonisolated enum IntentSearch {
         return !expanded.isDisjoint(with: target)
     }
 
-    /// Reads a volume out of a phrase such as "Spotify to 40%". A bare number is
-    /// only accepted when it carries a percent sign or an explicit "to"/"at", so an
-    /// app named "Studio 3" is not silently read as a volume.
+    /// Loudest per-app volume Melo will accept, as a percent.
+    ///
+    /// A percent in Melo means **effective gain × 100**: an app's base volume
+    /// multiplied by its boost, so 200% is a 2× boosted app. 400 is the same
+    /// ceiling the app row's editable field enforces and the same one
+    /// `SetMeloAppVolumeIntent` documents. This used to stop at 100, which meant
+    /// typing "Music to 200%" into Find an Action produced no command at all
+    /// while the identical request through Shortcuts worked.
+    static let maximumVolumePercent = 400
+
+    /// Reads a volume out of a phrase such as "Spotify to 40%" or "Music to 200%".
+    /// A bare number is only accepted when it carries a percent sign or an explicit
+    /// "to"/"at", so an app named "Studio 3" is not silently read as a volume.
+    /// Anything above `maximumVolumePercent` returns nil rather than being clamped:
+    /// offering "Set Music to 400%" for a typed 900 would be answering a different
+    /// question than the one asked.
     static func percentage(in query: String) -> Int? {
         let patterns = [
-            #"(?<!\d)(100|[1-9]?\d)\s*%"#,
-            #"\b(?:to|at)\s+(100|[1-9]?\d)\b"#
+            #"(?<!\d)(\d{1,3})\s*%"#,
+            #"\b(?:to|at)\s+(\d{1,3})\b"#
         ]
         for pattern in patterns {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
@@ -225,7 +238,7 @@ nonisolated enum IntentSearch {
                   ),
                   let range = Range(match.range(at: 1), in: query),
                   let value = Int(query[range]),
-                  (0...100).contains(value) else { continue }
+                  (0...maximumVolumePercent).contains(value) else { continue }
             return value
         }
         return nil

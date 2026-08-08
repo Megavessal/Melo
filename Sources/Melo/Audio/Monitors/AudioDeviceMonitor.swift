@@ -142,6 +142,12 @@ final class AudioDeviceMonitor: AudioDeviceProviding {
     }
 
     private func refresh() {
+        #if MELO_DEV
+        // A pinned fixture outranks the hardware. Without this a Bluetooth
+        // connect mid-render would replace the fixture with this Mac's real
+        // devices and the frame would silently be of something else.
+        if snapshotDevicesPinned { return }
+        #endif
         do {
             let deviceIDs = try AudioObjectID.readDeviceList()
             var outputDeviceList: [AudioDevice] = []
@@ -437,4 +443,26 @@ final class AudioDeviceMonitor: AudioDeviceProviding {
         }
     }
 
+    #if MELO_DEV
+    @ObservationIgnored private var snapshotDevicesPinned = false
+
+    /// Snapshot seam. `outputDevices` and both lookup tables are `private(set)`
+    /// and only ever written by `refresh()` from this Mac's real hardware, so
+    /// every frame of a device-dependent surface has been a frame of whatever
+    /// happened to be plugged into the machine that rendered it. On a Mac whose
+    /// only output reports no correction support, that meant the AutoEQ wand
+    /// never appeared in any frame and the guided tour's AutoEQ step only ever
+    /// rendered its "nothing connected supports it" alternate.
+    ///
+    /// Writes the same four properties `refresh()` writes, in the same order, so
+    /// a view that reads `devicesByUID` sees the fixture the same way it sees
+    /// hardware. Pins afterwards: see `refresh()`.
+    func setDevicesForSnapshot(_ devices: [AudioDevice]) {
+        outputDevices = devices
+        knownDeviceUIDs = Set(devices.map(\.uid))
+        devicesByUID = Dictionary(devices.map { ($0.uid, $0) }, uniquingKeysWith: { _, latest in latest })
+        devicesByID = Dictionary(devices.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+        snapshotDevicesPinned = true
+    }
+    #endif
 }

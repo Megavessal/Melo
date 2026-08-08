@@ -30,7 +30,7 @@ final class EchoTracker {
     private var nextToken: Int = 0
 
     init(label: String, timeoutDuration: TimeInterval = 2.0,
-         logger: Logger = Logger(subsystem: "dev.local.Melo", category: "EchoTracker")) {
+         logger: Logger = Logger(subsystem: "io.github.megavessal.Melo", category: "EchoTracker")) {
         self.label = label
         self.timeoutDuration = timeoutDuration
         self.logger = logger
