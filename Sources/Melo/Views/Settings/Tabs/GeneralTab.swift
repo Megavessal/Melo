@@ -14,12 +14,6 @@ struct GeneralTab: View {
     /// it at the call site is then a build error rather than a tab that quietly
     /// opens at the top again.
     let sectionTarget: SettingsSectionTarget?
-    /// Where the scroll view is parked. `scrollPosition` reads this during the
-    /// scroll view's own layout, which is why the Guide's target is copied into
-    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
-    /// after the tab appears rendered nothing at all, and nothing could see that
-    /// it had not.
-    @State private var scrolledSection: String?
 
     @State private var showResetConfirmation = false
     @State private var showEraseConfirmation = false
@@ -44,13 +38,7 @@ struct GeneralTab: View {
             .scrollTargetLayout()
         }
         .scrollIndicators(.never)
-        .scrollPosition(id: $scrolledSection, anchor: .top)
-        // `initial: true` because the tab the reader is sent to is usually
-        // built *after* the Guide set the target, so there is no change left
-        // to observe by the time this view exists.
-        .onChange(of: sectionTarget, initial: true) { _, target in
-            if let target { scrolledSection = target.section }
-        }
+        .guidedSectionScroll(target: sectionTarget)
         .confirmationDialog(
             "Reset all settings?",
             isPresented: $showResetConfirmation,
@@ -110,7 +98,7 @@ struct GeneralTab: View {
                     .controlSize(.small)
             }
         }
-        .id("Getting Started")
+        .settingsSectionAnchor("Getting Started", target: sectionTarget)
     }
 
     private var generalSection: some View {
@@ -212,7 +200,7 @@ struct GeneralTab: View {
                     }
             }
         }
-        .id("General")
+        .settingsSectionAnchor("General", target: sectionTarget)
     }
 
     private var menuBarSection: some View {
@@ -243,7 +231,7 @@ struct GeneralTab: View {
                 PopupSizeTilePicker(selection: $settings.appSettings.popupSize)
             }
         }
-        .id("Menu Bar")
+        .settingsSectionAnchor("Menu Bar", target: sectionTarget)
     }
 
     private var supportSection: some View {
@@ -272,7 +260,7 @@ struct GeneralTab: View {
                 .padding(.vertical, 8)
             }
         }
-        .id("Help and Diagnostics")
+        .settingsSectionAnchor("Help and Diagnostics", target: sectionTarget)
     }
 
     /// The switch reads `.granted` as on and both `.denied` and `.unasked` as
@@ -311,7 +299,7 @@ struct GeneralTab: View {
                 EmptyView()
             }
         }
-        .id("Privacy")
+        .settingsSectionAnchor("Privacy", target: sectionTarget)
     }
 
     private var dataSection: some View {
@@ -349,7 +337,7 @@ struct GeneralTab: View {
                     .controlSize(.small)
             }
         }
-        .id("Data")
+        .settingsSectionAnchor("Data", target: sectionTarget)
     }
 
     private func saveBackup() {

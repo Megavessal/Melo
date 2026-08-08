@@ -29,7 +29,7 @@ private final class AnalyticsConsentCloseObserver: NSObject, NSWindowDelegate {
 final class AnalyticsConsentPrompt {
     private let settings: SettingsManager
 
-    private var window: NSWindow?
+    private var window: UnpromptedWindowPanel?
     private var closeObserver: AnalyticsConsentCloseObserver?
 
     init(settings: SettingsManager) {
@@ -60,21 +60,21 @@ final class AnalyticsConsentPrompt {
 
     private func present() {
         if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            window.presentUnprompted()
             return
         }
 
-        let window = NSWindow(
+        // Opens by itself a moment after launch, so it is subject to the same
+        // activation refusal first-run setup is — and the answer here is a
+        // privacy decision, so a window whose "Don't Share" button cannot be
+        // clicked is the worst version of that bug. See `UnpromptedWindowPanel`.
+        let window = UnpromptedWindowPanel(
             contentRect: NSRect(x: 0, y: 0, width: 460, height: 320),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: UnpromptedWindowPanel.styleMask(),
             backing: .buffered,
             defer: false
         )
         window.title = "Help Improve Melo"
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
-        window.center()
 
         let view = AnalyticsConsentPromptView(
             onShare: { [weak self, weak window] in
@@ -86,8 +86,16 @@ final class AnalyticsConsentPrompt {
                 window?.close()
             }
         )
-        window.contentViewController = NSHostingController(rootView: view)
-        window.isReleasedWhenClosed = false
+        // The window takes its height from the view, not the other way round.
+        // A hard-coded 320pt content height on a window that cannot resize is
+        // what shipped the truncation: the layout needed more room than that,
+        // and SwiftUI settles a height deficit by clipping whichever `Text` is
+        // allowed to compress — which cut the body copy off mid-word.
+        let hosting = NSHostingController(rootView: view)
+        hosting.sizingOptions = [.preferredContentSize]
+        window.contentViewController = hosting
+        window.setContentSize(hosting.view.fittingSize)
+        window.center()
 
         let observer = AnalyticsConsentCloseObserver { [weak self] in
             self?.record(.denied)
@@ -97,8 +105,7 @@ final class AnalyticsConsentPrompt {
         closeObserver = observer
 
         self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        window.presentUnprompted()
     }
 
     /// Never overwrites an answer that already exists — the close observer and a
@@ -116,8 +123,17 @@ final class AnalyticsConsentPrompt {
 /// One question, two buttons, one line saying exactly what leaves the machine,
 /// and where to change it. Anything longer gets dismissed unread, and a consent
 /// screen that is dismissed unread has not collected consent.
+///
+/// The second paragraph names every field by name on purpose. It is the longest
+/// thing here and it stays long: "we respect your privacy" is a shorter sentence
+/// and a worse one, because the specificity is the whole claim. Words come out
+/// of the sentence around it, never out of either list.
+///
+/// Not `private`, so `SnapshotScenes` can construct it. This prompt had no
+/// frame in the harness at all, which is how a sentence that was cut off
+/// mid-word reached a user: nobody reviewing the release could see it.
 @MainActor
-private struct AnalyticsConsentPromptView: View {
+struct AnalyticsConsentPromptView: View {
     let onShare: () -> Void
     let onDecline: () -> Void
 
@@ -133,12 +149,16 @@ private struct AnalyticsConsentPromptView: View {
             Text("Help Improve Melo?")
                 .font(.system(size: 24, weight: .semibold, design: .rounded))
 
-            Text("Melo can send anonymous notes about which features get used, so the next version improves the parts you actually reach for.")
+            Text("Melo can send anonymous usage notes, so the next version improves the parts you actually use.")
                 .font(.system(size: 14, weight: .medium))
                 .multilineTextAlignment(.center)
+                // Without this the paragraph is the flexible one in the stack,
+                // so it is what gets clipped when the window is a pixel short.
+                // That is not a layout it should ever be allowed to choose.
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 380)
 
-            Text("Collected: Melo’s version, your macOS version, and which buttons were pressed. Never the names of your apps, your audio devices, or your Mac. You can change this any time in Settings › General.")
+            Text("Sent: Melo’s version, your macOS version, and which buttons were pressed. Never the names of your apps, your audio devices, or your Mac. Change it any time in Settings › General.")
                 .font(DesignTokens.Typography.Scale.caption())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -155,7 +175,10 @@ private struct AnalyticsConsentPromptView: View {
         }
         .padding(.horizontal, 30)
         .padding(.vertical, DesignTokens.Spacing.xl)
-        .frame(minWidth: 460, maxWidth: 460, minHeight: 320, maxHeight: .infinity)
+        // Width only. The height was pinned at 320 to match a hard-coded window
+        // frame, which is the constraint that truncated the copy; the window
+        // now measures this view instead.
+        .frame(width: 460)
         .background(.regularMaterial)
     }
 }

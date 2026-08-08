@@ -2,8 +2,9 @@ import AppKit
 import SwiftUI
 
 /// The window class for anything Melo puts on screen that the user did not ask
-/// for — first-run setup and What's New, both of which open by themselves a
-/// moment after launch.
+/// for — the move-to-Applications offer, first-run setup, What's New and the
+/// analytics consent prompt, all four of which open by themselves inside the
+/// same half-second launch block.
 ///
 /// Melo is `LSUIElement`, so it runs as an accessory app and is never frontmost
 /// unless the system says so. `NSApplication.activate()` documents outright that
@@ -21,11 +22,8 @@ import SwiftUI
 /// takes key status without requiring its app to be active. In the same probe it
 /// is the only variant that ever did — key at the call site, three runs out of
 /// three, with or without an activation being granted. `canBecomeKey` has to be
-/// overridden because `NSPanel` answers it from the style mask, and
-/// `hidesOnDeactivate` has to be turned off because `NSPanel` defaults it to
-/// `true` — left alone, setup would vanish the instant the user clicked
-/// anything else. Same reasoning, and the same lines, as
-/// `PopoverHost.KeyablePanel`.
+/// overridden because `NSPanel` answers it from the style mask. Same reasoning,
+/// and the same lines, as `PopoverHost.KeyablePanel`.
 ///
 /// Activation is still requested, in Apple's documented order (activate, then
 /// make key) and through the API that is not deprecated, because when the system
@@ -34,6 +32,37 @@ import SwiftUI
 final class UnpromptedWindowPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    /// Everything that makes this class work is applied here rather than by the
+    /// caller, because four call sites were each repeating the same five lines
+    /// and the way this bug spreads is a fifth caller copying four of them. The
+    /// style mask is unioned rather than trusted: a panel constructed without
+    /// `.nonactivatingPanel` is an ordinary window with a different type name,
+    /// which is exactly the defect, and silently correcting it here beats a
+    /// convention the next author has to know about.
+    ///
+    /// `hidesOnDeactivate` has to be turned off because `NSPanel` defaults it to
+    /// `true` — left alone, a window nobody asked for vanishes the instant the
+    /// user clicks anything else, and a consent question they never got to
+    /// answer is asked again at the next launch.
+    override init(
+        contentRect: NSRect,
+        styleMask style: NSWindow.StyleMask,
+        backing backingStoreType: NSWindow.BackingStoreType,
+        defer flag: Bool
+    ) {
+        super.init(
+            contentRect: contentRect,
+            styleMask: style.union(.nonactivatingPanel),
+            backing: backingStoreType,
+            defer: flag
+        )
+        titlebarAppearsTransparent = true
+        isMovableByWindowBackground = true
+        hidesOnDeactivate = false
+        becomesKeyOnlyIfNeeded = false
+        isReleasedWhenClosed = false
+    }
 
     /// Style mask for a panel that looks and behaves like an ordinary titled
     /// window. `.nonactivatingPanel` is the load-bearing member; the rest are
@@ -223,10 +252,6 @@ final class OnboardingWindowController {
             defer: false
         )
         window.title = "Welcome to Melo"
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
-        window.hidesOnDeactivate = false
-        window.becomesKeyOnlyIfNeeded = false
         window.contentMinSize = NSSize(width: 590, height: 480)
         window.contentMaxSize = NSSize(width: 590, height: 1200)
         window.center()
@@ -249,7 +274,6 @@ final class OnboardingWindowController {
             }
         )
         window.contentViewController = NSHostingController(rootView: view)
-        window.isReleasedWhenClosed = false
 
         let observer = OnboardingWindowCloseObserver { [weak self] in
             self?.markCompletedIfNeeded()

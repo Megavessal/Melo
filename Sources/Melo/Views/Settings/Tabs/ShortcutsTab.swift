@@ -13,12 +13,6 @@ struct ShortcutsTab: View {
     /// it at the call site is then a build error rather than a tab that quietly
     /// opens at the top again.
     let sectionTarget: SettingsSectionTarget?
-    /// Where the scroll view is parked. `scrollPosition` reads this during the
-    /// scroll view's own layout, which is why the Guide's target is copied into
-    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
-    /// after the tab appears rendered nothing at all, and nothing could see that
-    /// it had not.
-    @State private var scrolledSection: String?
 
     var body: some View {
         ScrollView {
@@ -33,13 +27,7 @@ struct ShortcutsTab: View {
             .scrollTargetLayout()
         }
         .scrollIndicators(.never)
-        .scrollPosition(id: $scrolledSection, anchor: .top)
-        // `initial: true` because the tab the reader is sent to is usually
-        // built *after* the Guide set the target, so there is no change left
-        // to observe by the time this view exists.
-        .onChange(of: sectionTarget, initial: true) { _, target in
-            if let target { scrolledSection = target.section }
-        }
+        .guidedSectionScroll(target: sectionTarget)
         .onChange(of: settings.appSettings.mediaKeyControlEnabled) { _, _ in
             mediaKeyMonitor.reconcile()
         }
@@ -63,7 +51,7 @@ struct ShortcutsTab: View {
                 .fixedSize()
             }
         }
-        .id("Volume")
+        .settingsSectionAnchor("Volume", target: sectionTarget)
     }
 
     // MARK: - Media Keys
@@ -106,7 +94,7 @@ struct ShortcutsTab: View {
                 }
             }
         }
-        .id("Media Keys")
+        .settingsSectionAnchor("Media Keys", target: sectionTarget)
     }
 
     // MARK: - Hotkeys
@@ -126,7 +114,7 @@ struct ShortcutsTab: View {
                 }
             }
         }
-        .id("Hotkeys")
+        .settingsSectionAnchor("Hotkeys", target: sectionTarget)
     }
 
     private func description(for action: ShortcutAction) -> String {

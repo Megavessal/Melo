@@ -143,11 +143,12 @@ struct SettingsGuideView: View {
         }
         .padding(.horizontal, DesignTokens.Spacing.md)
         .frame(minHeight: 38)
-        .background(DesignTokens.Dimensions.Shape.md.fill(DesignTokens.Colors.glassFillStrong))
-        .overlay(
-            DesignTokens.Dimensions.Shape.md
-                .strokeBorder(DesignTokens.Colors.glassRowBorder, lineWidth: 0.5)
-        )
+        // The same bubble as the Settings search field above it, made of the
+        // same glass. Behind the row rather than around it, so the window server
+        // does not composite the query away — see `SettingsSearchField.field`.
+        .background {
+            Color.clear.meloGlassSurface(cornerRadius: 19, interactive: true)
+        }
     }
 
     private var emptyState: some View {
@@ -258,6 +259,12 @@ struct SettingsGuideView: View {
             .foregroundStyle(selected ? Color.primary : Color.secondary)
             .padding(.horizontal, DesignTokens.Spacing.sm2)
             .frame(minHeight: 34)
+            // Left as an accent fill rather than made glass like the tab bar's
+            // selection bubble. Glass here renders as nothing at all in a layer
+            // capture, and this pill is the only thing in the sidebar that says
+            // which category is showing — trading the one selection cue every
+            // frame can see for a finish no frame can see is not a trade worth
+            // making on a surface the owner did not name.
             .background {
                 if selected {
                     DesignTokens.Dimensions.Shape.sm
@@ -420,6 +427,19 @@ struct SettingsGuideView: View {
             .foregroundStyle(Color.accentColor)
             .padding(.horizontal, DesignTokens.Spacing.sm2)
             .frame(minHeight: 24)
+            // An accent fill, not glass, and measured rather than chosen.
+            //
+            // This chip was glass for one render. Every entry in the catalog
+            // carries one, they are laid out in a `LazyVStack` inside a
+            // `ScrollView`, and the chip has no definite width — and the
+            // resulting islands unioned into a single surface the size of the
+            // whole result list. `settings-guide.png` came back with the entire
+            // catalog gone and only a section header left standing;
+            // `settings-guide-search.png` lost the entry's title, category,
+            // summary and location line and kept nothing but this chip's own
+            // label. The two glass surfaces in this file that *are* safe — the
+            // search field here and the results panel in `SettingsRootView` —
+            // are each a single island with a definite frame.
             .background(DesignTokens.Dimensions.Shape.sm.fill(Color.accentColor.opacity(0.12)))
             .contentShape(Rectangle())
         }

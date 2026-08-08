@@ -12,12 +12,6 @@ struct AudioTab: View {
     /// it at the call site is then a build error rather than a tab that quietly
     /// opens at the top again.
     let sectionTarget: SettingsSectionTarget?
-    /// Where the scroll view is parked. `scrollPosition` reads this during the
-    /// scroll view's own layout, which is why the Guide's target is copied into
-    /// it rather than acted on afterwards: a `ScrollViewProxy.scrollTo` issued
-    /// after the tab appears rendered nothing at all, and nothing could see that
-    /// it had not.
-    @State private var scrolledSection: String?
 
     @State private var showCallAppPicker = false
 
@@ -52,13 +46,7 @@ struct AudioTab: View {
             .scrollTargetLayout()
         }
         .scrollIndicators(.never)
-        .scrollPosition(id: $scrolledSection, anchor: .top)
-        // `initial: true` because the tab the reader is sent to is usually
-        // built *after* the Guide set the target, so there is no change left
-        // to observe by the time this view exists.
-        .onChange(of: sectionTarget, initial: true) { _, target in
-            if let target { scrolledSection = target.section }
-        }
+        .guidedSectionScroll(target: sectionTarget)
         .onAppear { updateSortedDevices() }
         .onChange(of: audioEngine.outputDevices) { _, _ in updateSortedDevices() }
         .onChange(of: settings.appSettings.lockInputDevice) { oldValue, newValue in
@@ -120,7 +108,7 @@ struct AudioTab: View {
                     .controlSize(.small)
             }
         }
-        .id("Calls")
+        .settingsSectionAnchor("Calls", target: sectionTarget)
     }
 
     // MARK: - Accessibility
@@ -153,7 +141,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
-        .id("Listening")
+        .settingsSectionAnchor("Listening", target: sectionTarget)
     }
 
     // MARK: - Privacy
@@ -184,7 +172,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
-        .id("Privacy")
+        .settingsSectionAnchor("Privacy", target: sectionTarget)
     }
 
     // MARK: - Adaptive Audio
@@ -240,7 +228,7 @@ struct AudioTab: View {
                 }
             }
         }
-        .id("Smart Sound")
+        .settingsSectionAnchor("Smart Sound", target: sectionTarget)
     }
 
     // MARK: - Volume
@@ -268,7 +256,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
-        .id("Volume")
+        .settingsSectionAnchor("Volume", target: sectionTarget)
     }
 
     // MARK: - Devices
@@ -337,7 +325,7 @@ struct AudioTab: View {
                 }
             }
         }
-        .id("Devices")
+        .settingsSectionAnchor("Devices", target: sectionTarget)
     }
 
     private func updateSortedDevices() {
