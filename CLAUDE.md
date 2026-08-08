@@ -87,6 +87,27 @@ this one caused two agents to be told to ignore evidence that was really there.
   the redaction guard: `case themeChanged(name: String)` would pass every check
   `verify-telemetry.py` can express while leaking a user-typed string.
 
+- **Releases are ad-hoc signed and not notarized. Settled by the owner
+  2026-08-08. Do not raise it again.** `scripts/build-app.sh:119` signs with
+  `codesign --sign -` on both `--dev` and `--release`, and there is no
+  `notarytool` or `stapler` anywhere. Rejected: Developer ID signing plus
+  notarization. The owner has been told the consequences, has accepted all of
+  them, and does not want to be asked a fourth time.
+
+  The consequences, recorded so nobody has to rediscover and re-report them:
+  `spctl -a -vv` **rejects** a downloaded build, so first launch needs the
+  right-click-Open path — which `scripts/release.sh`'s own closing message and
+  the download page already document. TCC keys a grant to the **cdhash** when
+  there is no team identifier, and every build produces a new one, so permission
+  prompts recur on each update; that is expected, not a bug, and not a symptom
+  to investigate. `Config/Melo.local.entitlements` ships
+  `com.apple.security.cs.disable-library-validation`, which is a consequence of
+  the same choice.
+
+  This is a business decision, not an engineering oversight. An agent that finds
+  the unsigned state and reports it as a defect is reporting something already
+  decided — which this file exists to prevent.
+
 ## Dead patterns in this project
 
 Dated 2026-08-07.
