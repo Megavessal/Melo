@@ -469,7 +469,7 @@ final class SparkleUpdateController: ObservableObject {
             return
         }
         pendingUpdate = restored
-        activity = .available(restored)
+        activity = waitingState(for: restored)
         logger.notice("Restored pending update Melo \(restored.version, privacy: .public) from a previous launch")
         verifyRestoredUpdate()
     }
@@ -626,7 +626,7 @@ final class SparkleUpdateController: ObservableObject {
         }
         let isNew = pendingUpdate?.build != pending.build
         pendingUpdate = pending
-        activity = .available(pending)
+        activity = waitingState(for: pending)
         // A check the user asked for already has their attention. A scheduled
         // one is the case a menu-bar app has to work at — and the notification
         // is the weakest half of that: it needs permission, it vanishes in
@@ -728,7 +728,7 @@ final class SparkleUpdateController: ObservableObject {
         if isVerifyingRestoredUpdate {
             logger.notice("Could not re-verify the restored update: \(nsError.domain) \(nsError.code). Keeping the record.")
             isVerifyingRestoredUpdate = false
-            activity = pendingUpdate.map(Activity.available) ?? activity
+            activity = pendingUpdate.map(waitingState(for:)) ?? activity
             return
         }
         logger.error("Update session aborted: \(nsError.domain) \(nsError.code) \(nsError.localizedDescription)")
@@ -797,6 +797,25 @@ final class SparkleUpdateController: ObservableObject {
         refreshReminder()
     }
 
+    /// When the running deferral ends, or nil when nothing is deferred. One
+    /// reader, because `activity` and `updateReminder` are two views of a single
+    /// fact and every place that answered this question for itself ended up
+    /// contradicting the other surface.
+    private var deferralEnds: Date? {
+        guard let until = defaults.object(forKey: Keys.remindAfter) as? Date, until > Date() else { return nil }
+        return until
+    }
+
+    /// How a waiting update has to be shown *right now*. `.available` was
+    /// assigned directly by four paths — the launch restore, every find
+    /// (including the silent re-verify that runs at every launch), the
+    /// re-verify's own failure, and `restingActivity` — none of which read the
+    /// deferral. Each was a way for Settings → Updates to offer a version whose
+    /// badge and banner the user had just silenced.
+    private func waitingState(for update: PendingUpdate) -> Activity {
+        deferralEnds == nil ? .available(update) : .deferred(update)
+    }
+
     /// Recomputes what the ambient surfaces show. Called on every change to the
     /// pending update and when a deferral runs out, so the badge and the banner
     /// are a pure function of "something is waiting and the user has not just
@@ -810,7 +829,7 @@ final class SparkleUpdateController: ObservableObject {
             return
         }
 
-        if let deferredUntil = defaults.object(forKey: Keys.remindAfter) as? Date, deferredUntil > Date() {
+        if let deferredUntil = deferralEnds {
             updateReminder = nil
             // The deferral has to end by itself. Melo is a menu-bar app that
             // runs for weeks between launches, so without a timer "Later" would
@@ -825,6 +844,13 @@ final class SparkleUpdateController: ObservableObject {
 
         defaults.removeObject(forKey: Keys.remindAfter)
         updateReminder = pendingUpdate
+        // The badge and the banner have just come back, so the tab must stop
+        // saying they are off for the next eight hours. Nothing else moved
+        // `.deferred` on, so the one state whose whole purpose was to keep the
+        // two surfaces agreeing was also the one state they got stuck in.
+        // Narrow on purpose: a download or an install in flight owns `activity`
+        // and must not be overwritten by a timer.
+        if case .deferred = activity { activity = .available(pendingUpdate) }
     }
 
     /// Sparkle's own version comparator, not `==`. Sparkle never compares
@@ -967,7 +993,7 @@ final class SparkleUpdateController: ObservableObject {
     /// and will tell you when there's a new version") is false while a version
     /// is being suppressed.
     private var restingActivity: Activity {
-        if let pendingUpdate { return .available(pendingUpdate) }
+        if let pendingUpdate { return waitingState(for: pendingUpdate) }
         if let skipped = restoredSkippedUpdate() { return .skipped(skipped) }
         return .idle
     }
@@ -1126,7 +1152,7 @@ final class SparkleUpdateController: ObservableObject {
         case NoUpdateReason.systemIsTooOld:
             return Failure(
                 summary: "A newer Melo exists, but it needs a newer macOS.",
-                recovery: "Update macOS in System Settings → General → Software Update, then check again.",
+                recovery: "Update macOS in System Settings › General › Software Update, then check again.",
                 detail: nil
             )
         case NoUpdateReason.hardwareDoesNotSupportARM64:

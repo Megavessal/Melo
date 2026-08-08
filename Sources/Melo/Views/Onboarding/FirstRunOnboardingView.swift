@@ -85,16 +85,34 @@ struct FirstRunOnboardingView: View {
         _page = State(initialValue: initialPage)
     }
 
-    // Five pages: two permission asks, one consent question, and the two
-    // bookends. The Bluetooth, menu bar motion, and update-policy pages that
-    // used to sit here were configuration, not setup — Apple's onboarding
-    // guidance is to ship reasonable defaults and postpone that, and each of
-    // those settings has a home in Settings and an entry in the Guide.
+    // Six pages: three permission asks, one consent question, and the two
+    // bookends. The menu bar motion and update-policy pages that used to sit
+    // here are still gone, and for the reason they were cut — they are
+    // configuration, Apple's onboarding guidance is to ship a reasonable
+    // default and postpone that, and both have a home in Settings and an entry
+    // in the Guide.
     //
-    // `MeloExperienceVersion.onboarding` is deliberately NOT bumped: this flow
-    // asks strictly less than the old one, so replaying it at people who
-    // finished the longer version would be a nag with nothing to gain.
-    private let pageCount = 5
+    // Bluetooth came back, and not on the old argument. That page existed to
+    // opt people in *ahead of* a prompt that fired at launch; nothing reaches
+    // IOBluetooth at launch any more, so there is no ambush left to pre-empt.
+    // What is left is a feature that ships off and is otherwise reachable only
+    // from a switch in Settings, which means a new user has no way to find out
+    // Melo can reconnect their headphones at all. That is a setup question —
+    // the same shape as the two pages above it, ending in the same system
+    // dialog, raised by a press with the reason on screen.
+    //
+    // `MeloExperienceVersion.onboarding` is deliberately NOT bumped, even
+    // though this flow now asks something the version-3 flow did not.
+    // `SettingsManager.decodeSettings` already migrates every pre-existing
+    // install to `bluetoothFeaturesEnabled = true`, so the replay would show
+    // that cohort a page whose question is answered before they arrive; and
+    // `WhatsNewCoordinator.showIfNeeded` stamps the build as seen when setup
+    // suppresses it, so bumping would spend the whole release's What's New on
+    // one already-answered page. The permission itself is re-requested in
+    // context, in the popup, which has copy for the waiting and the refused
+    // case. See `MeloExperienceVersion` for the same decision from the other
+    // side.
+    private let pageCount = 6
 
     var body: some View {
         VStack(spacing: 0) {
@@ -115,7 +133,8 @@ struct FirstRunOnboardingView: View {
                     case 0: welcomePage
                     case 1: audioAccessPage
                     case 2: accessibilityPage
-                    case 3: analyticsPage
+                    case 3: bluetoothPage
+                    case 4: analyticsPage
                     default: finishPage
                     }
                 }
@@ -147,7 +166,9 @@ struct FirstRunOnboardingView: View {
                     Button("Continue") { move(to: page + 1) }
                         .buttonStyle(.borderedProminent)
                 } else {
-                    Button("Show Me Around") { complete(startTour: true, skipped: false) }
+                    // "Show Me", not "Show Me Around": the tour overlay has three
+                    // entry points and they should not each name it differently.
+                    Button("Show Me") { complete(startTour: true, skipped: false) }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -364,6 +385,160 @@ struct FirstRunOnboardingView: View {
                 .controlSize(.large)
             }
         }
+    }
+
+    // MARK: - Bluetooth
+
+    /// What the permission actually buys, stated exactly: paired-but-disconnected
+    /// audio devices listed in the popup, and a Connect button on them. Nothing
+    /// else in Melo touches Bluetooth — playing to AirPods that are already
+    /// connected, per-app volume, EQ and routing are all Core Audio and work
+    /// whether this is allowed or refused. The old version of this page promised
+    /// battery levels, which Melo has never read.
+    ///
+    /// Pressing the button raises the macOS dialog here rather than banking a
+    /// preference for later, which is what makes this a setup page instead of a
+    /// switch with prose around it: the answer arrives while the reason is still
+    /// on screen, and the page can then say what it found. That is the same
+    /// bargain the system-audio page makes two pages earlier.
+    private var bluetoothPage: some View {
+        onboardingPage(
+            symbol: bluetoothSymbol,
+            title: bluetoothTitle,
+            message: bluetoothMessage,
+            detail: bluetoothDetail
+        ) {
+            bluetoothActions
+        }
+    }
+
+    /// Four states, read from the monitor rather than from the setting, because
+    /// the setting only records the answer to "may Melo look" — it says nothing
+    /// about whether macOS then allowed it. A pre-existing install arrives here
+    /// with the setting already on and nothing looked at yet, which is `.offer`.
+    private enum BluetoothPageState {
+        case offer
+        case waitingForMacOS
+        case ready
+        case blocked
+    }
+
+    private var bluetoothState: BluetoothPageState {
+        let monitor = audioEngine.bluetoothDeviceMonitor
+        guard monitor.isStarted else { return .offer }
+        // False for exactly as long as the system dialog is up: the first power
+        // read is the call macOS puts the dialog in front of.
+        guard monitor.hasCompletedFirstScan else { return .waitingForMacOS }
+        return monitor.isBluetoothOn ? .ready : .blocked
+    }
+
+    private var bluetoothSymbol: String {
+        switch bluetoothState {
+        case .offer, .waitingForMacOS: return "antenna.radiowaves.left.and.right"
+        case .ready: return "checkmark.circle.fill"
+        case .blocked: return "antenna.radiowaves.left.and.right.slash"
+        }
+    }
+
+    private var bluetoothTitle: String {
+        switch bluetoothState {
+        case .offer, .waitingForMacOS: return "Connect Headphones from Melo"
+        case .ready: return "Melo Can See Bluetooth"
+        case .blocked: return "Melo Can’t See Bluetooth"
+        }
+    }
+
+    private var bluetoothMessage: String {
+        switch bluetoothState {
+        case .offer:
+            return "Melo can list the headphones and speakers you have paired but are not connected to right now, and connect them without a trip to System Settings."
+        case .waitingForMacOS:
+            return "macOS is asking whether Melo may use Bluetooth. Answer either way — the rest of Melo is unaffected."
+        case .ready:
+            let names = audioEngine.bluetoothDeviceMonitor.pairedDevices.map(\.name)
+            guard !names.isEmpty else {
+                return "Nothing paired is sitting disconnected at the moment. When something is, it appears in Melo ready to connect."
+            }
+            let count = names.count == 1 ? "One paired device is" : "\(names.count) paired devices are"
+            return "\(count) waiting: \(names.joined(separator: ", "))."
+        case .blocked:
+            // `powerState` reports hardware-off and permission-refused
+            // identically, with no way found to tell them apart, so naming one
+            // cause would be a guess. The popup says the same thing for the same
+            // reason.
+            return "macOS reports “Bluetooth is off” and “Melo may not use Bluetooth” in exactly the same way, so Melo cannot tell you which one this is."
+        }
+    }
+
+    private var bluetoothDetail: String {
+        switch bluetoothState {
+        case .offer, .waitingForMacOS:
+            return "That is all this permission does. Per-app volume, EQ, routing, and playing to AirPods that are already connected all work without it. You can change your mind later in Settings › General."
+        case .ready:
+            return "Open Melo’s device list and press the reorder button: anything paired and disconnected is listed under Paired, with a Connect button. Switch this off any time in Settings › General."
+        case .blocked:
+            return "Check that Bluetooth is switched on, and that Melo is switched on in System Settings › Privacy & Security › Bluetooth. This page notices on its own if you turn Bluetooth on. Everything else in Melo works either way."
+        }
+    }
+
+    @ViewBuilder
+    private var bluetoothActions: some View {
+        switch bluetoothState {
+        case .offer:
+            // Named for what pressing it does, not "Allow" — the same reading of
+            // Apple's pre-alert guidance the system-audio page works from.
+            Button("Show My Paired Devices") { enableBluetoothFeatures() }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+            Button("Not Now") { declineBluetoothFeatures() }
+                .buttonStyle(.bordered)
+        case .waitingForMacOS:
+            HStack(spacing: 9) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Waiting for macOS…")
+                    .font(DesignTokens.Typography.Scale.body(.medium))
+                    .foregroundStyle(.secondary)
+            }
+        case .ready:
+            Label("Bluetooth Features On", systemImage: "checkmark.circle.fill")
+                .font(DesignTokens.Typography.Scale.headline())
+                .foregroundStyle(.green)
+        case .blocked:
+            // No button. The two things to check are a Control Center switch and
+            // a System Settings pane Melo has no verified deep link to, and
+            // `start()` registered the power-on observer, so switching Bluetooth
+            // on refreshes this page without anything to press.
+            EmptyView()
+        }
+    }
+
+    /// The only route from setup to IOBluetooth, and it runs from a press. The
+    /// call this replaces sat in `complete()`, where finishing setup raised a
+    /// Bluetooth dialog with no Bluetooth reason anywhere on screen;
+    /// `scripts/verify-unasked-actions.py` fails the build if it drifts back to
+    /// anything but a button action.
+    ///
+    /// Deliberately does not advance the page: the result of the press — the
+    /// devices found, or the reason none were — is the point, and it renders
+    /// here.
+    private func enableBluetoothFeatures() {
+        var appSettings = settings.appSettings
+        appSettings.bluetoothFeaturesEnabled = true
+        settings.appSettings = appSettings
+        audioEngine.startBluetoothMonitoringIfEnabled()
+    }
+
+    /// A real no, not a Continue wearing a softer word. Writing the setting is
+    /// what separates "asked and declined" from "never asked" for the one cohort
+    /// where they differ — a pre-existing install arrives with the feature
+    /// already migrated on, and walking past this page has to leave it on while
+    /// pressing this has to turn it off.
+    private func declineBluetoothFeatures() {
+        var appSettings = settings.appSettings
+        appSettings.bluetoothFeaturesEnabled = false
+        settings.appSettings = appSettings
+        move(to: page + 1)
     }
 
     // MARK: - Analytics
@@ -612,6 +787,11 @@ struct FirstRunOnboardingView: View {
         if appSettings.analyticsConsent == .unasked {
             appSettings.analyticsConsent = .denied
         }
+        // Bluetooth needs no equivalent settling and must not get one. Its
+        // default is already off, so walking past that page is the quiet answer;
+        // and the only people who reach here with it on are a pre-existing
+        // install that had the feature before setup ran, which forcing to a
+        // default would take away.
         settings.appSettings = appSettings
         TelemetryService.shared.refreshConsent()
         demo.stop()

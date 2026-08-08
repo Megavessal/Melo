@@ -96,6 +96,11 @@ struct DeviceEditRow<ExpandedContent: View>: View {
             .onTapGesture { onToggleExpand() }
             .accessibilityAddTraits(.isButton)
             .accessibilityLabel(isExpanded ? "Collapse device details" : "Expand device details")
+            // The trait above announces "button", but `onTapGesture` is not an
+            // accessibility action — measured, this element was the only one in
+            // the row carrying no AXPress, so VoiceOver said "button" and had
+            // nothing to activate. Same gap DeviceRow's row-tap already closed.
+            .accessibilityAction { onToggleExpand() }
 
             hideToggleButton
 

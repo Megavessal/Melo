@@ -93,7 +93,7 @@ struct PermissionBannerView: View {
         case .authorized:
             return "Melo successfully started its system-audio engine."
         case .denied:
-            return "Allow Melo in System Settings → Privacy & Security → Screen & System Audio Recording, then try again."
+            return "Allow Melo in System Settings › Privacy & Security › Screen & System Audio Recording, then try again."
         case .unavailable:
             return "Melo couldn't start its system-audio engine. Check the system-audio setting, keep audio playing, and try again."
         }

@@ -319,9 +319,54 @@ prompt_src = require(
 )
 onboarding_src = require(
     "Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",
-    "private let pageCount = 5",
     "analyticsPage",
 )
+
+# This was `"private let pageCount = 5"` — a literal that went red whenever the
+# flow gained or lost a page, for no reason connected to consent, and that said
+# nothing about the consent page still being *shown*. Two things are checked
+# instead, both of which can actually break.
+#
+# `pageCount` drives the dot indicator and the Continue/finish split; the pages
+# come out of one switch. A `pageCount` above the branch count leaves a dot for
+# a page that does not exist and a Continue button that goes nowhere; below it,
+# the last page is unreachable — which for this file means the consent question
+# can be stranded behind the finish button. And `analyticsPage` has to appear
+# in that switch: defining the page is not rendering it, which is precisely the
+# severed-wiring failure CLAUDE.md records surviving eleven verify scripts.
+def braced_block(src: str, opening: str) -> str:
+    start = src.find(opening)
+    if start < 0:
+        return ""
+    index = src.find("{", start) + 1
+    depth = 1
+    while index < len(src) and depth > 0:
+        if src[index] == "{":
+            depth += 1
+        elif src[index] == "}":
+            depth -= 1
+        index += 1
+    return src[src.find("{", start) + 1: index - 1]
+
+
+page_switch = braced_block(onboarding_src, "switch page {")
+declared = re.search(r"private let pageCount = (\d+)", onboarding_src)
+branches = len(re.findall(r"^\s*case \d+:", page_switch, re.M)) + len(
+    re.findall(r"^\s*default:", page_switch, re.M)
+)
+if not page_switch or not declared:
+    failures.append(
+        "FirstRunOnboardingView.swift: could not read the page switch and pageCount together"
+    )
+elif int(declared.group(1)) != branches:
+    failures.append(
+        f"FirstRunOnboardingView.swift: pageCount is {declared.group(1)} but the page switch "
+        f"has {branches} branches — the dots and the finish button disagree with the pages"
+    )
+if page_switch and "analyticsPage" not in page_switch:
+    failures.append(
+        "FirstRunOnboardingView.swift: analyticsPage is defined but no page of the flow shows it"
+    )
 app_src = require(
     "Sources/Melo/FineTuneApp.swift",
     "TelemetryService.shared.configure(settings:",

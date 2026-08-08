@@ -95,9 +95,9 @@ if "Keep quiet apps visible?" in tour or "quietAppsCard" in tour:
 # Everything above reads the declarations that draw the tour's marks. None of it
 # reads whether `body` still calls them. Measured 2026-08-07: the mark, the ring,
 # and the scrim's cutout were each cut out of `body` one at a time and all twelve
-# verify scripts stayed green, because a needle like "SpotlightRing(cutout: rect"
-# lives inside `spotlightRing(_:)`'s own body and survives its call site being
-# deleted. These read the call.
+# verify scripts that existed that day stayed green, because a needle like
+# "SpotlightRing(cutout: rect" lives inside `spotlightRing(_:)`'s own body and
+# survives its call site being deleted. These read the call.
 overlay_body = swift_body(tour, "var body: some View")
 if not overlay_body:
     failures.append("guided tour: GuidedTourOverlay has no `var body`")
@@ -120,12 +120,70 @@ if "cutout: spotlightRect" not in scrim:
         "guided tour: the scrim is no longer built from spotlightRect, so it dims the "
         "control the step is about along with everything else"
     )
-if "resolved?.pointerFrame" not in swift_body(tour, "private var pointerPosition: CGPoint"):
+# Where the mark goes and how big it is are both read from `markedControlFrame`,
+# so the chain is checked link by link: a needle on the end declaration alone
+# survives the middle one being cut out.
+if "markedControlFrame" not in swift_body(tour, "private var pointerPosition: CGPoint"):
     failures.append(
         "guided tour: pointerPosition ignores the step's pointerTarget, so a step whose "
         "spotlight is a whole region marks whatever control sits at its centre — for the "
         "device list that is the mute button, not the row you are told to click"
     )
+if "resolved?.pointerFrame" not in swift_body(tour, "private var markedControlFrame: CGRect?"):
+    failures.append(
+        "guided tour: markedControlFrame no longer reads the step's pointerTarget, so both "
+        "the mark's position and its size fall back to the whole highlighted region"
+    )
+if "markedControlFrame" not in swift_body(tour, "private var markDiameter: CGFloat"):
+    failures.append(
+        "guided tour: the mark's diameter ignores the control it is marking, so it is a "
+        "fixed ring again — which on the 28pt device badge is drawn across the glyph"
+    )
+
+# --- The Settings Guide's "Show Me" is one spotlight, not a tour.
+#
+# It builds a one-element step list and drives this same overlay, so it wore the
+# tour's chrome: "1 OF 1", a "Skip Tour" button with the help text "End the tour
+# (esc)", and a primary button reading "Finish". None of those three is true
+# about being shown where one control is. Source-level, because no frame renders
+# the Guide's spotlight yet — see the scene proposed in the run report.
+for declaration, needle, consequence in (
+    ("private var isSingleSpotlight: Bool", "coordinator.steps.count",
+     "the one-step case is decided by something other than how many steps there are"),
+    ("private var stepCounter: String", "isSingleSpotlight",
+     'a single spotlight is labelled "1 OF 1" again'),
+    ("private func calloutBody(", "isSingleSpotlight",
+     'a single spotlight offers "Skip Tour" for a tour that does not exist'),
+    ("private var advanceTitle: String", "isSingleSpotlight",
+     'a single spotlight\'s only button reads "Finish", which is a word about a sequence'),
+    # Escape rides on Skip Tour during a tour. A single spotlight draws no such
+    # button, and the tour's own history records Escape falling through to the
+    # popup and closing the whole window when nothing catches it.
+    ("private var advanceButton: some View", "cancelAction",
+     "Escape has nothing to dismiss a single spotlight with, so it closes the popup instead"),
+):
+    if needle not in swift_body(tour, declaration):
+        failures.append(f"guided tour: {declaration.strip()} lost {needle!r} — {consequence}")
+
+guide_controller = require(
+    "Sources/Melo/Coordination/OnboardingWindowController.swift",
+    "GuideSpotlightRequest",
+)
+show_in_popup = swift_body(guide_controller, "private func showInPopup(")
+for needle, consequence in (
+    (
+        "regionPointer",
+        "a Guide entry that names a control inside a region marks whatever sits at that "
+        "region's centre — thirteen of them target .devices, whose centre is the mute button",
+    ),
+    (
+        "absenceFallback",
+        "a Guide entry whose control is not on screen draws a centred card describing it "
+        "anyway, which is the shape of a tutorial that is fluff",
+    ),
+):
+    if needle not in show_in_popup:
+        failures.append(f"settings guide: showInPopup no longer supplies {needle} — {consequence}")
 
 
 def swift_list(source: str, signature: str) -> str:
@@ -273,6 +331,10 @@ FRAME_INPUTS = [
     "Sources/Melo/Utilities/SnapshotScenes.swift",
 ]
 TOUR_FRAME = "tour-light.png"
+# The same popup, same appearance, no tour over it. Both occlusion checks are
+# differences against an untoured render of the same control, because "the tour
+# drew on this" is not a property one frame has on its own.
+BADGE_PLAIN_FRAME = "popup-light.png"
 ICON_STEP_FRAME = "tour-autoeq-seeded.png"
 ICON_PLAIN_FRAME = "popup-devices-seeded.png"
 measurements: list[str] = []
@@ -293,21 +355,6 @@ def locate_frames() -> Path | None:
             except OSError:
                 continue
     return max(candidates)[1] if candidates else None
-
-
-def ring_mean(luminance, centre: tuple[float, float], radius: float, size: tuple[int, int]) -> float:
-    """Mean brightness around one circle. The mark is two concentric strokes, so
-    it is a trough at one radius and a peak at the next — a shape no background
-    happens to have, and one that does not care what colour the badge is."""
-    samples = max(12, int(2 * math.pi * radius))
-    width, height = size
-    total = 0
-    for index in range(samples):
-        angle = 2 * math.pi * index / samples
-        x = min(width - 1, max(0, int(round(centre[0] + radius * math.cos(angle)))))
-        y = min(height - 1, max(0, int(round(centre[1] + radius * math.sin(angle)))))
-        total += luminance[x, y]
-    return total / samples
 
 
 def run_frame_checks() -> None:
@@ -393,24 +440,92 @@ def run_frame_checks() -> None:
             "mark, and nothing outlines the control the step is about"
         )
 
-    # --- 3. The mark is on the badge, not on the middle of the row.
+    # --- 3. The mark is *around* the device badge: on it, and not over it.
     #
-    # `.deviceSelection` anchors the badge exactly, so the mark's centre and the
-    # badge's centre are the same point. Two concentric strokes 7.5pt out: the
-    # black one reads as roughly half the badge under it, the white one as near
-    # white whatever is under it. Drop the mark, or let the pointerTarget
-    # correction lapse so it slides to the centre of the row — which is the mute
-    # button — and both features vanish from here together.
-    trough = min(ring_mean(luminance, centre, radius / 2, image.size) for radius in range(18, 24))
-    peak = max(ring_mean(luminance, centre, radius / 2, image.size) for radius in range(25, 30))
-    if peak < 190 or trough > 130 or peak - trough < 90:
+    # Read as a difference against `popup-light`, the same popup with no tour
+    # over it, because that is what "the tour drew this" means. Two claims, both
+    # measured from the badge's own geometry so neither depends on how big the
+    # mark happens to be:
+    #
+    #   inside the badge — the two frames must agree. A 15pt ring dropped on the
+    #   28pt badge's centre composited with the device glyph into a struck-through
+    #   disc, under a card reading "click a row to make that device the main
+    #   output". `cutoutIsAtItsFloor`, which suppresses the mark on the AutoEQ
+    #   wand, cannot see this: the anchor is a 28pt badge inside a row-sized
+    #   cutout, so the cutout is nowhere near its floor.
+    #
+    #   around the badge — they must differ. That is the mark, present, and
+    #   concentric with the badge. Drop it, or let the `pointerTarget:
+    #   .deviceSelection` correction lapse so it slides to the centre of the row
+    #   — which is the mute button — and this annulus goes back to matching.
+    #
+    # Together they are the same rule the icon step is held to, on the case the
+    # floor test structurally cannot reach.
+    plain_badge = frames / BADGE_PLAIN_FRAME
+    if not plain_badge.is_file():
         failures.append(
-            f"{TOUR_FRAME}: no mark on the device badge at {centre} (inner {trough:.0f}, "
-            f"outer {peak:.0f}) — either nothing marks the control this step names, or the "
-            "mark slid to the centre of the row, which is its mute button"
+            f"frames in {frames} are missing {BADGE_PLAIN_FRAME} — whether the tour draws over "
+            "the device badge is read against the same popup with no tour on it"
+        )
+        return
+    plain_image = Image.open(plain_badge)
+    # Width only: the two frames carry provenance bands of different heights, and
+    # the popup is drawn from the top down, so the badge is at the same
+    # coordinates in both while the images are not the same shape.
+    if plain_image.width != width:
+        failures.append(
+            f"{TOUR_FRAME} and {BADGE_PLAIN_FRAME} are different widths, so the same "
+            "coordinates are not the same control in both"
+        )
+        return
+    plain = plain_image.convert("L").load()
+    readable_height = min(height, plain_image.height)
+    badge_radius = min(
+        max(x for x, _ in disc) - min(x for x, _ in disc),
+        max(y for _, y in disc) - min(y for _, y in disc),
+    ) / 2
+    if badge_radius < 8:
+        failures.append(
+            f"{TOUR_FRAME}: the device badge measures {2 * badge_radius:.0f}px across, which is "
+            "not a badge — the mark checks below would be reading noise"
+        )
+        return
+
+    def differing_share(inner: float, outer: float) -> tuple[float, int]:
+        total = changed = 0
+        for y in range(int(centre[1] - outer) - 1, int(centre[1] + outer) + 2):
+            for x in range(int(centre[0] - outer) - 1, int(centre[0] + outer) + 2):
+                if not (0 <= x < width and 0 <= y < readable_height):
+                    continue
+                distance = math.hypot(x - centre[0], y - centre[1])
+                if not inner <= distance <= outer:
+                    continue
+                total += 1
+                if abs(luminance[x, y] - plain[x, y]) > 12:
+                    changed += 1
+        return 100 * changed / max(1, total), total
+
+    # Inset past the badge's own antialiased rim, which is a boundary and is
+    # allowed to differ by a level or two.
+    over_badge, _ = differing_share(0, badge_radius - 3)
+    if over_badge > 1.0:
+        failures.append(
+            f"{TOUR_FRAME}: {over_badge:.1f}% of the device badge differs from {BADGE_PLAIN_FRAME}, "
+            "where the same badge is drawn with no tour over it. The step is drawing on top of "
+            "the control its own sentence tells you to click"
         )
     else:
-        measurements.append(f"device-badge mark contrast {peak - trough:.0f} (floor 90)")
+        measurements.append(f"device-badge defacement {over_badge:.2f}% (ceiling 1.00%)")
+
+    around_badge, _ = differing_share(badge_radius + 3, badge_radius + 18)
+    if around_badge < 5.0:
+        failures.append(
+            f"{TOUR_FRAME}: the ring of popup around the device badge at {centre} is "
+            f"{around_badge:.1f}% different from {BADGE_PLAIN_FRAME} — nothing marks the control "
+            "this step names, or the mark slid to the centre of the row, which is its mute button"
+        )
+    else:
+        measurements.append(f"device-badge mark coverage {around_badge:.1f}% (floor 5.0%)")
 
     check_icon_step_is_not_defaced(Image)
 
@@ -512,6 +627,255 @@ def check_icon_step_is_not_defaced(Image) -> None:
         )
     else:
         measurements.append(f"icon-step cutout defacement {share:.2f}% (ceiling 1.00%)")
+
+    check_press_mark_only_where_there_is_a_press(Image)
+
+
+def annulus_dark_share(luminance, size, centre, radius, samples=32) -> float:
+    """How much of the circle at `radius` around `centre` is darker than the
+    surface it is drawn on. A ring reads ~1.0; a line of text never does,
+    because the arc above it is blank."""
+    width, height = size
+    dark = total = 0
+    for step in range(samples):
+        angle = 2 * math.pi * step / samples
+        x = int(round(centre[0] + radius * math.cos(angle)))
+        y = int(round(centre[1] + radius * math.sin(angle)))
+        if 0 <= x < width and 0 <= y < height:
+            total += 1
+            if luminance[x, y] < 200:
+                dark += 1
+    return dark / total if total else 0.0
+
+
+def find_press_mark(image, centres_x, centres_y) -> tuple[int, int, int] | None:
+    """The tour's press mark, if it is drawn anywhere in the given band.
+
+    The mark is the only *hollow* dark circle the overlay draws: a continuous
+    stroke with the control, or the empty card, still showing through the
+    middle. Hollowness is what separates it from everything else in a cutout —
+    the device badge is a filled disc and fails the interior test, and a line of
+    text is not continuous around a full circle and fails the outer one. Both
+    sizes the mark can take are covered: the 15pt point-mark and the ring that
+    encloses a control up to `maxEnclosingMark`.
+    """
+    luminance = image.convert("L").load()
+    size = image.size
+    for centre_y in centres_y:
+        for centre_x in centres_x:
+            for radius in range(8, 46, 2):
+                centre = (centre_x, centre_y)
+                if annulus_dark_share(luminance, size, centre, radius) < 0.85:
+                    continue
+                if annulus_dark_share(luminance, size, centre, max(3, radius - 7)) > 0.35:
+                    continue
+                return (centre_x, centre_y, radius)
+    return None
+
+
+def locate_cutout(image) -> tuple[int, int, int, int] | None:
+    """The spotlight's hole, as (left, right, top, bottom).
+
+    Light Mode only, and for the same reason the three checks above are: the
+    scrim takes a near-white popup down to a flat grey, so the unscrimmed hole
+    is the one thing in the frame that runs bright for most of the popup's
+    width. The callout card is bright too and is excluded by width — it is
+    316pt against a popup of 600.
+    """
+    luminance = image.convert("L").load()
+    width, height = image.size
+    # Stop above the provenance band, whose bold caption is bright enough to
+    # read as content and says nothing about the app.
+    rgb = image.convert("RGB").load()
+    content_bottom = height
+    for y in range(height):
+        red, green, blue = rgb[10, y]
+        if red > 100 and green < 60 and blue < 60:
+            content_bottom = y
+            break
+
+    rows: list[int] = []
+    for y in range(content_bottom):
+        run = longest = 0
+        for x in range(width):
+            run = run + 1 if luminance[x, y] >= 200 else 0
+            longest = max(longest, run)
+        if longest >= 800:
+            rows.append(y)
+    if not rows:
+        return None
+    top, bottom = min(rows), max(rows)
+    # Outermost bright columns on the hole's own middle row, not the longest
+    # unbroken run: a device row's interior is interrupted by its badge and its
+    # label, so the longest run there is the gap between two controls rather
+    # than the hole.
+    mid = (top + bottom) // 2
+    columns = [x for x in range(width) if luminance[x, mid] >= 200]
+    if not columns or max(columns) - min(columns) < 400:
+        return None
+    return (min(columns), max(columns), top, bottom)
+
+
+# ---------------------------------------------------------------------------
+# A press mark is only drawn where there is something to press.
+#
+# The mark is a ring with a click ripple coming out of it: it says "put your
+# pointer here and press". Twice already it has said that by drawing on top of
+# the thing it was naming — the device badge, then the AutoEQ wand — and both
+# fixes were rules about *size* and *floors*, each blind to the next surface.
+# The third was not about size at all. A step whose control is absent falls back
+# to `.emptyApps`, a large placeholder with no control in it: the cutout is
+# nowhere near its floor, no substitute control is named, so the flat 15pt mark
+# landed at the centre of the cutout, which is the sentence "No user apps are
+# open". It struck the words through in six frames and nothing went red.
+#
+# So this check is written about the category rather than about a surface, and
+# it reads its own expectations out of the tour instead of listing frames:
+#
+#   * an alternate that names a `pointerTarget:` is sending you to a real
+#     control, so its frame must still carry a mark — this is the half that
+#     stops the defect being "fixed" by deleting the mark everywhere;
+#   * an alternate that names none is a sentence about an absence, so its frame
+#     must carry no mark anywhere inside the cutout.
+#
+# Add an empty-state scene and it is covered. Give an alternate a pointer target
+# and the expectation flips with it.
+# ---------------------------------------------------------------------------
+EMPTY_FRAME_PATTERNS = (
+    re.compile(r"^tour-empty-light-\d\d-(?P<step>\w+)\.png$"),
+    re.compile(r"^whatsnew-tour-empty-(?P<step>\w+)\.png$"),
+)
+
+
+def alternates_naming_a_control() -> dict[str, bool] | None:
+    """Per first-run step id, whether its `unavailable:` alternate names a
+    control to press. Read from the tour so this cannot drift from it."""
+    steps = swift_list(coordinator, "static let firstRunTour")
+    if not steps:
+        return None
+    out: dict[str, bool] = {}
+    for chunk in steps.split("SpotlightStep(")[1:]:
+        identifier = re.search(r'id:\s*"(\w+)"', chunk)
+        alternate = chunk.find("unavailable:")
+        if identifier is None or alternate < 0:
+            continue
+        out[identifier.group(1)] = "pointerTarget:" in chunk[alternate:]
+    return out or None
+
+
+def fallbacks_naming_a_control() -> dict[str, bool] | None:
+    """Per `GuidedTourTarget`, whether `absenceFallback` sends a step to a
+    control it can point at. The tuple's second element is that pointer, so
+    `nil` there is the model saying in as many words that there is nothing to
+    press where this step is being sent."""
+    body = swift_body(
+        require("Sources/Melo/Views/Onboarding/GuidedTourOverlay.swift"),
+        "var absenceFallback:",
+    )
+    if not body:
+        return None
+    out: dict[str, bool] = {}
+    for arm in body.split("case ")[1:]:
+        label, _, tail = arm.partition(":")
+        returned = re.search(r"return\s*\(([^)]*)\)", tail, re.S)
+        if returned is None:
+            continue
+        parts = [part.strip() for part in returned.group(1).split(",")]
+        if len(parts) < 2:
+            continue
+        for target in re.findall(r"\.(\w+)", label):
+            out[target] = parts[1] != "nil"
+    return out or None
+
+
+def check_press_mark_only_where_there_is_a_press(Image) -> None:
+    frames = locate_frames()
+    if frames is None:
+        return
+    expectations = alternates_naming_a_control()
+    if expectations is None:
+        failures.append(
+            "could not read the first-run tour's alternates out of GuidedTourCoordinator — "
+            "the press-mark check has no expectations and would pass on anything"
+        )
+        return
+    # A data-built walkthrough — What's New — has no hand-written alternate. Its
+    # frame is named for the *target* the note claimed, and the alternate comes
+    # from `GuidedTourTarget.absenceFallback`, so its expectation is read from
+    # there instead.
+    fallbacks = fallbacks_naming_a_control()
+    if fallbacks is None:
+        failures.append(
+            "could not read absenceFallback out of GuidedTourOverlay — the press-mark check "
+            "has no expectation for the data-built walkthrough"
+        )
+        return
+
+    checked = 0
+    for frame in sorted(frames.glob("*.png")):
+        step = None
+        for pattern in EMPTY_FRAME_PATTERNS:
+            match = pattern.match(frame.name)
+            if match:
+                step = match.group("step")
+                break
+        if step is None:
+            continue
+        if step in expectations:
+            expects_mark = expectations[step]
+        elif step in fallbacks:
+            expects_mark = fallbacks[step]
+        else:
+            failures.append(
+                f"{frame.name}: no first-run step and no absenceFallback arm names .{step}, "
+                "so there is nothing to say whether this frame should carry a mark"
+            )
+            continue
+
+        image = Image.open(frame)
+        box = locate_cutout(image)
+        if box is None:
+            failures.append(
+                f"{frame.name}: could not find the spotlight cutout, so whether the tour "
+                "marks a press on a placeholder cannot be read"
+            )
+            continue
+        left, right, top, bottom = box
+        middle = (top + bottom) // 2
+        rows = [middle - 4, middle, middle + 4]
+        # The cutout's exact centre first and by name, because that is where a
+        # mark with no control to sit on lands — `pointerPosition` falls through
+        # to `rect.mid`. A swept grid is not enough on its own: at a stride of 6
+        # the sweep stepped straight over the centre column and read the struck
+        # -through placeholder as clean, which is this check's own near miss.
+        # The sweep is still here for the enclosing ring, which sits on whatever
+        # control it circles, anywhere across the hole.
+        centres = [(left + right) // 2] + list(range(left + 40, right - 40, 6))
+        mark = find_press_mark(image, centres, rows)
+        checked += 1
+
+        if expects_mark and mark is None:
+            failures.append(
+                f"{frame.name}: this step's alternate names a control to press and nothing "
+                "marks it — the tour sends the user somewhere and then points at nothing"
+            )
+        elif not expects_mark and mark is not None:
+            failures.append(
+                f"{frame.name}: a press mark is drawn at {mark[0]},{mark[1]} (r={mark[2]}px) "
+                "inside a cutout whose step has no control to press. This step's copy is a "
+                "sentence about a control that is absent, and the mark is drawn through it"
+            )
+        else:
+            measurements.append(
+                f"{frame.name}: press mark {'present' if expects_mark else 'absent'}, as its "
+                "alternate says it should be"
+            )
+
+    if checked < 4:
+        failures.append(
+            f"only {checked} empty-state tour frames were read — the press-mark check is "
+            "matching frame names that are no longer being rendered"
+        )
 
 
 run_frame_checks()

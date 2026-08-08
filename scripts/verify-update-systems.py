@@ -3,7 +3,10 @@ from pathlib import Path
 import math
 import plistlib
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 
 root = Path(__file__).resolve().parents[1]
 failures: list[str] = []
@@ -235,6 +238,238 @@ later_body = body_of(sparkle_code, "func remindLater()")
 if "activity = .deferred(" not in later_body:
     failures.append("SparkleUpdateController.swift: remindLater silences the badge and the banner but leaves the tab unchanged, so the surfaces disagree")
 
+# --- The deferral, run rather than read --------------------------------------
+#
+# `remindLater()` moved both surfaces together, and nothing moved them back. The
+# lapse had no path at all — `refreshReminder()` restored `updateReminder` and
+# never touched `activity`, so the badge and the banner returned while the tab
+# went on saying they were off for the next eight hours — and the launch restore
+# had the mirror of it, asserting `.available` without ever reading
+# `Keys.remindAfter`, so relaunching inside a live deferral offered a version
+# whose ambient surfaces were correctly silent.
+#
+# Neither is visible to a source check. `activity` was assigned the right case
+# from the right function in both directions; the defect was in which *facts*
+# were consulted, and a substring test cannot see a missing read. So this
+# compiles the shipped controller and drives the real object: writes a pending
+# record and a deferral into a throwaway defaults suite, constructs it, and
+# watches the states it reaches — including the one that only arrives when the
+# real `Timer` fires on the real run loop.
+#
+# It needs a bundle. `init` registers the notification category, and
+# `UNUserNotificationCenter.current()` raises `bundleProxyForCurrentProcess is
+# nil` in a bare executable — so the checks are built into a minimal .app.
+
+STATE_CHECKS_SWIFT = r"""
+import Foundation
+
+var failures: [String] = []
+func check(_ label: String, _ ok: Bool) { if !ok { failures.append(label) } }
+
+let suiteName = "melo.verify.updatestate"
+let sample = SparkleUpdateController.PendingUpdate(
+    version: "2.9.5", build: "200", notes: nil, notesAreHTML: false,
+    notesURL: nil, downloadBytes: 1_000_000, published: nil, isCritical: false
+)
+let blob = try! JSONEncoder().encode(sample)
+
+/// A defaults store holding exactly what a previous launch would have left.
+func store(deferredFor seconds: TimeInterval?) -> UserDefaults {
+    let store = UserDefaults(suiteName: suiteName)!
+    store.removePersistentDomain(forName: suiteName)
+    store.set(blob, forKey: "__PENDING_KEY__")
+    if let seconds { store.set(Date().addingTimeInterval(seconds), forKey: "__REMIND_KEY__") }
+    return store
+}
+
+MainActor.assumeIsolated {
+    // Nothing deferred: the version is offered and the ambient surfaces show it.
+    // Here so a fix that simply defers everything cannot pass.
+    let plain = SparkleUpdateController(defaults: store(deferredFor: nil))
+    check("a restored update with no deferral does not open at .available", plain.activity == .available(sample))
+    check("a restored update with no deferral does not reach the badge and the banner", plain.updateReminder == sample)
+
+    // Relaunching inside a live deferral. The tab must not offer what the badge
+    // and the banner are deliberately not showing.
+    let deferred = SparkleUpdateController(defaults: store(deferredFor: 3600))
+    check(
+        "relaunching inside a live deferral opens the Updates tab at .available while the badge and banner stay silent",
+        deferred.activity == .deferred(sample)
+    )
+    check("relaunching inside a live deferral wakes the ambient surfaces", deferred.updateReminder == nil)
+
+    // The button itself, not a state handed to it.
+    let pressed = SparkleUpdateController(defaults: store(deferredFor: nil))
+    pressed.remindLater()
+    check("Remind Me Later leaves the Updates tab where it was", pressed.activity == .deferred(sample))
+    check("Remind Me Later leaves the badge and the banner showing", pressed.updateReminder == nil)
+}
+
+// The lapse, on the real run loop, through the timer the controller schedules.
+let lapsing = MainActor.assumeIsolated { SparkleUpdateController(defaults: store(deferredFor: 0.6)) }
+MainActor.assumeIsolated {
+    check("the lapse check did not begin deferred, so it proves nothing", lapsing.activity == .deferred(sample))
+    check("the lapse check did not begin silent, so it proves nothing", lapsing.updateReminder == nil)
+}
+RunLoop.main.run(until: Date().addingTimeInterval(2.5))
+MainActor.assumeIsolated {
+    check("a lapsed deferral never brings the badge and the banner back", lapsing.updateReminder == sample)
+    check(
+        "a lapsed deferral brings the badge and the banner back but leaves the Updates tab saying they are off for eight hours",
+        lapsing.activity == .available(sample)
+    )
+}
+
+if failures.isEmpty {
+    print("ok")
+} else {
+    for failure in failures { print("FAIL \(failure)") }
+    exit(1)
+}
+"""
+
+STATE_CHECKS_PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>io.github.megavessal.Melo.verify-update-state</string>
+<key>CFBundleExecutable</key><string>Check</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleVersion</key><string>100</string>
+<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>LSUIElement</key><true/>
+</dict></plist>
+"""
+
+
+def defaults_key(name):
+    """The literal a `Keys` member is declared with. Scraped rather than
+    repeated, so renaming the key cannot leave these checks writing a record the
+    controller no longer reads — which would pass by never restoring anything."""
+    match = re.search(rf'static let {name} = "([^"]+)"', sparkle_source)
+    if match is None:
+        failures.append(f"SparkleUpdateController.swift: Keys.{name} is gone; the deferral checks cannot run")
+        return None
+    return match.group(1)
+
+
+def run_update_state_checks() -> None:
+    pending_key, remind_key = defaults_key("pendingUpdate"), defaults_key("remindAfter")
+    if pending_key is None or remind_key is None:
+        return
+
+    if shutil.which("xcrun"):
+        argv = ["xcrun", "swiftc"]
+    elif shutil.which("swiftc"):
+        argv = ["swiftc"]
+    else:
+        failures.append("no Swift compiler on PATH — the deferral checks cannot be skipped silently")
+        return
+
+    # Sparkle is a binary dependency, so this needs the framework a build has
+    # already produced. `build-app.sh` deletes .build-melo and outputs/Melo.app
+    # at the start of every build, so all three of these are empty *during* one —
+    # which is fine, because `dev-verify-locked.sh` runs the verify scripts
+    # inside the lock, after its own build. Run standalone while another agent
+    # holds the lock, this reports the window rather than a defect.
+    framework_dir = next(
+        (
+            candidate for candidate in (
+                root / ".build-melo/DerivedData/Build/Products/Release",
+                root / "outputs/Melo.app/Contents/Frameworks",
+                root / ".build-melo/DerivedData/SourcePackages/artifacts/sparkle/Sparkle"
+                     / "Sparkle.xcframework/macos-arm64_x86_64",
+            )
+            if (candidate / "Sparkle.framework").is_dir()
+        ),
+        None,
+    )
+    if framework_dir is None:
+        failures.append(
+            "no built Sparkle.framework to link the deferral checks against. Run ./scripts/dev-verify.sh, "
+            "which builds before it runs these scripts; a build in flight elsewhere has deleted every copy "
+            "for the moment. Deliberately not skipped — these are the only assertions that observe the "
+            "deferral rather than read it."
+        )
+        return
+
+    controller = root / "Sources/Melo/Updates/SparkleUpdateController.swift"
+    with tempfile.TemporaryDirectory(prefix="melo-verify-deferral-") as tmp:
+        work = Path(tmp)
+        macos = work / "Check.app/Contents/MacOS"
+        macos.mkdir(parents=True)
+        (work / "Check.app/Contents/Info.plist").write_text(STATE_CHECKS_PLIST)
+        (work / "main.swift").write_text(
+            STATE_CHECKS_SWIFT
+            .replace("__PENDING_KEY__", pending_key)
+            .replace("__REMIND_KEY__", remind_key)
+        )
+        binary = macos / "Check"
+        # MELO_DEV for nothing in particular here — the checks drive the real
+        # `init` and the real `remindLater()` — but the shipped file must build
+        # in the configuration the harness uses, or a snapshot seam that stopped
+        # compiling would only be found four minutes later in the app build.
+        compiled = subprocess.run(
+            argv + ["-D", "MELO_DEV", "-F", str(framework_dir),
+                    "-Xlinker", "-rpath", "-Xlinker", str(framework_dir),
+                    "-o", str(binary), str(work / "main.swift"), str(controller)],
+            capture_output=True,
+            text=True,
+        )
+        if compiled.returncode != 0:
+            errors = [line for line in compiled.stderr.splitlines() if "error:" in line][:12]
+            failures.append(
+                "the deferral checks did not compile:\n        "
+                + "\n        ".join(errors or compiled.stderr.splitlines()[:12])
+            )
+            return
+
+        try:
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=120)
+        except subprocess.TimeoutExpired:
+            failures.append("the deferral checks never finished — the lapse timer did not fire")
+            return
+        finally:
+            subprocess.run(["defaults", "delete", "melo.verify.updatestate"], capture_output=True)
+
+        if result.returncode != 0:
+            reported = [line[len("FAIL "):] for line in result.stdout.splitlines() if line.startswith("FAIL ")]
+            failures.extend(f"SparkleUpdateController.swift: {line}" for line in reported)
+            if not reported:
+                failures.append(
+                    f"the deferral checks exited {result.returncode} with no verdict: "
+                    f"{(result.stderr or result.stdout).strip()[:300]}"
+                )
+
+
+run_update_state_checks()
+
+# And the bypass must stay absent. `.available` may only be produced by
+# `waitingState(for:)`, the one function that reads the deferral, plus
+# `refreshReminder`, which promotes a lapsed `.deferred` and is what the timer
+# is for. Producing the case anywhere else is how all four of the original paths
+# went wrong.
+#
+# Matched on the case, not on `activity = .available(`, which is what this check
+# tested first: `restingActivity` *returns* the state rather than assigning it,
+# so the assignment form let the single largest fallback path — every session
+# that ends, and every dismissed failure — go back to bypassing the deferral
+# with this check still green. Negative-tested in both forms.
+producers = [
+    body_or_none(sparkle_code, signature) or ""
+    for signature in ("private func refreshReminder()", "private func waitingState(")
+]
+elsewhere = sparkle_code
+for body in producers:
+    if body:
+        elsewhere = elsewhere.replace(body, "")
+for bypass in (".available(", "Activity.available"):
+    if bypass in elsewhere:
+        failures.append(
+            f"SparkleUpdateController.swift: {bypass!r} outside waitingState/refreshReminder — a waiting "
+            "update is announced without reading the deferral, so the Updates tab can offer a version "
+            "whose badge and banner the user has silenced"
+        )
+
 # Once Sparkle has staged an update, its own delegate header states it "will
 # always attempt to install the update when the app terminates" and there is no
 # public way to unstage it. A Skip button there refuses nothing.
@@ -251,8 +486,12 @@ if "guard pendingUpdate != nil" not in body_of(sparkle_code, "func installDownlo
 # `skipPendingUpdate()` and `remindLater()` guard on `pendingUpdate`, so a frame
 # built by handing `.skipped(pending)` to `setActivityForSnapshot` shows what the
 # state looks like while proving nothing about whether the button reaches it.
-# That is exactly how a dead Skip button survived ten verify scripts and
-# forty-odd frames. `setPendingUpdateForSnapshot(_:)` exists so the real buttons
+# That is exactly how a dead Skip button survived an earlier run's entire suite:
+# ten verify scripts and forty-odd frames, both of which this project has since
+# outgrown. Those are the numbers that run measured, not a count of today's —
+# and the growth is the point, because a larger suite of the same kind of
+# assertion would have missed it just as completely.
+# `setPendingUpdateForSnapshot(_:)` exists so the real buttons
 # can be pressed; an assertion that only proves the seam *exists* is the dead
 # pattern CLAUDE.md names, and it passed while the seam had no caller at all.
 scenes_code = code_of(root / "Sources/Melo/Utilities/SnapshotScenes.swift")

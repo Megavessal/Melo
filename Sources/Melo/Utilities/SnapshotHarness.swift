@@ -81,6 +81,29 @@ enum SnapshotHarness {
     /// demonstrated on demand instead of by racing a `kill` against a build.
     private static let failAfterKey = "MELO_SNAPSHOT_FAIL_AFTER"
 
+    /// Set `MELO_AX_DWELL=<scene name>[,<scene name>...]` and, after the last
+    /// frame is written, the harness rebuilds those scenes one at a time and
+    /// **holds each window up** instead of exiting, so a separate process can
+    /// interrogate them over the accessibility API. See
+    /// `dwellForAccessibilityCheck`.
+    private static let axDwellKey = "MELO_AX_DWELL"
+
+    /// Longest the harness will hold one accessibility window open waiting for
+    /// its `_ax_done`. Generous, because the checker compiles itself first;
+    /// bounded, because a checker that never starts must not leave a Melo
+    /// process alive in every future `dev-verify` run on this machine.
+    ///
+    /// Per scene, not per run. Only the first scene of a dwell list can wait on
+    /// a checker that has not started yet; by the second, the checker is warm
+    /// and the real wait is milliseconds.
+    private static let axDwellTimeout: TimeInterval = 120
+
+    /// Both the `AXIdentifier` and the `AXTitle` of the dwell window, so
+    /// `scripts/ax-check.sh` scans that window and not whatever else this app
+    /// happens to have open. Duplicated as a literal there; a mismatch is
+    /// reported by the checker rather than silently widening the scan.
+    static let axDwellWindowMarker = "melo-ax-dwell"
+
     /// Shortest featureless band, in points, worth naming on the frame.
     ///
     /// 48 rather than 16: at 16 the detector named ordinary padding between
@@ -414,7 +437,133 @@ enum SnapshotHarness {
         try? Data("\(scenes.count - failures)/\(scenes.count)\n".utf8).write(to: sentinel)
 
         print("snapshots: \(scenes.count - failures)/\(scenes.count) written to \(path)")
+
+        // After the sentinel, deliberately. The frames are the expensive part
+        // of this run and every consumer of them keys off `_complete`; a dwell
+        // that hung, or an accessibility checker that failed, must not be able
+        // to retract a render that already happened.
+        dwellForAccessibilityCheck(scenes, directory: directory)
+
         exit(failures == 0 ? 0 : 1)
+    }
+
+    // MARK: - Accessibility dwell
+
+    /// Holds one scene's window up so `scripts/ax-check.sh` can drive it.
+    ///
+    /// ## Why a dwell at all
+    ///
+    /// Every accessibility claim in this app was checked by grepping source for
+    /// a modifier, which stays green when the modifier is present and wired to
+    /// nothing — the exact failure the project anchor names last. Actually
+    /// performing an `accessibilityAdjustableAction` and watching the spoken
+    /// value move is the only check that can tell those apart, and it is
+    /// possible only from outside the process. Measured, in this order:
+    ///
+    /// * `NSHostingView.accessibilityChildren()` from in here returns a single
+    ///   empty `AXGroup`. AppKit builds the SwiftUI element tree lazily, for an
+    ///   attached assistive client, and this process is not one.
+    /// * `AXUIElementCreateApplication(getpid())` — asking oneself — is refused
+    ///   outright with `kAXErrorCannotComplete` (-25208).
+    /// * The same call from a *separate* process works, against a bundled
+    ///   `.app`, on a window that has been `orderFrontRegardless()`n. It does
+    ///   not need to be visible, on screen, or key.
+    ///
+    /// So the missing piece was never the checker. It was that this harness
+    /// renders and exits, leaving no window for anyone to ask about. This is
+    /// that window: the real scene, staged by the same `stage(_:)` a frame goes
+    /// through, held open on a pid the checker is handed directly.
+    ///
+    /// The handshake is two files in the snapshot directory — `_ax_ready`
+    /// carries the pid, `_ax_done` is the checker saying it has finished — and
+    /// a hard timeout, because a checker that never starts must not strand a
+    /// Melo process on this machine forever.
+    private static func dwellForAccessibilityCheck(_ scenes: [Scene], directory: URL) {
+        guard let raw = ProcessInfo.processInfo.environment[axDwellKey], !raw.isEmpty else {
+            return
+        }
+        let names = raw
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        // Every name is resolved before any of them is dwelled, and one bad
+        // name abandons the whole phase rather than being skipped.
+        //
+        // A dwell list that silently dropped an unmatched name is the quietest
+        // way this gate could stop covering something: the scene it named would
+        // simply stop being checked, every remaining assertion would still pass,
+        // and the run would be green. Renaming a scene in `SnapshotScenes.swift`
+        // is an ordinary edit for someone who has never read this file, so that
+        // is not a hypothetical.
+        let resolved = names.map { name in (name, scenes.first { $0.name == name }) }
+        let missing = resolved.filter { $0.1 == nil }.map(\.0)
+        guard missing.isEmpty else {
+            try? Data(
+                ("\(axDwellKey) names no scene that exists: \(missing.joined(separator: ", ")). "
+                 + "Nothing was dwelled and nothing was checked — fix the name or the scene "
+                 + "list, do not ignore this.\n").utf8
+            ).write(to: directory.appendingPathComponent("_ax_error"))
+            return
+        }
+
+        for scene in resolved.compactMap(\.1) {
+            dwell(scene, directory: directory)
+        }
+    }
+
+    /// Holds one scene's window up and waits for the checker to release it.
+    ///
+    /// The handshake is per scene — `_ax_ready_<name>` carries the pid,
+    /// `_ax_done_<name>` is the checker saying it has finished with that one.
+    /// Per-scene filenames rather than one pair reused: with a single pair, the
+    /// gap between deleting the last scene's `_ax_ready` and writing the next
+    /// one is a window in which the checker reads a stale file and interrogates
+    /// the wrong scene, and it would do it silently.
+    ///
+    /// A bare `_ax_done`, with no scene suffix, releases whatever scene is
+    /// waiting. `dev-verify-locked.sh` writes exactly that from its EXIT trap,
+    /// so an early exit anywhere in that script cannot strand this process
+    /// holding a window for the full timeout.
+    private static func dwell(_ scene: Scene, directory: URL) {
+        let ready = directory.appendingPathComponent("_ax_ready_\(scene.name)")
+        let done = directory.appendingPathComponent("_ax_done_\(scene.name)")
+        let abort = directory.appendingPathComponent("_ax_done")
+        try? FileManager.default.removeItem(at: ready)
+        try? FileManager.default.removeItem(at: done)
+
+        scene.prepare()
+        settle(seconds: 0.35)
+        let (window, host, _) = stage(scene)
+        defer { window.close() }
+
+        // A name for the checker to aim at. Rendering a scene can leave other
+        // windows of this app standing — `What's New in Melo` was in the first
+        // tree ever dumped — and every element in one is noise the assertions
+        // would have to be written around. Marking the window means the scan is
+        // exactly the scene, and stays exactly the scene when someone adds a
+        // frame that opens a window.
+        window.setAccessibilityIdentifier(axDwellWindowMarker)
+        window.title = axDwellWindowMarker
+
+        // A second layout pass and a longer settle than a capture gets. A frame
+        // only needs the pixels to be final; the accessibility tree is built on
+        // demand from the view hierarchy, and the checker attaches to whatever
+        // exists at the moment it asks.
+        host.layoutSubtreeIfNeeded()
+        settle(seconds: 1.0)
+
+        try? Data("\(ProcessInfo.processInfo.processIdentifier)\n".utf8).write(to: ready)
+
+        // Spinning the run loop is not idling: the accessibility API delivers
+        // to this process on the main thread, so a `sleep` here would leave
+        // every request from the checker unanswered.
+        let deadline = Date().addingTimeInterval(axDwellTimeout)
+        while Date() < deadline,
+              !FileManager.default.fileExists(atPath: done.path),
+              !FileManager.default.fileExists(atPath: abort.path) {
+            settle(seconds: 0.1)
+        }
     }
 
     /// Returns `true` when the comparison failed.
@@ -527,15 +676,15 @@ enum SnapshotHarness {
 
     // MARK: - Rendering
 
-    private static func render(_ scene: Scene) -> (png: Data, pixels: Data?)? {
-        scene.prepare()
-        // Coordinators that react to the prepared state do so on a later turn
-        // of the run loop — `SparkleUpdateController.$updateReminder` is
-        // delivered `.receive(on: RunLoop.main)`, for one — so a `content`
-        // closure that reads what a coordinator produced needs the loop spun
-        // before it is built, not only before the capture.
-        settle(seconds: 0.35)
-
+    /// Everything up to and including a settled, laid-out hosting view in a
+    /// window the window server believes is on screen.
+    ///
+    /// Extracted rather than duplicated because the accessibility dwell has to
+    /// be *the same* window as a rendered frame, not a lookalike: AppKit only
+    /// materialises SwiftUI's accessibility tree for a window that has been
+    /// ordered front, and a second, subtly different staging path would make
+    /// "the checker saw it" and "the frames show it" two different claims.
+    private static func stage(_ scene: Scene) -> (window: NSWindow, host: NSView, root: AnyView) {
         let frame = NSRect(origin: .zero, size: scene.size)
         let window = NSWindow(
             contentRect: frame,
@@ -549,9 +698,11 @@ enum SnapshotHarness {
         window.isOpaque = true
         window.backgroundColor = backing(scene.colorScheme)
 
-        let root = scene.content()
-            .environment(\.colorScheme, scene.colorScheme)
-            .frame(width: scene.size.width, height: scene.size.height)
+        let root = AnyView(
+            scene.content()
+                .environment(\.colorScheme, scene.colorScheme)
+                .frame(width: scene.size.width, height: scene.size.height)
+        )
 
         let host = NSHostingView(rootView: root)
         host.frame = frame
@@ -571,6 +722,20 @@ enum SnapshotHarness {
         settle(seconds: 0.65)
         host.layoutSubtreeIfNeeded()
         settle(seconds: 0.25)
+
+        return (window, host, root)
+    }
+
+    private static func render(_ scene: Scene) -> (png: Data, pixels: Data?)? {
+        scene.prepare()
+        // Coordinators that react to the prepared state do so on a later turn
+        // of the run loop — `SparkleUpdateController.$updateReminder` is
+        // delivered `.receive(on: RunLoop.main)`, for one — so a `content`
+        // closure that reads what a coordinator produced needs the loop spun
+        // before it is built, not only before the capture.
+        settle(seconds: 0.35)
+
+        let (window, host, root) = stage(scene)
 
         // The action goes here rather than in `prepare` so it can reach the
         // rendered hierarchy and press a control in it.

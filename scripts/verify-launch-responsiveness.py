@@ -3,12 +3,23 @@
 
 `DeviceVolumeMonitor.start()` called `NSAppleScript.executeAndReturnError`
 in-process, on the main actor, during launch. Measured with `sample` against a
-real launch on 2026-08-07: **218 ms** of main-thread time, 66 ms in `OSACompile`
-and 141 ms inside `AEDefaultActiveProc` — the Apple event blocking wait. That
-wait has no bound Melo controls. When macOS decides the Automation consent
+real launch on 2026-08-07: **218 ms** of main-thread time, **133 ms** of it
+inside `AEDefaultActiveProc` — the Apple event blocking wait. That wait has no
+bound Melo controls. When macOS decides the Automation consent
 dialog is needed, the main thread stays parked inside `AESendMessage` behind it,
 which is a spinning beachball at launch. Ad-hoc signing makes that reachable on
 *every* rebuild, because the cdhash is the TCC identity.
+
+Two numbers, one measurement, so the provenance is written down rather than
+re-derived. This header and `DeviceVolumeMonitor` both used to read "141 ms
+inside AEDefaultActiveProc" while `MenuBarPopupView` read 133 ms for the same
+profile. 133 is the one commit 85be898 records in its own summary of the run
+that produced it, so 133 is what the tree now says everywhere. The 141 ms is
+believed to be the whole execute phase, of which AEDefaultActiveProc is a part —
+believed, not established: the raw `sample` output is not in the tree, so the
+compile-phase figure that used to sit beside it is **unverified** and has been
+dropped rather than restated. Nothing in the fix turns on it; the argument is
+that the wait has no upper bound, not that it is long.
 
 The fix was not to make the Apple event faster. It was to stop the main actor
 waiting for it — the same move `setAlertVolume` had already made for the write,

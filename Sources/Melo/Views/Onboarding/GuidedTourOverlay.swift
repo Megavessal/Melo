@@ -81,6 +81,23 @@ extension GuidedTourTarget {
             return nil
         }
     }
+
+    /// The control inside this target that a step should mark, when the target
+    /// is a region containing several. The first-run tour writes this per step;
+    /// a walkthrough built from data — the Settings Guide's "Show Me" — has no
+    /// author to write it, and without it the mark lands on whatever
+    /// control sits at the centre of the region, which for the device list is
+    /// the row's mute button rather than the badge you are told to click.
+    ///
+    /// Only the two regions a step is actually pointed at are listed. A guess
+    /// for the rest would move the mark somewhere nobody has looked at.
+    var regionPointer: GuidedTourTarget? {
+        switch self {
+        case .devices: return .deviceSelection
+        case .equalizer: return .eqPreset
+        default: return nil
+        }
+    }
 }
 
 struct GuidedTourTargetPreferenceKey: PreferenceKey {
@@ -223,6 +240,18 @@ struct GuidedTourOverlay: View {
     /// than on its own size — a highlight exactly the size of the icon reads as a
     /// border drawn on the control, not as a hole cut out of the scrim.
     private static let minCutoutSize = CGSize(width: 52, height: 38)
+    /// The mark's outer diameter when it is marking a point rather than a
+    /// control, and how far outside a control it is drawn when it is marking
+    /// one. See `markDiameter`.
+    private static let markSize: CGFloat = 15
+    private static let markClearance: CGFloat = 12
+    /// Where enclosing stops meaning anything. A ring drawn around a 95pt
+    /// preset picker is a second spotlight, not a press indicator.
+    private static let maxEnclosingMark: CGFloat = 46
+    /// How far the click ripple travels out of the mark's edge. A distance
+    /// rather than a scale factor: 2.4 × a 15pt mark is a 10.5pt pulse, and
+    /// 2.4 × a 40pt one is a 28pt pulse thrown clear across the row.
+    private static let rippleTravel: CGFloat = 10.5
 
     /// What this step actually shows: a step whose target is not on screen
     /// falls back to copy that is true about that absence, rather than
@@ -234,6 +263,10 @@ struct GuidedTourOverlay: View {
         /// Set only when the step names a control inside the highlighted
         /// region. Nil means "the centre of the cutout is the right place".
         let pointerFrame: CGRect?
+        /// Whether there is a control here to press. The mark is a *press*
+        /// indicator — a ring with a click ripple coming out of it — so it is
+        /// only ever true about something the user can click.
+        let hasSomethingToPress: Bool
     }
 
     private var resolved: ResolvedStep? {
@@ -245,14 +278,23 @@ struct GuidedTourOverlay: View {
                 frame: geometry[anchor],
                 pointerFrame: step.pointerTarget
                     .flatMap { anchors[$0] }
-                    .map { geometry[$0] }
+                    .map { geometry[$0] },
+                // The step found the control it names. Every first-run step
+                // names a control you can operate through the cutout.
+                hasSomethingToPress: true
             )
         }
         // A step with no target at all is legitimate — the What's New tour uses
         // one for release notes with nothing on screen to point at — and draws a
         // centred card with no cutout.
         guard step.target != nil, let alternate = step.unavailable else {
-            return ResolvedStep(title: step.title, message: step.message, frame: nil, pointerFrame: nil)
+            return ResolvedStep(
+                title: step.title,
+                message: step.message,
+                frame: nil,
+                pointerFrame: nil,
+                hasSomethingToPress: false
+            )
         }
         let frame = alternate.target.flatMap { anchors[$0] }.map { geometry[$0] }
         return ResolvedStep(
@@ -261,7 +303,15 @@ struct GuidedTourOverlay: View {
             frame: frame,
             pointerFrame: alternate.pointerTarget
                 .flatMap { anchors[$0] }
-                .map { geometry[$0] }
+                .map { geometry[$0] },
+            // An alternate is a sentence about a control that is *not* here, so
+            // there is a press to indicate only when it names a substitute you
+            // can actually click. `.autoEQ` does — it sends you to the device
+            // row that would carry the wand. The app-control targets do not:
+            // they fall back to `.emptyApps`, which is a paragraph of
+            // placeholder text, and a press mark on a paragraph is an
+            // instruction to click a sentence.
+            hasSomethingToPress: alternate.pointerTarget != nil
         )
     }
 
@@ -288,7 +338,19 @@ struct GuidedTourOverlay: View {
             // reading "This wand searches measured headphone profiles." The ring
             // struck on the cutout still says which control the step is about,
             // and it is the mark that survives Reduce Motion anyway.
-            if spotlightRect != nil, !cutoutIsAtItsFloor {
+            //
+            // The same ring had a third way of landing on the thing it was
+            // supposed to be about, and neither rule above could see it. A step
+            // whose control is absent falls back to `.emptyApps` — a large
+            // placeholder, so the cutout is nowhere near its floor — with no
+            // substitute control named, so the mark is the flat 15pt point-mark
+            // dropped at the centre of the cutout. The centre of that cutout is
+            // the placeholder's own sentence, and the ring drew straight
+            // through "No user apps are open" in six frames. Nudging it off the
+            // words is the pixel-constant fix this tour was already rebuilt to
+            // get rid of; the mark simply does not belong on a paragraph, and
+            // saying so is `hasSomethingToPress`.
+            if spotlightRect != nil, !cutoutIsAtItsFloor, resolved?.hasSomethingToPress == true {
                 pointer
             }
         }
@@ -343,7 +405,7 @@ struct GuidedTourOverlay: View {
     private func announceStep() {
         guard let step = resolved else { return }
         AccessibilityNotification.Announcement(
-            "\(stepCounter). \(step.title). \(step.message)"
+            prefixed("\(step.title). \(step.message)")
         ).post()
     }
 
@@ -445,28 +507,32 @@ struct GuidedTourOverlay: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
-                    Text(stepCounter)
-                        // The DesignTokens type scale is fixed-size by design.
-                        // Onboarding is exactly where someone who enlarges
-                        // system text needs it to grow, so the card's three
-                        // styles are relative ones.
-                        .font(.system(.caption2, design: .default, weight: .bold))
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-                        .tracking(0.7)
+                    if !stepCounter.isEmpty {
+                        Text(stepCounter)
+                            // The DesignTokens type scale is fixed-size by design.
+                            // Onboarding is exactly where someone who enlarges
+                            // system text needs it to grow, so the card's three
+                            // styles are relative ones.
+                            .font(.system(.caption2, design: .default, weight: .bold))
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
+                            .tracking(0.7)
+                    }
                     Text(step.title)
                         .font(.system(.headline, design: .rounded, weight: .semibold))
                 }
                 Spacer()
-                Button("Skip Tour") { coordinator.skip() }
-                    .buttonStyle(.plain)
-                    .font(.system(.caption, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    // Escape is the system gesture for dismissing an overlay,
-                    // and without it Escape fell through to the popup and closed
-                    // the whole window mid-tour.
-                    .keyboardShortcut(.cancelAction)
-                    .help("End the tour (esc)")
+                if !isSingleSpotlight {
+                    Button("Skip Tour") { coordinator.skip() }
+                        .buttonStyle(.plain)
+                        .font(.system(.caption, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        // Escape is the system gesture for dismissing an overlay,
+                        // and without it Escape fell through to the popup and closed
+                        // the whole window mid-tour.
+                        .keyboardShortcut(.cancelAction)
+                        .help("End the tour (esc)")
+                }
             }
 
             Text(step.message)
@@ -486,7 +552,7 @@ struct GuidedTourOverlay: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(stepCounter). \(step.title)")
+        .accessibilityLabel(prefixed(step.title))
     }
 
     private var navigationRow: some View {
@@ -504,7 +570,7 @@ struct GuidedTourOverlay: View {
     }
 
     private var advanceButton: some View {
-        Button(coordinator.isLastStep ? "Finish" : "Next", action: advance)
+        Button(advanceTitle, action: advance)
         .buttonStyle(.borderedProminent)
         .keyboardShortcut(.defaultAction)
         // `defaultAction` is Return alone. The tour is a linear sequence, so
@@ -515,6 +581,23 @@ struct GuidedTourOverlay: View {
                 .keyboardShortcut(.rightArrow, modifiers: [])
                 .hidden()
         }
+        // A single spotlight draws no Skip Tour, so nothing visible is carrying
+        // Escape — and the tour's own history records Escape falling through to
+        // the popup and closing the whole window when nothing catches it.
+        .background {
+            if isSingleSpotlight {
+                Button("") { coordinator.skip() }
+                    .keyboardShortcut(.cancelAction)
+                    .hidden()
+            }
+        }
+    }
+
+    /// "Finish" is a word about a sequence. Being shown where one control is
+    /// has no sequence to finish.
+    private var advanceTitle: String {
+        if isSingleSpotlight { return "Done" }
+        return coordinator.isLastStep ? "Finish" : "Next"
     }
 
     private func advance() {
@@ -525,8 +608,20 @@ struct GuidedTourOverlay: View {
         }
     }
 
+    /// A single spotlight is not a tour, so it carries no position in one. The
+    /// Settings Guide's "Show Me" builds exactly one step, and the tour
+    /// chrome told the user they were "1 OF 1" of the way through something
+    /// they could "Skip Tour" out of.
+    private var isSingleSpotlight: Bool { coordinator.steps.count == 1 }
+
     private var stepCounter: String {
-        "\(coordinator.index + 1) of \(coordinator.steps.count)"
+        isSingleSpotlight ? "" : "\(coordinator.index + 1) of \(coordinator.steps.count)"
+    }
+
+    /// The counter, when there is one, in front of whatever it is prefixing —
+    /// so a single spotlight is not announced as "1 of 1" either.
+    private func prefixed(_ text: String) -> String {
+        stepCounter.isEmpty ? text : "\(stepCounter). \(text)"
     }
 
     /// Leaves a 12pt margin top and bottom so the card can never be taller
@@ -561,20 +656,20 @@ struct GuidedTourOverlay: View {
             // white-only mark disappeared there.
             Circle()
                 .strokeBorder(.black.opacity(0.5), lineWidth: 3)
-                .frame(width: 15, height: 15)
+                .frame(width: markDiameter, height: markDiameter)
             Circle()
                 .strokeBorder(.white.opacity(0.9), lineWidth: 1.5)
-                .frame(width: 15, height: 15)
+                .frame(width: markDiameter, height: markDiameter)
             if !reduceMotion {
                 Circle()
                     .strokeBorder(.black.opacity(pressPulse ? 0.0 : 0.35), lineWidth: 3)
-                    .frame(width: 15, height: 15)
-                    .scaleEffect(pressPulse ? 2.4 : 1.0)
+                    .frame(width: markDiameter, height: markDiameter)
+                    .scaleEffect(pressPulse ? rippleScale : 1.0)
                     .animation(ripplePulse, value: pressPulse)
                 Circle()
                     .strokeBorder(.white.opacity(pressPulse ? 0.0 : 0.75), lineWidth: 1.5)
-                    .frame(width: 15, height: 15)
-                    .scaleEffect(pressPulse ? 2.4 : 1.0)
+                    .frame(width: markDiameter, height: markDiameter)
+                    .scaleEffect(pressPulse ? rippleScale : 1.0)
                     .animation(ripplePulse, value: pressPulse)
             }
         }
@@ -614,12 +709,56 @@ struct GuidedTourOverlay: View {
         guard let rect = spotlightRect else {
             return CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
-        if let inner = resolved?.pointerFrame {
-            let point = CGPoint(x: inner.midX, y: inner.midY)
-            // Only if it is actually under the cutout: outside it the pointer
-            // would be sitting on the scrim, indicating something dimmed out.
-            if rect.contains(point) { return point }
+        if let inner = markedControlFrame {
+            return CGPoint(x: inner.midX, y: inner.midY)
         }
         return CGPoint(x: rect.midX, y: rect.midY)
+    }
+
+    /// The control named by `resolved?.pointerFrame`, when the step names one
+    /// and it really is inside the highlight. Both where the mark goes and how
+    /// big it is are read from here rather than each resolving the step for
+    /// itself — a mark placed on one frame and sized from another is how a ring
+    /// ends up sitting on the glyph it was supposed to enclose.
+    private var markedControlFrame: CGRect? {
+        guard let rect = spotlightRect, let inner = resolved?.pointerFrame else { return nil }
+        // Only if it is actually under the cutout: outside it the mark would be
+        // sitting on the scrim, indicating something dimmed out.
+        guard rect.contains(CGPoint(x: inner.midX, y: inner.midY)) else { return nil }
+        return inner
+    }
+
+    /// The mark's outer diameter. A hollow ring is a way of saying "this one",
+    /// and at a fixed 15pt dropped on the 28pt device badge it said it by
+    /// covering the badge: the ring and the device's own glyph composited into
+    /// a struck-through disc, under a card reading "click a row to make that
+    /// device the main output". The floor test that suppresses the mark on the
+    /// AutoEQ wand cannot see this — the anchor is a 28pt badge inside a
+    /// row-sized cutout, so the cutout is nowhere near its floor.
+    ///
+    /// Sized to enclose the named control instead, the same ring circles it and
+    /// the glyph stays readable inside. A control too wide to encircle keeps the
+    /// point-mark, which does not hide it either.
+    private var markDiameter: CGFloat {
+        guard let inner = markedControlFrame else { return Self.markSize }
+        let enclosing = max(inner.width, inner.height) + Self.markClearance
+        guard enclosing <= Self.maxEnclosingMark else { return Self.markSize }
+        return max(Self.markSize, enclosing)
+    }
+
+    /// The ripple expands out of the mark and stops at the cutout's edge: past
+    /// it the pulse would be drawing on the scrim, indicating something dimmed
+    /// out. Every point-mark in the tour has room for the full travel, so this
+    /// only bites where the mark already encloses its control and there is
+    /// almost nowhere left to go.
+    private var rippleScale: CGFloat {
+        guard let rect = spotlightRect else { return 1 }
+        let centre = pointerPosition
+        let room = min(
+            min(centre.x - rect.minX, rect.maxX - centre.x),
+            min(centre.y - rect.minY, rect.maxY - centre.y)
+        ) - markDiameter / 2
+        let travel = max(0, min(Self.rippleTravel, room))
+        return (markDiameter + travel * 2) / markDiameter
     }
 }

@@ -294,21 +294,25 @@ elif re.search(r"[Bb]luetooth", startup_code):
 # Inventory equality, the same shape verify-launch-responsiveness.py uses. Any new
 # file that can raise the prompt fails; so does one quietly dropping out.
 #
-# FirstRunOnboardingView was pinned here while it still called this on setup
-# close — a prompt with no Bluetooth reason on screen. That call is gone:
-# finishing setup is not reaching for the feature, it is the same unexplained
-# dialog thirty seconds later.
-#
-# MenuBarPopupView replaced it because entering device-priority edit mode on the
+# MenuBarPopupView is here because entering device-priority edit mode on the
 # output tab is the only surface in the app that renders paired devices at all,
-# so it is the first moment a user has asked for something Bluetooth does. With
-# onboarding removed and the launch call gone, it is also the only initiator a
-# pre-existing install can ever reach — the settings switch is already on for
-# them, so its onChange never fires. Drop it and the feature is dead.
+# so it is the first moment a user has asked for something Bluetooth does. It is
+# also the only initiator a pre-existing install can ever reach — the settings
+# switch is already on for them, so its onChange never fires. Drop it and the
+# feature is dead.
+#
+# FirstRunOnboardingView is back, and the distinction it is back on is the whole
+# point of this list. It was removed when the call sat in `complete()`, where
+# *finishing setup* raised the dialog: no press, no Bluetooth reason on screen,
+# the same ambush thirty seconds later. It now runs from a button on a page that
+# explains what the permission buys, which is the same bargain the system-audio
+# page makes. The check below enforces exactly that difference, because the
+# entry in this set alone would re-permit the version that was wrong.
 ALLOWED_BLUETOOTH_INITIATORS = {
     "Sources/Melo/Audio/Engine/AudioEngine.swift",          # the wrapper itself
     "Sources/Melo/Views/Settings/Tabs/GeneralTab.swift",    # the feature's own switch
     "Sources/Melo/Views/MenuBarPopupView.swift",            # the only surface that shows paired devices
+    "Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",  # setup's Bluetooth page, from a press
 }
 initiator = re.compile(r"\.startBluetoothMonitoringIfEnabled\(|bluetoothDeviceMonitor\.start\(\)")
 actual_initiators = {
@@ -338,6 +342,55 @@ if not wrapper:
     failures.append("AudioEngine: could not read startBluetoothMonitoringIfEnabled()")
 elif "bluetoothFeaturesEnabled" not in wrapper:
     failures.append("startBluetoothMonitoringIfEnabled must honour bluetoothFeaturesEnabled")
+
+# Setup may reach Bluetooth only from a press. The removed version of this call
+# lived in `complete()`, so dismissing the last page raised the system dialog —
+# and a set membership above cannot tell that apart from a button, which is why
+# the trigger is checked here rather than the file being trusted.
+#
+# What this proves is the shape of the call site, not that a human pressed
+# anything: a `Button` whose action were somehow invoked programmatically would
+# still pass. It fails the three ways this has actually gone wrong — the call
+# moving into `complete()`, into an `onAppear`/`task`, or into a helper reached
+# from either.
+setup = read("Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift")
+BT_CALL = "startBluetoothMonitoringIfEnabled("
+enabler = body_of(setup, "private func enableBluetoothFeatures()")
+if BT_CALL not in setup:
+    failures.append(
+        "FirstRunOnboardingView: setup no longer starts Bluetooth at all — the page is "
+        "then a preference with prose around it, and the prompt is back to arriving "
+        "somewhere nothing explains it"
+    )
+elif not enabler or BT_CALL not in enabler:
+    failures.append(
+        "FirstRunOnboardingView: the Bluetooth call is not inside enableBluetoothFeatures(), "
+        "so the only surface allowed to raise the prompt cannot be checked"
+    )
+elif setup.count(BT_CALL) != 1:
+    failures.append(
+        "FirstRunOnboardingView: more than one path to startBluetoothMonitoringIfEnabled(); "
+        "setup gets exactly one, from a button"
+    )
+else:
+    call_sites = [
+        line.strip()
+        for line in setup.splitlines()
+        if "enableBluetoothFeatures()" in line and "func enableBluetoothFeatures" not in line
+    ]
+    stray = [line for line in call_sites if not re.match(r"Button\(.*\)\s*\{\s*enableBluetoothFeatures\(\)", line)]
+    if not call_sites:
+        failures.append("FirstRunOnboardingView: enableBluetoothFeatures() is defined but never pressed")
+    if stray:
+        failures.append(
+            "FirstRunOnboardingView: enableBluetoothFeatures() is reached from something "
+            "other than a button press — " + "; ".join(stray)
+        )
+    if "enableBluetoothFeatures" in body_of(setup, "private func complete("):
+        failures.append(
+            "FirstRunOnboardingView: finishing setup raises the Bluetooth prompt again — "
+            "that is the unexplained dialog this page exists to replace"
+        )
 
 # One gate covers every IOBluetooth path, which is what keeps the Core Audio
 # device callbacks — they fire while devices enumerate at launch — inert.

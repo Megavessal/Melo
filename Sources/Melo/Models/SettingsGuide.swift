@@ -230,7 +230,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "replay-tutorial",
             category: .gettingStarted,
             title: "Replay Setup",
-            summary: "Reopens the five-page setup window — what Melo does, the two permissions, the privacy question, and the try-it slider — ending with the offer of the guided tour.",
+            summary: "Reopens the six-page setup window — what Melo does, the three permissions, the privacy question, and the try-it slider — ending with the offer of the guided tour.",
             details: "It writes nothing. Permissions you have already granted show as granted, and no setting is changed unless you press something.",
             keywords: ["show tutorial", "help me learn", "onboarding", "walkthrough", "do it again", "replay the tour"],
             location: "Settings › General › Getting Started",
@@ -382,7 +382,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "theme",
             category: .general,
             title: "Melo Theme",
-            summary: "Changes the popup’s background and accent: Mac keeps the system look, Space, Galaxy, and Aurora add a quiet animated backdrop, Custom takes your own colour.",
+            summary: "Changes the popup’s background and accent: Mac keeps the system look, Space, Galaxy, and Aurora add a quiet animated backdrop, Custom takes your own color.",
             details: "Themes are decoration only. None of them changes what a control does or where it sits.",
             keywords: ["change how melo looks", "skin", "visual style", "background", "aurora", "galaxy", "space", "northern lights"],
             location: "Settings › General",
@@ -393,7 +393,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             category: .general,
             title: "Theme Studio",
             summary: "Describe a look and have a theme generated for it, through your OpenAI key or by pasting a reply back from ChatGPT in a browser.",
-            details: "Melo accepts only validated colours and bounded motion values from the result. It does not accept executable code, URLs, images, or layout changes.",
+            details: "Melo accepts only validated colors and bounded motion values from the result. It does not accept executable code, URLs, images, or layout changes.",
             keywords: ["ChatGPT theme", "OpenAI theme", "AI theme", "make a theme", "generated theme"],
             // Theme Studio is a row inside the General section, not a section of
             // its own. Naming it here would send the tab looking for a heading
@@ -404,7 +404,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
         .init(
             "theme-color",
             category: .general,
-            title: "Theme Colour",
+            title: "Theme Color",
             summary: "Sets Melo’s accent — sliders, selection, the active dot. The picker only appears once the Custom theme is chosen.",
             keywords: ["accent color", "highlight color", "pick a color", "the color picker is missing"],
             location: "Settings › General",
@@ -424,9 +424,12 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "bluetooth-features",
             category: .general,
             title: "Bluetooth Features",
-            summary: "Adds your paired headsets and speakers to the popup with a Connect button and a battery reading. Off until you turn it on.",
-            details: "Turning it on is what makes macOS ask for Bluetooth access. Nothing is scanned before that, and turning it back off stops the scanning.",
-            keywords: ["bluetooth", "headphone battery", "paired devices", "airpods battery", "connect from melo"],
+            // No battery reading. Melo has never read one — a paired device
+            // carries a name and an icon — and the two battery keywords brought
+            // people here expecting one.
+            summary: "Adds the headsets and speakers you have paired but are not connected to, with a Connect button. Off until you turn it on.",
+            details: "Turning it on, or saying yes on setup's Bluetooth page, is what makes macOS ask for Bluetooth access. Nothing is scanned before that, and turning it back off stops the scanning.",
+            keywords: ["bluetooth", "paired devices", "airpods", "reconnect headphones", "connect from melo"],
             location: "Settings › General",
             destination: .general
         ),
@@ -660,7 +663,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "balance",
             category: .apps,
             title: "Stereo Field and Balance",
-            summary: "Moves one app toward the left or right side, with a Centre button to put it back exactly.",
+            summary: "Moves one app toward the left or right side, with a Center button to put it back exactly.",
             keywords: ["left right", "one side is louder", "pan", "stereo balance"],
             location: "Melo popup › Apps › open a row",
             showsInPopup: true,
@@ -836,7 +839,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "A Device in Exclusive Use",
             summary: "When another app takes exclusive control of a device, macOS locks everyone else out. Melo names the app rather than leaving the controls dead.",
             details: "Quitting the named app, or turning off its exclusive or hog mode, returns the device.",
-            keywords: ["controls are greyed out", "cannot change this device", "another app has it", "exclusive use", "hog mode"],
+            keywords: ["controls are grayed out", "controls are greyed out", "cannot change this device", "another app has it", "exclusive use", "hog mode"],
             location: "Melo popup › Audio › Reorder devices › expand a device",
             showsInPopup: true,
             popupTarget: .devices
@@ -873,7 +876,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "bluetooth",
             category: .devices,
             title: "Connect Bluetooth Audio",
-            summary: "Paired headsets appear under Paired with a Connect button and a battery reading, so reconnecting does not mean a trip to System Settings.",
+            summary: "Paired headsets appear under Paired with a Connect button, so reconnecting does not mean a trip to System Settings.",
             details: "The Paired list only appears once Bluetooth Features is turned on in General settings.",
             keywords: ["airpods", "connect headphones", "pair a speaker", "wireless headset"],
             location: "Melo popup › Audio › Output › Paired",
@@ -919,9 +922,9 @@ struct SettingsGuideEntry: Identifiable, Sendable {
         .init(
             "autoeq-favorites",
             category: .sound,
-            title: "Favourite Headphone Profiles",
-            summary: "Starring a profile lifts it to the top of the list, which matters because the catalogue runs to thousands of models.",
-            keywords: ["star a profile", "favourite headphones", "top of the list", "my headphones"],
+            title: "Favorite Headphone Profiles",
+            summary: "Starring a profile lifts it to the top of the list, which matters because the catalog runs to thousands of models.",
+            keywords: ["star a profile", "favorite headphones", "favourite headphones", "top of the list", "my headphones"],
             location: "Melo popup › Audio › headphone profile search",
             showsInPopup: true,
             popupTarget: .autoEQ
@@ -930,7 +933,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "autoeq-import",
             category: .sound,
             title: "Import an EQ File",
-            summary: "Takes an AutoEQ ParametricEQ text file, so a measurement for headphones missing from the catalogue — or your own — can be used.",
+            summary: "Takes an AutoEQ ParametricEQ text file, so a measurement for headphones missing from the catalog — or your own — can be used.",
             keywords: ["parametriceq", "import a correction", "my headphones are not listed", "custom eq file"],
             location: "Melo popup › Audio › headphone profile search",
             showsInPopup: true,
@@ -1212,8 +1215,8 @@ struct SettingsGuideEntry: Identifiable, Sendable {
         .init(
             "license",
             category: .privacy,
-            title: "Licence and Source",
-            summary: "Melo is GPL-3.0 and builds on the open-source FineTune project. The About tab links to both the licence and the upstream source.",
+            title: "License and Source",
+            summary: "Melo is GPL-3.0 and builds on the open-source FineTune project. The About tab links to both the license and the upstream source.",
             keywords: ["license", "gpl", "open source", "who made this", "finetune", "copyright"],
             location: "Settings › About",
             destination: .about

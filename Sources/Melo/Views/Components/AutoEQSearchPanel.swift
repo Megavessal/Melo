@@ -358,6 +358,11 @@ struct AutoEQSearchPanel: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 12))
                 .foregroundStyle(DesignTokens.Colors.textTertiary)
+                // Measured in this scene's live tree as AXImage "Search" — a
+                // VoiceOver stop on a picture that does nothing, next to a field
+                // that already says "Search headphones". Same call as the reorder
+                // grab handle in DeviceEditRow.
+                .accessibilityHidden(true)
 
             TextField("Search headphones…", text: $searchText)
                 .textFieldStyle(.plain)
@@ -606,6 +611,12 @@ struct AutoEQSearchPanel: View {
         .accessibilityLabel(entry.name)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("Apply this correction profile")
+        // The hint above promised an action the row did not have: the trait
+        // announces "button" and `onTapGesture` is not an accessibility action,
+        // so VoiceOver read out "Apply this correction profile" over something
+        // that did nothing on press. The hint is what makes this worse than a
+        // silent button, and it is the action — not the hint — that was missing.
+        .accessibilityAction { selectCatalogEntry(entry) }
     }
 
     // MARK: - Star Button (browse zone rows)

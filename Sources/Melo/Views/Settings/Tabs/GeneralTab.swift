@@ -196,7 +196,11 @@ struct GeneralTab: View {
             SettingsRowDivider()
             SettingsRow(
                 "Bluetooth Features",
-                description: "Show paired audio devices and their battery level"
+                // Not "and their battery level". Melo has never read a Bluetooth
+                // battery — `PairedBluetoothDevice` carries a name and an icon —
+                // so that half of the sentence described a feature the switch
+                // does not turn on.
+                description: "Show paired audio devices, with a button to connect them"
             ) {
                 Toggle("", isOn: $settings.appSettings.bluetoothFeaturesEnabled)
                     .toggleStyle(.switch).controlSize(.small).labelsHidden()

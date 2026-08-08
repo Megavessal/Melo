@@ -1,8 +1,58 @@
 import AppKit
 import SwiftUI
 
+/// The window class for anything Melo puts on screen that the user did not ask
+/// for — first-run setup and What's New, both of which open by themselves a
+/// moment after launch.
+///
+/// Melo is `LSUIElement`, so it runs as an accessory app and is never frontmost
+/// unless the system says so. `NSApplication.activate()` documents outright that
+/// "the framework also does not guarantee that the app will be activated at
+/// all", and measured on macOS 26 an accessory app that opens a plain `NSWindow`
+/// while another app is frontmost gets exactly that refusal: three runs out of
+/// three, `isVisible == true` and `isKeyWindow == false`, still false two
+/// seconds later. That is a window that draws and can be dragged and whose
+/// controls do nothing, which is the bug this class exists for. Reordering the
+/// activate and the `makeKeyAndOrderFront`, and swapping in the non-deprecated
+/// `activate()`, change none of it — measured, the plain window is never key
+/// either way.
+///
+/// `.nonactivatingPanel` is the AppKit facility for precisely this: a panel that
+/// takes key status without requiring its app to be active. In the same probe it
+/// is the only variant that ever did — key at the call site, three runs out of
+/// three, with or without an activation being granted. `canBecomeKey` has to be
+/// overridden because `NSPanel` answers it from the style mask, and
+/// `hidesOnDeactivate` has to be turned off because `NSPanel` defaults it to
+/// `true` — left alone, setup would vanish the instant the user clicked
+/// anything else. Same reasoning, and the same lines, as
+/// `PopoverHost.KeyablePanel`.
+///
+/// Activation is still requested, in Apple's documented order (activate, then
+/// make key) and through the API that is not deprecated, because when the system
+/// *does* grant it the right outcome is Melo in front rather than a panel
+/// floating over someone else's work.
+final class UnpromptedWindowPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+
+    /// Style mask for a panel that looks and behaves like an ordinary titled
+    /// window. `.nonactivatingPanel` is the load-bearing member; the rest are
+    /// what the caller would have passed to `NSWindow`.
+    static func styleMask(_ extra: NSWindow.StyleMask = []) -> NSWindow.StyleMask {
+        let base: NSWindow.StyleMask = [.titled, .closable, .fullSizeContentView, .nonactivatingPanel]
+        return base.union(extra)
+    }
+
+    /// Puts the panel on screen and takes key status, whether or not macOS lets
+    /// Melo come to the front.
+    func presentUnprompted() {
+        NSApp.activate()
+        makeKeyAndOrderFront(nil)
+    }
+}
+
 /// Treats closing the welcome window with the title-bar button exactly like Skip.
-/// Without this, completion is only ever written by the Skip and Show Me Around
+/// Without this, completion is only ever written by the Skip and Show Me
 /// buttons, so anyone who closes the window is shown first-run setup again at
 /// every launch, forever.
 @MainActor
@@ -20,7 +70,7 @@ private final class OnboardingWindowCloseObserver: NSObject, NSWindowDelegate {
 
 @MainActor
 final class OnboardingWindowController {
-    private var window: NSWindow?
+    private var window: UnpromptedWindowPanel?
     private var closeObserver: OnboardingWindowCloseObserver?
     private let settings: SettingsManager
     private let accessibility: AccessibilityPermissionService
@@ -84,7 +134,26 @@ final class OnboardingWindowController {
                 id: "guide-\(request.id)",
                 title: request.title,
                 message: request.message,
-                target: request.target
+                target: request.target,
+                // A Guide entry names a control; its target is often the region
+                // that holds it. Without this the mark landed on whatever sits
+                // at the centre of that region, which for the device list is the
+                // row's mute button — a different control from the one the entry
+                // was written about.
+                pointerTarget: request.target?.regionPointer,
+                // The Guide's copy is written for a Settings page, so it says
+                // nothing about the control being absent. A step whose target is
+                // off screen otherwise draws a centred card describing a control
+                // that is not there — which is what the What's New walkthrough
+                // already avoids this same way.
+                unavailable: request.target?.absenceFallback.map { fallback in
+                    SpotlightStep.Alternate(
+                        target: fallback.target,
+                        pointerTarget: fallback.pointer,
+                        title: request.title,
+                        message: "\(request.message) \(fallback.note)"
+                    )
+                }
             )
         ])
         // Same handoff the end of setup uses: the overlay has to be armed before
@@ -139,24 +208,25 @@ final class OnboardingWindowController {
 
     func show() {
         if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            window.presentUnprompted()
             return
         }
 
-        let window = NSWindow(
+        let window = UnpromptedWindowPanel(
             contentRect: NSRect(x: 0, y: 0, width: 590, height: 560),
             // Resizable vertically: the view is fixed at 590 wide but grows
             // downwards, and at large accessibility text sizes a 470pt window
             // makes every page a scroller. Letting it be dragged taller is the
             // difference between reading a permission ask and scrolling one.
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: UnpromptedWindowPanel.styleMask(.resizable),
             backing: .buffered,
             defer: false
         )
         window.title = "Welcome to Melo"
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        window.hidesOnDeactivate = false
+        window.becomesKeyOnlyIfNeeded = false
         window.contentMinSize = NSSize(width: 590, height: 480)
         window.contentMaxSize = NSSize(width: 590, height: 1200)
         window.center()
@@ -188,7 +258,6 @@ final class OnboardingWindowController {
         closeObserver = observer
 
         self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        window.presentUnprompted()
     }
 }

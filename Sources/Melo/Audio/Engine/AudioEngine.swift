@@ -691,13 +691,15 @@ final class AudioEngine {
     ///
     /// It used to be called from the startup task above, behind a second guard
     /// on `onboardingVersionCompleted`. That guard was described as putting a
-    /// Bluetooth onboarding page ahead of the system dialog; the page has since
-    /// been removed, and `SettingsManager.decodeSettings` stamps onboarding
-    /// complete for every pre-existing install anyway. So on any Mac that
-    /// already had Melo both guards passed and launch touched IOBluetooth
-    /// regardless — the gate only ever protected new installs. Not touching
-    /// IOBluetooth at launch at all is what actually holds, so the guard is
-    /// gone rather than tightened.
+    /// Bluetooth onboarding page ahead of the system dialog. The page is real —
+    /// it is page 3 of first-run setup, and `FirstRunOnboardingView` is one of
+    /// this function's four call sites — but the guard was never what made the
+    /// page arrive first: `SettingsManager.decodeSettings` stamps onboarding
+    /// complete for every pre-existing install, so on any Mac that already had
+    /// Melo both guards passed and launch touched IOBluetooth regardless. The
+    /// gate only ever protected new installs, who are the one cohort the page
+    /// already covers. Not touching IOBluetooth at launch at all is what
+    /// actually holds, so the guard is gone rather than tightened.
     ///
     /// `bluetoothFeaturesEnabled` stays: someone who switched the feature off is
     /// never asked. `BluetoothDeviceMonitor.start()` is idempotent, so calling

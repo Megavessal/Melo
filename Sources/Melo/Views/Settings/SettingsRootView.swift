@@ -189,7 +189,7 @@ struct SettingsRootView: View {
 @MainActor
 private struct SettingsSearchField: View {
     /// The location travels with the destination, so a result found here lands
-    /// on the same heading the Guide's own "Show me" lands on.
+    /// on the same heading the Guide's own "Take Me There" lands on.
     let onSelect: (SettingsDestination, String?) -> Void
 
     @State private var query = ""

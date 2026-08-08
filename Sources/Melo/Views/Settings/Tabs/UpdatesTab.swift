@@ -65,6 +65,18 @@ struct UpdatesTab: View {
                 HStack(alignment: .top, spacing: 12) {
                     statusIcon
                         .frame(width: 22, height: 22)
+                        // Decorative, every branch of it. `statusTitle` and
+                        // `statusDetail` beside it say the state in words for
+                        // all eight cases — the symbol only ever restates them
+                        // in colour, and the two spinner cases restate a title
+                        // that already ends in an ellipsis.
+                        //
+                        // Hidden here rather than on each `Image` inside
+                        // `statusIcon`: seven modifiers is seven chances to
+                        // forget the eighth, and the next state added to that
+                        // switch would arrive unhidden and silent. One modifier
+                        // on the call site cannot be partially applied.
+                        .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(statusTitle)

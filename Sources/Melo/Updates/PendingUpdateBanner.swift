@@ -27,6 +27,14 @@ struct PendingUpdateBanner: View {
                       : "arrow.down.circle.fill")
                     .font(.body)
                     .foregroundStyle(update.isCritical ? Color.orange : Color.accentColor)
+                    // Decorative. The label on the container below already says
+                    // the whole sentence; left visible to VoiceOver this is an
+                    // extra stop announcing "Arrow Down Circle" — measured, at
+                    // the top of the popup, ahead of the text carrying the
+                    // meaning. Colour is the only thing it adds for the
+                    // critical case, and `detail` says "Important update" in
+                    // words for exactly that reason.
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     // `textPrimary`, not `textSecondary`. This is the headline

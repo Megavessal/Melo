@@ -34,20 +34,32 @@ echo "=== rendering snapshots ==="
 # without generating a crash report — indistinguishable, from outside, from a
 # render that simply finished early.
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/melo-render-XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT
+# `_ax_done` releases the harness's accessibility dwell (see AX CHECK below).
+# It is written here as well as by ax-check.sh because every early exit in this
+# script — a failed sentinel, a frame-count mismatch — would otherwise leave a
+# Melo process holding a window open for the full dwell timeout.
+trap 'touch "$OUT/_ax_done" 2>/dev/null; rm -rf "$STAGE"' EXIT
 cp -R "$ROOT/outputs/Melo.app" "$STAGE/Melo.app"
 
-rm -f "$OUT/_complete"
+rm -f "$OUT/_complete" "$OUT/_ax_error"
+rm -f "$OUT"/_ax_ready* "$OUT"/_ax_done* 2>/dev/null || true
 # MELO_SNAPSHOT_FAIL_AFTER is fault injection, forwarded only when the caller
 # set it. It makes the harness exit after N frames without writing the
 # completion sentinel — the same thing a crash halfway through a render looks
 # like from out here. Without a way to produce that state on demand, the
 # rejection below is a branch nobody has ever seen taken.
+#
+# MELO_AX_DWELL names the scenes the harness holds open after its last frame,
+# so scripts/ax-check.sh has live accessibility trees to interrogate. The list
+# comes from ax-check.sh itself — it owns the assertions, so it owns which
+# scenes have to be staged for them.
+AX_SCENES="$("$ROOT/scripts/ax-check.sh" --scenes)"
 if [ -n "${MELO_SNAPSHOT_FAIL_AFTER:-}" ]; then
     open -n --env MELO_SNAPSHOT_DIR="$OUT" \
         --env MELO_SNAPSHOT_FAIL_AFTER="$MELO_SNAPSHOT_FAIL_AFTER" "$STAGE/Melo.app"
 else
-    open -n --env MELO_SNAPSHOT_DIR="$OUT" "$STAGE/Melo.app"
+    open -n --env MELO_SNAPSHOT_DIR="$OUT" \
+        --env MELO_AX_DWELL="$AX_SCENES" "$STAGE/Melo.app"
 fi
 
 # Wait for the sentinel the harness writes after its last frame. Watching the
@@ -101,11 +113,50 @@ echo "rendered $n snapshots to $OUT ($ok scenes ok)"
     sed 's/^/  /' "$OUT/_transitions.log"
 }
 
+# Every accessibility modifier in this app was covered only by greps of the
+# source, which stay green when the modifier is present and connected to
+# nothing. This performs the action against the live tree and asserts the value
+# it speaks actually moves. It needs a running app, so it cannot be one of the
+# verify-*.py scripts below.
+#
+# It runs here, before the verify scripts, because it is the only check in this
+# file that needs a live process: the harness is holding a window open right now
+# and every second it waits is a second of a shared lock. It does NOT exit here.
+#
+# It used to, and that was wrong on a lock six agents queue for. One red
+# accessibility assertion aborted the run before `=== verify scripts ===` ever
+# printed, so a builder whose real question was "did my fourteen scripts pass"
+# got no answer at all and had to re-run them by hand, outside the lock, against
+# build products they had to hope were still there. A gate that costs everyone
+# else their results is a gate people route around. Both failures are collected
+# and reported, and the run exits non-zero at the end if either of them failed —
+# see the result block.
+echo "=== accessibility check ==="
+ax_status=0
+"$ROOT/scripts/ax-check.sh" "$OUT" || ax_status=$?
+case "$ax_status" in
+    # 3 is "this terminal has no Accessibility grant", a property of the machine
+    # rather than of the tree. Failing on it would train everyone to ignore red.
+    # It is still named in the result block, because a gate that can go quiet
+    # without saying so is a gate that has already stopped working.
+    0) ax_verdict="passed" ;;
+    3) ax_verdict="NOT RUN — no Accessibility grant on this machine" ;;
+    *) ax_verdict="FAILED — see the assertions above" ;;
+esac
+# The harness exits once the dwell is released. Waiting for it keeps the trap's
+# `rm -rf "$STAGE"` from pulling the executable out from under a live process.
+for _ in $(seq 1 20); do
+    pgrep -f "$STAGE/Melo.app" > /dev/null || break
+    /bin/sleep 0.5
+done
+
 # Inside the lock: see the header of dev-verify.sh.
 echo "=== verify scripts ==="
 fails=0
+total_scripts=0
 for f in scripts/verify-*.py; do
     name=$(basename "$f")
+    total_scripts=$((total_scripts + 1))
     if out=$(python3 "$f" 2>&1); then
         printf "  PASS  %s\n" "$name"
     else
@@ -114,7 +165,14 @@ for f in scripts/verify-*.py; do
         fails=$((fails + 1))
     fi
 done
-if [ "$fails" -ne 0 ]; then
-    echo "$fails verify script(s) failing"
+
+# Every verdict in one place, printed on a green run as well as a red one. The
+# accessibility gate is named here whatever it did, including when it did
+# nothing — the failure this guards against is not a gate that fails, it is a
+# gate that stops running and nobody notices for a release.
+echo "=== result ==="
+echo "  verify scripts: $((total_scripts - fails))/$total_scripts passing"
+echo "  accessibility gate: $ax_verdict"
+if [ "$fails" -ne 0 ] || { [ "$ax_status" -ne 0 ] && [ "$ax_status" -ne 3 ]; }; then
     exit 1
 fi

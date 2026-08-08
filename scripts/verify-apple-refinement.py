@@ -16,8 +16,18 @@ def require(path, *needles):
             failures.append(f"{path}: missing {needle!r}")
     return text
 
+# One overlay, one label. The end of setup, What's New's footer and the Guide's
+# popup chip all call `guidedTour.begin` and then `popupController.toggle()`
+# across the same 0.35s handoff, so all three read "Show Me". "Show Me Around"
+# was true of this entry point alone: What's New builds its steps from the
+# release notes and the Guide builds exactly one, and "Around" promised those
+# two a tour neither runs.
+#
+# `Button("…")`, not the bare phrase — "Show Me" is a substring of "Show Me
+# Around" and of every doc comment that discusses either, so a bare needle
+# cannot tell the rename from the thing it renamed.
 require("Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",
-        'title: "Melo"', 'short sound', 'Show Me Around')
+        'title: "Melo"', 'short sound', 'Button("Show Me")')
 require("Sources/Melo/Coordination/FirstRunAudioPrimer.swift", "runFirstRunAudioPrimer")
 require("Sources/Melo/Audio/Engine/ProcessTapController.swift", "startAudioDeviceOffMainThread")
 # Tour copy now lives beside the data in the coordinator; the overlay only
@@ -41,8 +51,20 @@ if "NSCursor" in tour or "Image(nsImage:" in tour:
     failures.append("GuidedTourOverlay.swift: the tour draws a pointer of its own beside the one the user is holding")
 if "Keep quiet apps visible?" in tour:
     failures.append("quiet-app setup question must not appear in onboarding or the guided tour")
-require("Sources/Melo/Views/Settings/Guide/SettingsGuideView.swift",
-        "categoryButton", "searchScore")
+# The Guide draws two chips that do unrelated things: one opens the popup and
+# spotlights a control through the tour overlay, the other switches the Settings
+# tab and scrolls to a heading. They read "Show me in Melo" and "Show me" — a
+# single capital apart — so the reader learned nothing from the label and found
+# out which was which by pressing it. The pair is pinned together, because
+# either one drifting back re-opens the collision.
+guide = require("Sources/Melo/Views/Settings/Guide/SettingsGuideView.swift",
+        "categoryButton", "searchScore",
+        'title: "Show Me"', 'title: "Take Me There"')
+if 'title: "Show me' in guide:
+    failures.append(
+        'SettingsGuideView.swift: a chip is spelled "Show me…" again — sentence case, and '
+        "a near-copy of the overlay label it is not the overlay"
+    )
 require("Sources/Melo/Utilities/IntentSearch.swift", "synonymGroups", "editDistance")
 require("Sources/Melo/Views/MenuBarPopupView.swift",
         "GuidedTourOverlay", "ConsumerCommandPalette", ".guidedTourTarget(.apps)")

@@ -10,6 +10,21 @@ nonisolated enum MeloExperienceVersion {
     // people who finished an older version are asked once. Routine releases must
     // leave this alone — `OnboardingWindowController.showIfNeeded()` replays the
     // whole flow for anyone below it.
+    //
+    // Held at 3 through the release that restored setup's Bluetooth page, which
+    // is the closest call this constant has had. Against bumping, and decisive:
+    // `decodeSettings` below migrates every pre-existing install to
+    // `bluetoothFeaturesEnabled = true`, so a replay would put a page in front
+    // of that cohort whose question is already answered yes; and
+    // `WhatsNewCoordinator.showIfNeeded` stamps the current build as seen
+    // whenever setup suppresses it, so the bump would silently consume this
+    // release's What's New for everyone who already had Melo. For it: the
+    // bundle identifier changed this release, which revokes every macOS
+    // permission grant once, and a replayed flow is where those three prompts
+    // are explained. That is real, and it is answered where each permission is
+    // actually needed — the popup already has copy for Bluetooth waiting and
+    // Bluetooth refused, and the audio and volume-key prompts re-raise in
+    // context too. A release note carries the news to that cohort instead.
     static let onboarding = 3
     static let guidedTour = 2
 }
@@ -57,10 +72,14 @@ nonisolated struct AppSettings: Codable, Equatable {
     /// motion-sensitive than the centre of the screen, so movement there is
     /// opt-in rather than something a new user has to discover and switch off.
     var menuBarIconMotion: Bool = false
-    /// Melo asks IOBluetooth for paired devices, and that first call is what
-    /// triggers the system Bluetooth prompt. Gating it behind a deliberate
-    /// choice keeps the prompt from ambushing a brand-new user at launch,
-    /// before the welcome window has even explained what Melo is.
+    /// Whether the user has said Melo may look for paired Bluetooth devices.
+    /// Not the same as macOS having allowed it: the first IOBluetooth call is
+    /// what raises the system prompt, and this flag only decides whether that
+    /// call is ever made. Off by default, and answered in one of two places that
+    /// each have the reason on screen: setup's Bluetooth page, or the switch in
+    /// Settings › General. Entering device-priority editing in the popup does
+    /// not answer it — that is where an install which already said yes first
+    /// reaches IOBluetooth. Nothing at launch reads it at all.
     var bluetoothFeaturesEnabled: Bool = false
     var onboardingVersionCompleted: Int = 0
     var guidedTourVersionCompleted: Int = 0

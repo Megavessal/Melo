@@ -103,7 +103,14 @@ require(
     "var lastSeenReleaseBuild: Int = 0",
     "decodeIfPresent(Int.self, forKey: .lastSeenReleaseBuild)",
 )
-require("Sources/Melo/Views/Onboarding/WhatsNewView.swift", "Show Me", "Version \\(note.version)")
+# The needle is the button, not the phrase. It was bare "Show Me", which this
+# file's own doc comment above `hasTour` also contains — measured 2026-08-08:
+# renaming the button and leaving the comment kept this green.
+require(
+    "Sources/Melo/Views/Onboarding/WhatsNewView.swift",
+    'Button("Show Me")',
+    "Version \\(note.version)",
+)
 require("Sources/Melo/Views/Settings/Tabs/AboutTab.swift", "What's New in Melo", "showWhatsNew()")
 app = require("Sources/Melo/FineTuneApp.swift", "whatsNew.showIfNeeded(suppressedByOnboarding:")
 # A fresh install must never see release notes, so the coordinator has to be

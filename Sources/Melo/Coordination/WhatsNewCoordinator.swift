@@ -26,7 +26,7 @@ final class WhatsNewCoordinator {
     private let guidedTour: GuidedTourCoordinator
     private let popupController: MenuBarPopupController
 
-    @ObservationIgnored private var window: NSWindow?
+    @ObservationIgnored private var window: UnpromptedWindowPanel?
     @ObservationIgnored private var closeObserver: WhatsNewWindowCloseObserver?
 
     init(
@@ -94,20 +94,23 @@ final class WhatsNewCoordinator {
 
     private func present(_ notes: [MeloReleaseNote], showsFullHistory: Bool) {
         if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            window.presentUnprompted()
             return
         }
 
-        let window = NSWindow(
+        // Opens by itself a moment after launch, so it is subject to the same
+        // activation refusal first-run setup is. See `UnpromptedWindowPanel`.
+        let window = UnpromptedWindowPanel(
             contentRect: NSRect(x: 0, y: 0, width: 560, height: 520),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: UnpromptedWindowPanel.styleMask(),
             backing: .buffered,
             defer: false
         )
         window.title = "What's New in Melo"
         window.titlebarAppearsTransparent = true
         window.isMovableByWindowBackground = true
+        window.hidesOnDeactivate = false
+        window.becomesKeyOnlyIfNeeded = false
         window.center()
 
         let view = WhatsNewView(
@@ -133,8 +136,7 @@ final class WhatsNewCoordinator {
         closeObserver = observer
 
         self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        window.presentUnprompted()
         TelemetryService.shared.send(.whatsNewShown(noteCount: TelemetryBucket(count: notes.count)))
     }
 

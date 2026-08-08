@@ -693,11 +693,12 @@ final class DeviceVolumeMonitor: DeviceVolumeProviding {
     ///
     /// This used to be an in-process `NSAppleScript.executeAndReturnError` called
     /// straight from `start()`, so launch blocked the main actor inside
-    /// `AESendMessage` waiting for another process to answer. Measured at 218 ms
-    /// on an idle Mac — 66 ms compiling the script, 141 ms in `AEDefaultActiveProc`,
-    /// which is an *unbounded* wait: if macOS puts up its Automation consent dialog,
-    /// the main thread stays blocked behind it with a spinning beachball for as long
-    /// as the dialog is up. Nothing about that is bounded by anything Melo controls.
+    /// `AESendMessage` waiting for another process to answer. Measured with
+    /// `sample` on 2026-08-07 at 218 ms on an idle Mac, 133 ms of it inside
+    /// `AEDefaultActiveProc`, which is an *unbounded* wait: if macOS puts up its
+    /// Automation consent dialog, the main thread stays blocked behind it with a
+    /// spinning beachball for as long as the dialog is up. Nothing about that is
+    /// bounded by anything Melo controls.
     ///
     /// `setAlertVolume` below already solved this for the write, and says why in its
     /// own comment. The read now uses the same mechanism, so this file has one way

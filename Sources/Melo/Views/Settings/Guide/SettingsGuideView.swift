@@ -358,13 +358,20 @@ struct SettingsGuideView: View {
     ///
     /// The location string travels with the destination because the tab is only
     /// half an address — Audio holds six sections. `SettingsRootView` reads the
-    /// section out of it and the tab scrolls there, so "Show me" ends with the
-    /// heading this entry names at the top of the window.
+    /// section out of it and the tab scrolls there, so "Take Me There" ends with
+    /// the heading this entry names at the top of the window.
+    ///
+    /// Deliberately *not* "Show Me". That label belongs to the guided-tour
+    /// overlay, and all three of its entry points now use it verbatim. This
+    /// button does something else entirely — it moves the Settings window — and
+    /// while it read "Show me" the only thing separating the two actions was a
+    /// capital M. "There" is the location line immediately to its left, which
+    /// already spells out the whole address.
     private func showMeButton(_ destination: SettingsDestination, location: String?) -> some View {
         actionChip(
-            title: "Show me",
+            title: "Take Me There",
             symbol: "arrow.forward",
-            accessibilityLabel: "Show me in \(destination.tabTitle)",
+            accessibilityLabel: "Take me to \(destination.tabTitle)",
             help: "Open \(destination.tabTitle)"
         ) {
             onNavigate(destination, location)
@@ -375,9 +382,16 @@ struct SettingsGuideView: View {
     /// no Settings tab can display. Rather than leave those entries with nothing
     /// to press, this opens the popup and spotlights the control through the same
     /// overlay the guided tour uses.
+    ///
+    /// "Show Me", verbatim, because it *is* that overlay: this, the end of
+    /// first-run setup, and What's New all call `guidedTour.begin` and then
+    /// `popupController.toggle()` across the same 0.35s handoff. Naming the
+    /// destination in the button — "Show me in Melo" — said in the label what
+    /// `help:` and the accessibility label below already say, and left one
+    /// action wearing three names.
     private func showInPopupButton(_ entry: SettingsGuideEntry) -> some View {
         actionChip(
-            title: "Show me in Melo",
+            title: "Show Me",
             symbol: "arrow.up.forward.app",
             accessibilityLabel: "Show \(entry.title) in the Melo popup",
             help: "Open the Melo popup and point at this control"

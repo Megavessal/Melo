@@ -508,7 +508,13 @@ enum SnapshotScenes {
         // asks. Its own comments admitted the pages used to clip.
         let onboardingSize = CGSize(width: 590, height: 560)
         let onboardingPrimer = FirstRunAudioPrimer(audioEngine: audioEngine)
-        let onboardingPageNames = ["welcome", "audio", "keys", "analytics", "tryit"]
+        // Index-driven, so this list has to track the page switch in
+        // `FirstRunOnboardingView`. It did not when the Bluetooth page was
+        // restored at index 3: `setup-04-analytics.png` rendered the Bluetooth
+        // page, `setup-05-tryit.png` rendered analytics, and the try-it page
+        // stopped being rendered at all — a frame whose name is a lie about its
+        // contents, and one page silently dropped from review.
+        let onboardingPageNames = ["welcome", "audio", "keys", "bluetooth", "analytics", "tryit"]
 
         @MainActor func onboarding(page: Int) -> AnyView {
             AnyView(
@@ -539,6 +545,13 @@ enum SnapshotScenes {
             scene("setup-audio-light-tall", CGSize(width: 590, height: 900), .light) {
                 onboarding(page: 1)
             }
+        )
+
+        // The Bluetooth page is the only page this release adds, and it is the
+        // one that ends in a system dialog. Its light rendering was unverified
+        // with only the dark loop above.
+        scenes.append(
+            scene("setup-bluetooth-light", onboardingSize, .light) { onboarding(page: 3) }
         )
 
         // MARK: - Settings surfaces

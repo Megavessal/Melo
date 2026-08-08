@@ -44,15 +44,36 @@ enum MeloReleaseNotes {
             headline: "Your call on what Melo shares",
             items: [
                 MeloReleaseNote.Item(
+                    id: "2.9.4-identifier-permissions",
+                    title: "macOS asks for its permissions one more time",
+                    // The note `MeloExperienceVersion.onboarding` is held at 3 on
+                    // the strength of. Every existing install has its macOS
+                    // grants revoked by the identifier change and will never see
+                    // the setup page that explains why, because setup does not
+                    // replay — so this is the only notice that cohort gets, and
+                    // it has to arrive first for that reason. First also because
+                    // it is what happens to them within seconds of this launch.
+                    detail: "Melo now has the identifier it will keep for good. macOS ties every permission to that identifier, so it treats this version as an app it has not met before and asks again — once for system audio access, once for the volume keys, and once for Bluetooth. Each request still waits until the feature that needs it comes up, with Melo's reason on screen first. Your app volumes, EQ curves, devices and shortcuts are all still here.",
+                    // Three system prompts arriving over the next few minutes.
+                    // There is no control in the popup that is the thing this
+                    // sentence is about.
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
                     id: "2.9.4-analytics-choice",
                     title: "You decide whether Melo shares anything",
-                    detail: "Melo can send anonymous notes about which features get used, so the next version improves the parts you actually reach for. It stays off until you say yes, Melo only asks once, and the names of your apps, your audio devices, and your Mac never leave your machine. The switch is in Settings → General.",
+                    detail: "Melo can send anonymous notes about which features get used, so the next version improves the parts you actually reach for. It stays off until you say yes, Melo only asks once, and the names of your apps, your audio devices, and your Mac never leave your machine. The switch is in Settings › General.",
                     target: .settings
                 ),
                 MeloReleaseNote.Item(
                     id: "2.9.4-bluetooth-order",
                     title: "The Bluetooth request waits its turn",
-                    detail: "macOS used to ask about Bluetooth the moment Melo launched, before anything had explained why. Now the request only appears after you have read what the feature does and asked for it.",
+                    // The cohort this line is written for will never see the page
+                    // it describes: `MeloExperienceVersion.onboarding` stays at 3
+                    // on purpose, so setup does not replay. This note is the only
+                    // way an existing install learns the page exists, which is why
+                    // it names the Settings switch as well.
+                    detail: "macOS used to ask about Bluetooth the moment Melo launched, before anything had explained why. Now setup has a page that says what the permission buys — seeing headphones you have paired but are not connected to, and connecting them from Melo — and the request only appears when you ask for it there, or from the Bluetooth switch in Settings › General.",
                     target: nil
                 )
             ]
@@ -94,15 +115,18 @@ enum MeloReleaseNotes {
                     // to promise pages on Bluetooth, the menu bar icon and
                     // update handling; all three were deleted and this sentence
                     // went on describing them in What's New and in Settings →
-                    // Updates for two releases. If a page here is renamed or
-                    // removed again, this line is the thing that goes stale.
+                    // Updates for two releases. Bluetooth's page has since
+                    // returned — that belongs to 2.9.4's note above, not here,
+                    // because this one describes the flow 2.9.3 shipped and is
+                    // still accurate about it. If a page named here is renamed
+                    // or removed, this line is the thing that goes stale.
                     detail: "The welcome flow points out Melo's mark up in the menu bar, explains the system audio access Melo needs and asks macOS for it while a sound is playing, offers to hook up your volume keys, and finishes on a real app row — same icon, same slider, same percentage — for you to try.",
                     target: nil
                 ),
                 MeloReleaseNote.Item(
                     id: "2.9.3-whats-new",
                     title: "This screen",
-                    detail: "After an update Melo shows you what changed, version by version, and can point out the new things in place. You can reopen it any time from Settings → About.",
+                    detail: "After an update Melo shows you what changed, version by version, and can point out the new things in place. You can reopen it any time from Settings › About.",
                     target: nil
                 )
             ]
