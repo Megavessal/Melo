@@ -130,21 +130,54 @@ let dwellMarker = "melo-ax-dwell"
 /// The dwelled-on window, not the app — so the walk covers the scene under test
 /// and nothing else.
 ///
-/// Two measurements forced each half of this. Walking from the application
-/// element reaches the AppKit menu bar, where an `Open Recent` entry named
+/// Two measurements forced the scoping. Walking from the application element
+/// reaches the AppKit menu bar, where an `Open Recent` entry named
 /// `sightline.tgz` was flagged as an SF Symbol name on the first run. Walking
 /// all windows still reached `What's New in Melo`, a second window a scene had
 /// opened and left standing, whose 20 elements no assertion here is about.
-func scanRoots() -> [AXUIElement] {
+///
+/// **There is deliberately no fallback.** There used to be one — scan every
+/// window, or the application element, and print a WARN — and it is the reason
+/// a staging failure was reported to a human as four confident, wrong claims
+/// that the app had lost its accessibility labels. With no window staged, the
+/// walk climbed into macOS's own menu bar, found 144 elements of `About This
+/// Mac` and `Recent Items`, cleared the anti-vacuity floor of 40 on them, and
+/// then truthfully reported that nothing in that tree was named `Change icon`.
+/// Every word of it was accurate and the conclusion was entirely false.
+///
+/// A missing marked window is a fault in the harness, not a finding about the
+/// app, and the only safe thing to say about it is that nothing was checked.
+func markedWindows() -> [AXUIElement] {
     let windows = attribute(application, kAXWindowsAttribute as String) as? [AXUIElement] ?? []
-    let marked = windows.filter { window in
+    return windows.filter { window in
         attribute(window, kAXIdentifierAttribute as String) as? String == dwellMarker
             || attribute(window, kAXTitleAttribute as String) as? String == dwellMarker
     }
-    guard marked.isEmpty else { return marked }
-    print("  WARN  no window is marked \(dwellMarker.debugDescription); scanning all "
-        + "\(windows.count) window(s) of pid \(pid) instead, which is noisier than intended")
-    return windows.isEmpty ? [application] : windows
+}
+
+/// Waits briefly for the marked window, then gives up loudly.
+///
+/// The poll exists because the failure this replaced was a race: the window is
+/// staged, `_ax_ready` is written, and something in the app orders the window
+/// out a few seconds later. Measured across runs, by the gap between
+/// `_ax_ready` and the tree dump — 1s, 1s and 6s produced correct trees; 7s and
+/// 16s produced no window at all. The harness now re-asserts the window while
+/// it dwells, so this poll is the second line of defence rather than the first.
+func requireMarkedWindows() -> [AXUIElement] {
+    for attempt in 0..<20 {
+        let marked = markedWindows()
+        if !marked.isEmpty { return marked }
+        if attempt == 0 {
+            print("  ..    no window marked \(dwellMarker.debugDescription) yet; waiting")
+        }
+        usleep(250_000)
+    }
+    let windows = attribute(application, kAXWindowsAttribute as String) as? [AXUIElement] ?? []
+    print("HARNESS FAULT: pid \(pid) has \(windows.count) window(s) and none is marked "
+        + "\(dwellMarker.debugDescription). The scene was never staged, or it was staged and "
+        + "then ordered out before this ran. NOTHING WAS CHECKED — do not read this as the app "
+        + "having lost its accessibility labels.")
+    exit(2)
 }
 
 /// Every element under those roots, in tree order. Re-walked after each action
@@ -158,7 +191,7 @@ func walk() -> [(element: AXUIElement, name: String?, role: String)] {
         found.append((element, name(element), role(element)))
         for child in children(element) { visit(child, depth + 1) }
     }
-    for root in scanRoots() { visit(root, 0) }
+    for root in requireMarkedWindows() { visit(root, 0) }
     return found
 }
 

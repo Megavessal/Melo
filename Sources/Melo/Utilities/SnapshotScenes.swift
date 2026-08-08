@@ -81,6 +81,12 @@ enum SnapshotScenes {
                 capture: capture,
                 prepare: {
                     applyAppearance(scheme)
+                    // `forcedTime` is sticky and nothing else clears it, so a
+                    // theme scene that freezes an easter egg would freeze it
+                    // into every frame rendered afterwards. Cleared here, before
+                    // each scene's own prepare, so only the scenes that ask for
+                    // a forced clock get one.
+                    MeloEasterEggClock.forcedTime = nil
                     prepare()
                 },
                 note: note,
@@ -184,7 +190,7 @@ enum SnapshotScenes {
 
         @MainActor func updatesTab() -> AnyView {
             AnyView(
-                UpdatesTab(sparkle: sparkle, developerUpdates: developerUpdates)
+                UpdatesTab(sparkle: sparkle, developerUpdates: developerUpdates, sectionTarget: nil)
                     .background(Color(nsColor: .windowBackgroundColor))
             )
         }
@@ -717,6 +723,7 @@ enum SnapshotScenes {
                     UpdatesTab(
                         sparkle: sparkle,
                         developerUpdates: developerUpdates,
+                        sectionTarget: nil,
                         releaseNotesExpanded: true
                     )
                     .background(Color(nsColor: .windowBackgroundColor))
@@ -1231,6 +1238,164 @@ enum SnapshotScenes {
         // `settings-guide-search` renders through. Until it exists, "Set Music
         // to 200%" is **unverified** as a visible row, and a frame that drew it
         // would be a picture of what the state is supposed to be.
+
+        // MARK: - The command palette, with a query actually typed
+
+        // Until now this file recorded "NOT BUILT: the palette with a query
+        // typed" as a dead end, because `searchText` was `@State private` and
+        // every path from a query to rows was private too. So the palette's
+        // whole reason for existing — you type what you want and it finds it —
+        // had never been rendered, and a coverage gap that made most of the
+        // settings catalog unreachable sat there unseen. `initialQuery` is the
+        // seam that closes it, in the same shape `SettingsGuideView` already had.
+        @MainActor func paletteQuery(_ query: String) -> AnyView {
+            AnyView(
+                ConsumerCommandPalette(
+                    audioEngine: audioEngine,
+                    sparkleUpdateController: sparkle,
+                    onOpenSettings: {},
+                    onClose: {},
+                    initialQuery: query
+                )
+            )
+        }
+        let paletteSize = CGSize(width: 560, height: 460)
+
+        // Deterministic: the settings catalog is static and needs no apps and no
+        // devices, so this frame reads the same on any Mac. It is the anchor —
+        // if the query-to-rows path renders at all, it renders here.
+        scenes.append(
+            scene("palette-query-setting", paletteSize, .dark,
+                  note: "Query \"launch at login\". Expect a HELP row titled "
+                      + "\"Launch at Login\" with its Settings location beneath. "
+                      + "Roughly a hundred catalog entries were unreachable from "
+                      + "this box before; this is the class of row that fixes.") {
+                paletteQuery("launch at login")
+            }
+        )
+        // Also deterministic. The empty state had never been rendered either.
+        scenes.append(
+            scene("palette-query-nomatch", paletteSize, .dark,
+                  note: "Query \"zzqqxx\". Expect the no-match state. What this "
+                      + "says when it finds nothing is the whole of the "
+                      + "experience for anyone who searches a word Melo does "
+                      + "not know.") {
+                paletteQuery("zzqqxx")
+            }
+        )
+        // Fixture-dependent: needs Music in `displayableApps` on the render
+        // machine. If it is absent the frame shows only help rows, which is
+        // still a true reading rather than a broken one.
+        scenes.append(
+            scene("palette-query-volume", paletteSize, .dark,
+                  note: "Query \"set music to 200%\". This exact phrasing scored "
+                      + "zero before — one filler word away from working. If a "
+                      + "Music row is absent here, check whether the fixture app "
+                      + "is present before reading it as a regression.",
+                  prepare: { seedDemoApps() }) {
+                paletteQuery("set music to 200%")
+            }
+        )
+
+        // MARK: - Themes and their easter eggs
+
+        // No theme scene existed at all until now: every popup frame rendered
+        // whatever `visualTheme` defaults to, which is `.systemAccent`. So the
+        // rocket gate and all three new eggs were unverifiable by definition —
+        // which is how rockets came to be flying on a theme they do not belong
+        // on without any frame showing it.
+        //
+        // `forcedTime` replaces wall-clock time for the eggs *and* the rockets,
+        // so a rare visitor can be captured at a chosen moment without making it
+        // any commoner. Making an easter egg more frequent so a test can see it
+        // would be trading the feature for the test.
+        // `capture: .imageRenderer`, and this is the whole reason these scenes
+        // are worth anything. The first version of them rendered the popup on
+        // the default `.layer` path, and `theme-space-rocket`,
+        // `theme-galaxy-rocket` and `theme-aurora-egg` came back **byte
+        // identical** — three themes drawing different gradients, different star
+        // fields, a nebula, four aurora ribbons and two mountain silhouettes,
+        // producing the same pixels, because the themed backdrop draws none of
+        // it into a layer capture. Every background pixel measured exactly
+        // (37,37,37), the harness's own backing colour, i.e. unpainted.
+        //
+        // So the absence of a rocket on a theme that must not have one proved
+        // nothing: it was equally absent from the two themes that must. The
+        // control and the test were the same empty frame. `ImageRenderer` draws
+        // the tree rather than reading back a layer, which is the same reason
+        // `popup-header-*` exists.
+        //
+        // The backdrop is rendered alone: the popup body is largely
+        // `NSViewRepresentable` and comes back as a placeholder on this path, so
+        // rendering the whole popup would spend the frame on the half that is
+        // not under test.
+        @MainActor func themeBackdropScene(
+            _ name: String,
+            _ theme: MeloVisualTheme,
+            _ scheme: ColorScheme,
+            at forcedTime: TimeInterval,
+            accentHex: String = "#3B82F6",
+            note: String
+        ) -> SnapshotHarness.Scene {
+            scene(name, popupSize, scheme, capture: .imageRenderer, note: note, prepare: {
+                var appSettings = settings.appSettings
+                appSettings.customAccentHex = accentHex
+                settings.appSettings = appSettings
+                MeloEasterEggClock.forcedTime = forcedTime
+            }) {
+                AnyView(
+                    MeloThemeBackdrop(
+                        theme: theme,
+                        customAccentHex: accentHex,
+                        generatedTheme: nil
+                    )
+                    .frame(width: popupSize.width, height: popupSize.height)
+                )
+            }
+        }
+
+        scenes.append(themeBackdropScene(
+            "theme-space-rocket", .space, .dark, at: 5.4,
+            note: "Rockets belong here. Two should be in flight. This frame and "
+                + "theme-galaxy-rocket are the controls for the gate: if they are "
+                + "empty, an empty theme-mac-egg proves nothing."
+        ))
+        scenes.append(themeBackdropScene(
+            "theme-galaxy-rocket", .galaxy, .dark, at: 5.4,
+            note: "Rockets belong here too. Two should be in flight."
+        ))
+        // Light on purpose: `.systemAccent` and `.custom` are the two themes that
+        // do not force dark appearance, and the claim about these two visitors is
+        // that a dark outline carries them on a pale panel. A light frame is what
+        // would falsify that.
+        scenes.append(themeBackdropScene(
+            "theme-mac-egg", .systemAccent, .light, at: 77.1,
+            note: "The desk Mac, peeked with its screen lit. No rocket may appear "
+                + "here — that is the gate under test. Accent tint desaturates in "
+                + "this harness, so the screen's colour stays unverified; the "
+                + "outline and body are what this frame can prove."
+        ))
+        scenes.append(themeBackdropScene(
+            "theme-aurora-egg", .aurora, .dark, at: 204.7,
+            note: "A single warm cabin window on the far ridge, below the far "
+                + "silhouette and above the near one. No rocket may appear here."
+        ))
+        // Two frames, at the two ends of the range, because this is the visitor
+        // whose legibility claim is most likely to be wrong: the user picks the
+        // colour. A near-white brush on a white panel and a near-black one on a
+        // black panel are where "the outline carries it, not the hue" either
+        // holds or dies. A mid-blue accent would prove neither.
+        scenes.append(themeBackdropScene(
+            "theme-custom-egg", .custom, .light, at: 23.58, accentHex: "#F2F2F2",
+            note: "The brush at the end of its sweep, in a near-white accent on a "
+                + "light panel. If the stroke and bristles vanish here, the "
+                + "shape-carries-it claim is false at the pale end."
+        ))
+        scenes.append(themeBackdropScene(
+            "theme-custom-egg-dark", .custom, .dark, at: 23.58, accentHex: "#101010",
+            note: "The same brush in a near-black accent on a dark panel — the "
+                + "other end of the same range."
+        ))
 
         // MARK: - The Guide's "Show me" lands on the section
 

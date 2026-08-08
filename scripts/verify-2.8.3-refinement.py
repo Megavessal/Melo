@@ -339,6 +339,210 @@ ICON_STEP_FRAME = "tour-autoeq-seeded.png"
 ICON_PLAIN_FRAME = "popup-devices-seeded.png"
 measurements: list[str] = []
 
+# ---------------------------------------------------------------------------
+# --- A search result marks the setting it took you to.
+#
+# The chain is: a result row hands `SettingsRootView.navigate` the entry's
+# destination *and its location*; `sectionTitle(inLocation:)` reads a section
+# out of that location; the tab is handed the resulting `SettingsSectionTarget`;
+# `settingsSectionAnchor` draws the mark on the section whose title matches.
+#
+# `settings-audio-guide-smartsound` proves the last link and only the last link:
+# it hands `AudioTab` a target directly, so it renders a blue mark whatever the
+# rest of the chain does. Measured 2026-08-08 by running the shipping derivation
+# over the shipping catalog: **45 of 102 entries could produce a mark at all**.
+# Nine General entries — Launch at Login, Show Melo in the Dock, Appearance,
+# Theme, Theme Studio, accent colour, disconnect alerts, Bluetooth, Move Quiet
+# Apps — carried the location "Settings › General", which names a tab and no
+# section, so `sectionTitle` returned nil, `navigate` set `sectionTarget` to nil,
+# and the tab opened at its top with nothing marked. The frame was green, every
+# verify script was green, and the feature did not work. That is the whole
+# defect: the rule was correct and never connected to its input.
+#
+# Fixing those nine locations took it to 54. The last nine were stranded a level
+# up: Effects, Updates and About declared no anchors at all and were handed no
+# target, so their entries had nothing to name even with a three-part location.
+# Anchoring those three tabs and pointing their entries at real headings took it
+# to 63 — every catalog entry that names a Settings tab.
+#
+# So this reads the input. For every catalog entry that names a Settings tab the
+# window can mark, the location must resolve to a section that tab actually
+# anchors. It is not a substring test — it re-implements `sectionTitle`'s split
+# and compares against the anchor titles parsed out of the tabs, so renaming a
+# section heading, dropping an anchor, or writing a location one level short all
+# come back red.
+
+SECTION_TARGET_TABS = {
+    "everyday": "Sources/Melo/Views/Settings/Tabs/EverydayTab.swift",
+    "general": "Sources/Melo/Views/Settings/Tabs/GeneralTab.swift",
+    "audio": "Sources/Melo/Views/Settings/Tabs/AudioTab.swift",
+    "shortcuts": "Sources/Melo/Views/Settings/Tabs/ShortcutsTab.swift",
+    # Added 2026-08-08. These three held no anchors and were handed no target,
+    # so the nine catalog entries naming them — the three update topics, the
+    # licence, and all five Audio Unit topics — opened a tab and marked nothing.
+    "effects": "Sources/Melo/Views/Settings/Tabs/AudioUnitsTab.swift",
+    "updates": "Sources/Melo/Views/Settings/Tabs/UpdatesTab.swift",
+    "about": "Sources/Melo/Views/Settings/Tabs/AboutTab.swift",
+}
+
+# The Guide is not a settings tab and has no sections to scroll to; a result
+# routed there opens on its own topic instead (`explainInGuide`). Named rather
+# than skipped silently, so a catalog entry that starts pointing at a tab nobody
+# has anchored is still caught below rather than quietly counted out.
+UNMARKABLE_DESTINATIONS = {"guide"}
+
+
+def section_in_location(location: str | None) -> str | None:
+    """`SettingsGuideEntry.sectionTitle(inLocation:)`, in Python. Kept in step
+    by the assertion below, which fails if the Swift stops splitting on › or
+    stops requiring three parts."""
+    if location is None:
+        return None
+    parts = [part.strip() for part in location.split("›")]
+    if len(parts) < 3 or parts[0] != "Settings":
+        return None
+    return parts[2]
+
+
+guide_model = require(
+    "Sources/Melo/Models/SettingsGuide.swift",
+    "static func sectionTitle(inLocation location: String?) -> String?",
+)
+section_title_body = swift_body(
+    guide_model, "static func sectionTitle(inLocation location: String?) -> String?"
+)
+for needle, consequence in (
+    ('split(separator: "›")', "the location is no longer split on the separator the "
+     "location lines are written with, so this check is now reading a different rule than "
+     "the app runs"),
+    ("parts.count >= 3", "a location that names a tab and no section would be accepted, and "
+     "the section it returns is whatever happens to sit at index 2"),
+):
+    if needle not in section_title_body:
+        failures.append(f"settings search: sectionTitle(inLocation:) lost {needle!r} — {consequence}")
+
+# The wire, read at the call site rather than at the declaration. `activate` is
+# the shipping action behind a result row; handing `onSelect` anything other
+# than the entry's own location compiles, still travels to the right tab, and
+# silently stops marking.
+settings_root = require(
+    "Sources/Melo/Views/Settings/SettingsRootView.swift",
+    "SettingsSearchField(",
+)
+activate_body = swift_body(settings_root, "private func activate(_ entry: SettingsGuideEntry)")
+if "onSelect(destination, entry.location)" not in activate_body:
+    failures.append(
+        "settings search: a result row no longer hands `entry.location` to onSelect, so "
+        "navigate has nothing to derive a section from and every result opens a tab at its "
+        "top with nothing marked"
+    )
+navigate_body = swift_body(settings_root, "private func navigate(to destination: SettingsDestination")
+for needle, consequence in (
+    ("SettingsGuideEntry.sectionTitle(inLocation: location)", "the location the result row "
+     "passed is no longer read, so no target is ever built"),
+    ("sectionTarget = target", "the derived target is never stored, so no tab receives it"),
+):
+    if needle not in navigate_body:
+        failures.append(f"settings search: navigate lost {needle!r} — {consequence}")
+
+# Each tab that owns anchors must actually be handed the target. Dropping the
+# argument at one call site is a one-line change that leaves the other three
+# working, which is exactly the shape that hides.
+anchors_by_tab: dict[str, set[str]] = {}
+for destination, relative in SECTION_TARGET_TABS.items():
+    source = require(relative, ".settingsSectionAnchor(")
+    # The descent is only owed by a tab that scrolls. Effects and About are one
+    # screenful each — Effects pins its header and footer and scrolls the chain
+    # inside its own List, About is centred and does not scroll at all — so
+    # demanding the modifier of them would demand a `scrollPosition` binding
+    # with no scroll view to bind to: a modifier that satisfies this line and
+    # moves nothing. Read from the tab's own `body` rather than the file, so a
+    # ScrollView inside some private helper further down cannot answer for it.
+    tab_body = swift_body(source, "var body: some View")
+    if "ScrollView" in tab_body and "guidedSectionScroll(target: sectionTarget)" not in source:
+        failures.append(
+            f"settings search: {relative} scrolls but never calls "
+            "guidedSectionScroll(target: sectionTarget), so a section it marks can stay below "
+            "the fold and the reader is sent to a page that looks unchanged"
+        )
+    anchors_by_tab[destination] = set(re.findall(r'\.settingsSectionAnchor\(\s*"([^"]+)"', source))
+    if not anchors_by_tab[destination]:
+        failures.append(f"settings search: {relative} declares no section anchors, so nothing in it can be marked")
+
+# One page property per markable tab, each passing the target on. Counted rather
+# than matched by name so a tab losing its argument cannot hide behind the other
+# three still having theirs.
+passed_targets = settings_root.count("sectionTarget: sectionTarget")
+if passed_targets < len(SECTION_TARGET_TABS):
+    failures.append(
+        f"settings search: only {passed_targets} of {len(SECTION_TARGET_TABS)} markable tabs are "
+        "handed sectionTarget in SettingsRootView — the ones that are not open at their top "
+        "with nothing marked, and every other check here still passes"
+    )
+
+# The catalog itself, run through the shipping derivation.
+entry_pattern = re.compile(
+    r'\.init\(\s*"(?P<id>[^"]+)"(?P<body>.*?)\n        \)', re.DOTALL
+)
+catalog = (root / "Sources/Melo/Models/SettingsGuide.swift").read_text(errors="replace")
+markable = 0
+stranded: list[str] = []
+for match in entry_pattern.finditer(catalog):
+    entry_id = match.group("id")
+    body = match.group("body")
+    destination_match = re.search(r"destination: \.(\w+)", body)
+    if not destination_match:
+        continue
+    destination = destination_match.group(1)
+    if destination in UNMARKABLE_DESTINATIONS:
+        stranded.append(f"{entry_id}→{destination}")
+        continue
+    if destination not in SECTION_TARGET_TABS:
+        failures.append(
+            f"settings search: guide entry {entry_id!r} points at the {destination!r} tab, which "
+            "is neither known to hold anchors nor listed as unmarkable — a result for it opens a "
+            "tab and marks nothing"
+        )
+        continue
+    location_match = re.search(r'location: "([^"]*)"', body)
+    location = location_match.group(1) if location_match else None
+    section = section_in_location(location)
+    if section is None:
+        failures.append(
+            f"settings search: guide entry {entry_id!r} sends the reader to the {destination} tab "
+            f"but its location {location!r} names no section, so sectionTitle(inLocation:) returns "
+            "nil, navigate stores no target, and the result highlights nothing. Write the section "
+            f'it lives in: "Settings › {destination.capitalize()} › <section heading>"'
+        )
+        continue
+    if section not in anchors_by_tab[destination]:
+        failures.append(
+            f"settings search: guide entry {entry_id!r} asks for section {section!r} in the "
+            f"{destination} tab, which anchors {sorted(anchors_by_tab[destination])}. Nothing "
+            "matches, so the tab scrolls nowhere and marks nothing"
+        )
+        continue
+    markable += 1
+
+# Exact rather than slack. Every entry that names a Settings tab now resolves,
+# so any number below this one means an entry was deleted or its destination
+# quietly dropped — both of which make every check above pass.
+if markable < 63:
+    failures.append(
+        f"settings search: only {markable} catalog entries can produce a highlight, down from 63. "
+        "This floor exists because deleting entries is a way to make every check above pass"
+    )
+else:
+    stranded_note = (
+        f"; {len(stranded)} are stranded on tabs that hold no anchors ({', '.join(stranded)})"
+        if stranded
+        else "; none are stranded on a tab that holds no anchors"
+    )
+    measurements.append(
+        f"settings search: {markable} guide entries resolve to a section their destination tab "
+        f"anchors{stranded_note}"
+    )
+
 
 def locate_frames() -> Path | None:
     candidates: list[tuple[float, Path]] = []

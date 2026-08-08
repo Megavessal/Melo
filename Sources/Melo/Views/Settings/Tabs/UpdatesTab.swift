@@ -4,6 +4,10 @@ import SwiftUI
 struct UpdatesTab: View {
     @ObservedObject var sparkle: SparkleUpdateController
     @ObservedObject var developerUpdates: DeveloperUpdateManager
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
 
     @State private var showsFailureDetail = false
     @State private var showsCurrentReleaseNotes: Bool
@@ -11,10 +15,12 @@ struct UpdatesTab: View {
     init(
         sparkle: SparkleUpdateController,
         developerUpdates: DeveloperUpdateManager,
+        sectionTarget: SettingsSectionTarget?,
         releaseNotesExpanded: Bool = false
     ) {
         self.sparkle = sparkle
         self.developerUpdates = developerUpdates
+        self.sectionTarget = sectionTarget
         // Only the snapshot harness passes this. The notes are a disclosure, so
         // the state that has the actual content in it is unreachable from a
         // frame otherwise.
@@ -49,12 +55,14 @@ struct UpdatesTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         // A settings tab has no content of its own to sit on. Without this the
         // scroll view paints the system text background, which is opaque white
         // in a dark window.
         .scrollContentBackground(.hidden)
         .scrollIndicators(.never)
+        .guidedSectionScroll(target: sectionTarget)
     }
 
     // MARK: - Status
@@ -139,6 +147,7 @@ struct UpdatesTab: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
         }
+        .settingsSectionAnchor("Melo Updates", target: sectionTarget)
     }
 
     /// The update this card is about, in whatever phase it is in. Carrying it
@@ -460,6 +469,7 @@ struct UpdatesTab: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
             }
+            .settingsSectionAnchor("Release Notes", target: sectionTarget)
         }
     }
 
@@ -522,6 +532,7 @@ struct UpdatesTab: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
         }
+        .settingsSectionAnchor("Automatic Updates", target: sectionTarget)
     }
 
     #if MELO_DEV

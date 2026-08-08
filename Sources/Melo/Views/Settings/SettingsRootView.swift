@@ -59,6 +59,17 @@ struct SettingsRootView: View {
     /// Numbers each navigation so asking for the same section twice is two
     /// different values. See `SettingsSectionTarget.serial`.
     @State private var navigationCount = 0
+    /// What the Guide tab opens showing. Set when a search result names a
+    /// control the Guide explains rather than a section a tab can scroll to —
+    /// two thirds of the catalog describes the menu bar popup, and those results
+    /// used to land on an unfiltered list of a hundred topics with the one the
+    /// reader picked somewhere inside it.
+    @State private var guideQuery = ""
+    /// Rebuilds the Guide page, so a result picked *while the Guide is showing*
+    /// still opens on its topic. `travel` returns early when the tab is already
+    /// selected, and `initialQuery` is read once at init, so without this the
+    /// second search from the Guide tab does nothing at all.
+    @State private var guideSerial = 0
     /// Which way the pages are travelling. Read by the transition, so a jump
     /// from Guide back to Audio slides the other way from Audio to Guide —
     /// travel that ignores direction is animation rather than orientation.
@@ -75,7 +86,10 @@ struct SettingsRootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            SettingsSearchField(onSelect: { navigate(to: $0, location: $1) })
+            SettingsSearchField(
+                onSelect: { navigate(to: $0, location: $1) },
+                onExplain: { explainInGuide($0) }
+            )
                 .frame(height: Self.searchBarHeight)
                 // The results list is an overlay that hangs past the row's own
                 // bounds; without a raised zIndex the pages below paint over it.
@@ -138,14 +152,33 @@ struct SettingsRootView: View {
             SettingsSectionTarget(section: $0, serial: navigationCount)
         }
         sectionTarget = target
+        guideQuery = ""
         travel(to: section)
+    }
+
+    /// A search result for a control no Settings tab holds. Opens the Guide on
+    /// that one topic, which is where its explanation and its "Show Me" button
+    /// live. The alternative — and what shipped — was the Guide's own front page
+    /// with the reader left to find the entry they had already picked.
+    private func explainInGuide(_ entry: SettingsGuideEntry) {
+        navigationCount += 1
+        sectionTarget = nil
+        guideQuery = entry.title
+        guideSerial = navigationCount
+        travel(to: .guide)
     }
 
     /// A tab pressed by hand. The section target is dropped: nobody asked to be
     /// shown a particular setting, so leaving the last one marked would mark a
     /// section the reader did not ask about, on a page they opened themselves.
+    /// The Guide's query goes with it, for the same reason.
     private func selectByHand(_ section: Section) {
         sectionTarget = nil
+        if !guideQuery.isEmpty {
+            guideQuery = ""
+            navigationCount += 1
+            guideSerial = navigationCount
+        }
         travel(to: section)
     }
 
@@ -355,7 +388,11 @@ struct SettingsRootView: View {
     }
 
     private var effectsPage: some View {
-        AudioUnitsTab(host: audioEngine.audioUnitHost, audioEngine: audioEngine)
+        AudioUnitsTab(
+            host: audioEngine.audioUnitHost,
+            audioEngine: audioEngine,
+            sectionTarget: sectionTarget
+        )
     }
 
     private var shortcutsPage: some View {
@@ -370,18 +407,23 @@ struct SettingsRootView: View {
     }
 
     private var guidePage: some View {
-        SettingsGuideView(onNavigate: { navigate(to: $0, location: $1) })
+        SettingsGuideView(
+            onNavigate: { navigate(to: $0, location: $1) },
+            initialQuery: guideQuery
+        )
+        .id(guideSerial)
     }
 
     private var updatesPage: some View {
         UpdatesTab(
             sparkle: sparkleUpdateController,
-            developerUpdates: developerUpdateManager
+            developerUpdates: developerUpdateManager,
+            sectionTarget: sectionTarget
         )
     }
 
     private var aboutPage: some View {
-        AboutTab(appSupport: appSupport)
+        AboutTab(appSupport: appSupport, sectionTarget: sectionTarget)
     }
 }
 
@@ -395,8 +437,12 @@ struct SettingsRootView: View {
 @MainActor
 private struct SettingsSearchField: View {
     /// The location travels with the destination, so a result found here lands
-    /// on the same heading the Guide's own "Take Me There" lands on.
+    /// on the same heading the Guide's own "Take Me There" lands on. Handing
+    /// over the destination alone is what made every result open a tab at its
+    /// top with nothing marked.
     let onSelect: (SettingsDestination, String?) -> Void
+    /// Where an entry that no Settings tab holds goes instead.
+    let onExplain: (SettingsGuideEntry) -> Void
 
     @State private var query = ""
     @State private var selectedIndex = 0
@@ -411,9 +457,10 @@ private struct SettingsSearchField: View {
         return IntentSearch.rank(SettingsGuideEntry.all, limit: 7) { $0.searchScore(trimmedQuery) }
     }
 
-    /// Entries that describe a control in the menu bar popup have no tab of
-    /// their own; the Guide is where their explanation lives, so that is where
-    /// the result goes.
+    /// The tab named on the right of a result row. Entries that describe a
+    /// control in the menu bar popup have no tab of their own; the Guide is
+    /// where their explanation lives, so that is what the row promises and
+    /// `activate` is what keeps the promise.
     private func destination(for entry: SettingsGuideEntry) -> SettingsDestination {
         entry.destination ?? .guide
     }
@@ -529,7 +576,15 @@ private struct SettingsSearchField: View {
     }
 
     private func activate(_ entry: SettingsGuideEntry) {
-        onSelect(destination(for: entry), entry.location)
+        if let destination = entry.destination {
+            // `entry.location`, never nil: the location is the only thing that
+            // names *which* section of the tab, and dropping it here is a change
+            // that still compiles, still travels, and silently stops marking
+            // anything.
+            onSelect(destination, entry.location)
+        } else {
+            onExplain(entry)
+        }
         query = ""
         focused = false
     }

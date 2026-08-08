@@ -39,18 +39,33 @@ if [ -z "$OUT" ]; then
 fi
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-BIN="$(mktemp -d "${TMPDIR:-/tmp}/melo-axcheck-XXXXXX")/ax-check"
+# A prebuilt checker, if the caller made one. `dev-verify-locked.sh` compiles it
+# BEFORE launching the app, and that is not an optimisation.
+#
+# The compile used to happen here, which is after the render has finished and
+# the harness is already holding its first window open. On a loaded machine
+# swiftc took 16 seconds, the window was gone by the time the checker asked, and
+# the gate reported the app's accessibility labels missing. Compiling off the
+# critical path makes the interval between the harness signalling ready and the
+# checker asking about it roughly nothing, which is the regime this has always
+# worked in.
+BIN="${MELO_AX_CHECK_BIN:-}"
+OWNED_BIN=""
 cleanup() {
     # The unsuffixed `_ax_done` releases whichever scene is currently waiting,
     # so no exit path here can strand the harness mid-list.
     [ -n "${OUT:-}" ] && : > "$OUT/_ax_done"
-    rm -rf "$(dirname "$BIN")"
+    [ -n "$OWNED_BIN" ] && rm -rf "$(dirname "$OWNED_BIN")"
 }
 trap cleanup EXIT
 
-if ! swiftc -O "$ROOT/scripts/ax-check.swift" -o "$BIN" 2>&1; then
-    echo "AX CHECK NOT RUN — scripts/ax-check.swift did not compile." >&2
-    exit 2
+if [ -z "$BIN" ] || [ ! -x "$BIN" ]; then
+    OWNED_BIN="$(mktemp -d "${TMPDIR:-/tmp}/melo-axcheck-XXXXXX")/ax-check"
+    BIN="$OWNED_BIN"
+    if ! swiftc -O "$ROOT/scripts/ax-check.swift" -o "$BIN" 2>&1; then
+        echo "AX CHECK NOT RUN — scripts/ax-check.swift did not compile." >&2
+        exit 2
+    fi
 fi
 
 # Waits for one scene's window, asserts against it, then releases it so the

@@ -10,6 +10,10 @@ import SwiftUI
 struct AudioUnitsTab: View {
     @Bindable var host: AudioUnitHost
     @Bindable var audioEngine: AudioEngine
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
 
     @State private var selectedProfileID = AudioUnitHost.systemProfileID
     @State private var showsBrowser = false
@@ -25,9 +29,15 @@ struct AudioUnitsTab: View {
 
     private var slots: [AudioUnitSlot] { host.slots(for: selectedProfileID) }
 
+    /// No `guidedSectionScroll` here, unlike the tabs that own a `ScrollView`.
+    /// This page does not scroll as a whole — the header and footer are pinned
+    /// and the chain scrolls inside its own `List` — so there is nowhere for a
+    /// guided descent to travel. The anchors' other half, the mark, is the
+    /// whole answer here.
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+                .settingsSectionAnchor("Audio Unit Effects", target: sectionTarget)
 
             Group {
                 if slots.isEmpty {
@@ -42,6 +52,7 @@ struct AudioUnitsTab: View {
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5)
             }
+            .settingsSectionAnchor("Effect Chain", target: sectionTarget)
 
             footer
         }

@@ -140,6 +140,15 @@ struct SettingsGuideEntry: Identifiable, Sendable {
     /// popup, returns `nil` and leaves the tab where it opens. Guessing a
     /// section is worse than not scrolling: it moves the reader away from the
     /// thing they asked for.
+    ///
+    /// Which makes a two-level location — "Settings › General" — a defect in the
+    /// entry rather than a shorthand. It produces no target, so the tab opens at
+    /// its top with nothing marked, and every link downstream of here behaves
+    /// exactly as it does when the search is working. Nine entries were written
+    /// that way and that is what the owner reported as "clicking a result does
+    /// not highlight the setting". `verify-2.8.3-refinement.py` now fails on any
+    /// entry whose destination tab can be marked and whose location does not say
+    /// where.
     static func sectionTitle(inLocation location: String?) -> String? {
         guard let location else { return nil }
         let parts = location.split(separator: "›").map {
@@ -347,7 +356,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Launch at Login",
             summary: "Melo starts with your Mac. Without it, per-app volumes are not applied until you open Melo yourself.",
             keywords: ["open at startup", "start automatically", "run on login"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -356,7 +365,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Show Melo in the Dock",
             summary: "Gives Melo a Dock icon and an app menu, which is what makes Force Quit and ⌘Q behave the way they do for other apps.",
             keywords: ["force quit", "dock icon", "regular app", "show in dock"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -375,7 +384,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Light or Dark",
             summary: "Melo follows macOS by default. Pinning it to Light or Dark affects Melo alone, not the rest of your Mac.",
             keywords: ["light mode", "dark mode", "follow system appearance"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -385,7 +394,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "Changes the popup’s background and accent: Mac keeps the system look, Space, Galaxy, and Aurora add a quiet animated backdrop, Custom takes your own color.",
             details: "Themes are decoration only. None of them changes what a control does or where it sits.",
             keywords: ["change how melo looks", "skin", "visual style", "background", "aurora", "galaxy", "space", "northern lights"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -398,7 +407,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // Theme Studio is a row inside the General section, not a section of
             // its own. Naming it here would send the tab looking for a heading
             // that does not exist and land the reader nowhere in particular.
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -407,7 +416,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Theme Color",
             summary: "Sets Melo’s accent — sliders, selection, the active dot. The picker only appears once the Custom theme is chosen.",
             keywords: ["accent color", "highlight color", "pick a color", "the color picker is missing"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -417,7 +426,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "Posts a notification when the device you were listening on disappears, so silence is explained rather than mysterious.",
             details: "This is the only feature that asks for notification permission, and it is asked for at the end of setup rather than at launch.",
             keywords: ["notify when a device is unplugged", "headphones disconnected warning", "tell me when something drops"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -430,7 +439,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "Adds the headsets and speakers you have paired but are not connected to, with a Connect button. Off until you turn it on.",
             details: "Turning it on, or saying yes on setup's Bluetooth page, is what makes macOS ask for Bluetooth access. Nothing is scanned before that, and turning it back off stops the scanning.",
             keywords: ["bluetooth", "paired devices", "airpods", "reconnect headphones", "connect from melo"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -476,7 +485,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "How long an app that has stopped making sound stays in the main list before it drops into Quiet & Remembered.",
             details: "It never disappears — Quiet & Remembered is an expandable group directly below the list, and the app’s volume is kept.",
             keywords: ["apps disappear from the list", "silent apps", "inactive list", "an app vanished"],
-            location: "Settings › General",
+            location: "Settings › General › General",
             destination: .general
         ),
         .init(
@@ -485,7 +494,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Check for Updates",
             summary: "Melo is not from the App Store, so it updates itself. Check for Updates asks the release feed now and shows you the notes before anything installs.",
             keywords: ["new version", "check for updates", "upgrade melo"],
-            location: "Settings › Updates",
+            location: "Settings › Updates › Melo Updates",
             destination: .updates
         ),
         .init(
@@ -504,7 +513,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "What’s New in Melo",
             summary: "The release notes for the version you are running, with a Show Me button that opens the popup and points at each new control.",
             keywords: ["release notes", "what changed", "new features", "changelog"],
-            location: "Settings › About",
+            location: "Settings › About › About Melo",
             destination: .about
         ),
         .init(
@@ -1001,7 +1010,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "Runs installed Audio Units on one app or on everything Melo controls, chosen with the Audio source picker at the top.",
             details: "For people who already use Audio Unit plug-ins. Nothing here is needed for volume, routing, or EQ.",
             keywords: ["audio unit", "plugin", "add an effect", "reverb", "au"],
-            location: "Settings › Effects",
+            location: "Settings › Effects › Audio Unit Effects",
             destination: .effects
         ),
         .init(
@@ -1010,7 +1019,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Add, Remove, and Rescan Effects",
             summary: "Add Effect opens a searchable browser grouped by manufacturer; the ⋯ menu on a slot removes it. Rescan finds plug-ins installed since Melo started.",
             keywords: ["my plugin is missing", "remove an effect", "rescan audio units", "browse audio units"],
-            location: "Settings › Effects",
+            location: "Settings › Effects › Audio Unit Effects",
             destination: .effects
         ),
         .init(
@@ -1020,7 +1029,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "Bypass passes the audio straight through while the effect stays loaded and keeps its settings, which is how you A/B it.",
             details: "The slot switch beside it does the same thing more permanently; bypass is the one meant for comparing.",
             keywords: ["turn an effect off for a moment", "compare with and without", "bypass"],
-            location: "Settings › Effects",
+            location: "Settings › Effects › Effect Chain",
             destination: .effects
         ),
         .init(
@@ -1029,7 +1038,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Effect Order",
             summary: "Audio passes through the slots top to bottom, and the order changes the result — a compressor before a reverb sounds unlike one after it.",
             keywords: ["reorder effects", "chain order", "which effect comes first"],
-            location: "Settings › Effects",
+            location: "Settings › Effects › Effect Chain",
             destination: .effects
         ),
         .init(
@@ -1038,7 +1047,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Open an Effect’s Own Controls",
             summary: "Opens the plug-in’s own interface when it ships one; otherwise Melo builds a plain slider list from its parameters.",
             keywords: ["open the plugin window", "effect settings", "its own controls"],
-            location: "Settings › Effects",
+            location: "Settings › Effects › Effect Chain",
             destination: .effects
         )
     ]
@@ -1218,7 +1227,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "License and Source",
             summary: "Melo is GPL-3.0 and builds on the open-source FineTune project. The About tab links to both the license and the upstream source.",
             keywords: ["license", "gpl", "open source", "who made this", "finetune", "copyright"],
-            location: "Settings › About",
+            location: "Settings › About › License and Source",
             destination: .about
         ),
         .init(

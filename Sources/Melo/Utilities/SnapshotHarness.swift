@@ -558,11 +558,26 @@ enum SnapshotHarness {
         // Spinning the run loop is not idling: the accessibility API delivers
         // to this process on the main thread, so a `sleep` here would leave
         // every request from the checker unanswered.
+        //
+        // The window is re-ordered on every pass, and that is the fix for a
+        // race that made this gate lie. Something in this app orders the dwell
+        // window out a few seconds after it goes up — measured by the gap
+        // between `_ax_ready` and the checker's tree dump across runs: at 1s,
+        // 1s and 6s the tree was the scene, and at 7s and 16s the app had zero
+        // windows and the checker walked into macOS's menu bar instead. Which
+        // code path does it is NOT established; what is established is that
+        // holding the window is not something this loop can assume it has
+        // already done once. Re-asserting is cheap, invisible at
+        // (-30000, -30000), and does not depend on ever finding the culprit.
         let deadline = Date().addingTimeInterval(axDwellTimeout)
         while Date() < deadline,
               !FileManager.default.fileExists(atPath: done.path),
               !FileManager.default.fileExists(atPath: abort.path) {
-            settle(seconds: 0.1)
+            if !window.isVisible {
+                window.setFrameOrigin(NSPoint(x: -30_000, y: -30_000))
+            }
+            window.orderFrontRegardless()
+            settle(seconds: 0.25)
         }
     }
 
@@ -697,6 +712,12 @@ enum SnapshotHarness {
         )
         window.isOpaque = true
         window.backgroundColor = backing(scene.colorScheme)
+        // `NSWindow` created this way defaults to releasing itself on close, so
+        // anything that closes it drops the last reference and the local here
+        // becomes a dangling object. The accessibility dwell has to be able to
+        // re-order a window that something else took away, which means the
+        // window has to still exist to be re-ordered.
+        window.isReleasedWhenClosed = false
 
         let root = AnyView(
             scene.content()

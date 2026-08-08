@@ -426,6 +426,83 @@ for duel in guideDuels {
 }
 
 // ---------------------------------------------------------------------------
+// 6. Find an Action's own arithmetic, executed rather than described.
+//
+// The two functions below are spliced verbatim out of
+// ConsumerCommandPalette.swift; only the engine they call is a stub. That is
+// deliberate: this project measured a `x 100` changed to `x 10` surviving every
+// verify script and eighty-three rendered frames, because every check that
+// should have caught it tested a rule nothing proved was executed. Running the
+// real text is the only thing that catches it. `maximumPercent` is scraped from
+// the same file for the same reason — hard-coding 400 here would pin this
+// check's opinion instead of the palette's.
+// ---------------------------------------------------------------------------
+
+// @PALETTE_UNIT@
+
+let arithmetic = PaletteArithmetic()
+
+// A 2x app reads 200%, not 100%. Reading base volume alone is the defect.
+arithmetic.audioEngine.volume = 1.0
+arithmetic.audioEngine.boost = .x2
+check("the palette reads a 2x app as 200%",
+      arithmetic.effectivePercent(for: "fixture") == 200,
+      "got \(arithmetic.effectivePercent(for: "fixture"))%")
+
+arithmetic.audioEngine.volume = 0.5
+arithmetic.audioEngine.boost = .x1
+check("the palette reads a half-volume app as 50%",
+      arithmetic.effectivePercent(for: "fixture") == 50,
+      "got \(arithmetic.effectivePercent(for: "fixture"))%")
+
+// The number a row promises is the number the action writes. Round-tripping
+// every percent through the real write and the real read is what makes that a
+// fact rather than a comment.
+for percent in 0...400 {
+    arithmetic.setEffectivePercent(percent, for: "fixture")
+    let readBack = arithmetic.effectivePercent(for: "fixture")
+    check("percent \(percent) survives the palette's write and read",
+          readBack == percent, "came back as \(readBack)%")
+}
+
+// The ceiling is enforced on the way in, not answered with a different number.
+arithmetic.setEffectivePercent(900, for: "fixture")
+check("the palette clamps above its ceiling",
+      arithmetic.effectivePercent(for: "fixture") == PaletteArithmetic.maximumPercent,
+      "got \(arithmetic.effectivePercent(for: "fixture"))%")
+arithmetic.setEffectivePercent(-50, for: "fixture")
+check("the palette clamps below zero",
+      arithmetic.effectivePercent(for: "fixture") == 0,
+      "got \(arithmetic.effectivePercent(for: "fixture"))%")
+
+// Two constants naming the same ceiling is how these surfaces drifted apart
+// before; they must be the same number.
+check("the palette's ceiling is the one Shortcuts and the row use",
+      PaletteArithmetic.maximumPercent == IntentSearch.maximumVolumePercent,
+      "palette \(PaletteArithmetic.maximumPercent), "
+      + "shared \(IntentSearch.maximumVolumePercent)")
+
+// ---------------------------------------------------------------------------
+// 7. What the palette suggests before anything is typed.
+//
+// The state that decides whether that list is any good is a Mac with nothing
+// playing, and it is the one state the render harness cannot stage:
+// `audioEngine.apps` is `processMonitor.activeApps` behind `private(set)`, and
+// the harness is handed an engine already built. So the rule is executed here
+// instead, spliced from the palette, against exactly that list.
+// ---------------------------------------------------------------------------
+
+check("nothing playing still features an app",
+      PaletteSuggestion.featuredApp(in: [10, 11, 12], isActive: { _ in false }) == 10,
+      "an empty suggestion list is the defect this replaced")
+check("the app making sound is featured over the first row",
+      PaletteSuggestion.featuredApp(in: [10, 11, 12], isActive: { $0 == 12 }) == 12)
+check("the first app making sound wins when several are",
+      PaletteSuggestion.featuredApp(in: [10, 11, 12], isActive: { $0 != 10 }) == 11)
+check("no apps at all features nothing",
+      PaletteSuggestion.featuredApp(in: [Int](), isActive: { _ in true }) == nil)
+
+// ---------------------------------------------------------------------------
 
 if failures.isEmpty {
     print("swift-checks ok")
@@ -509,6 +586,156 @@ def guide_entries_swift() -> str:
     return "let guideEntries: [GuideEntryFixture] = [\n" + "\n".join(rows) + "\n]"
 
 
+def function_span(text: str, signature: str) -> tuple[int, int] | None:
+    """Character range of a Swift function body, by brace matching.
+
+    Deliberately naive — it does not know about braces inside string literals —
+    because the two functions it is pointed at contain none, and a mismatch
+    surfaces as a failed check rather than as a silent pass.
+    """
+    start = text.find(signature)
+    if start < 0:
+        return None
+    open_at = text.find("{", start)
+    if open_at < 0:
+        return None
+    depth = 0
+    for index in range(open_at, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return (open_at, index)
+    return None
+
+
+# Find an Action.
+#
+# These checks used to name two exact call sites — `audioEngine.getVolume(` and
+# `audioEngine.setVolume(` — and require one of each, inside the two percent
+# helpers. That spelling was correct while the palette addressed apps by their
+# live `AudioApp`. It now addresses every app the popup lists by persistence
+# identifier, through the `…ForInactive` family, because a pinned or merely
+# quiet app has no `AudioApp` to pass and so had no palette commands at all.
+#
+# The invariant did not change and neither did the defect behind it, so what
+# follows pins the invariant by shape rather than by the old names — and, more
+# to the point, stops relying on names entirely for the part that matters. The
+# `x 100` -> `x 10` mutation this project measured survives *any* spelling test;
+# only running the arithmetic catches it, which `PaletteArithmetic` below does
+# by splicing these two functions out of the real source and executing them.
+palette = read("Sources/Melo/Views/Components/ConsumerCommandPalette.swift")
+
+
+def strip_line_comments(text: str) -> str:
+    """Swift source with `//` comments blanked out.
+
+    The palette explains its own history in prose, so it names
+    `audioEngine.apps` in three comments describing why it no longer calls it.
+    A check that reads those as call sites would be unfixable without deleting
+    the explanation.
+    """
+    return re.sub(r"//[^\n]*", "", text)
+
+
+palette_code = strip_line_comments(palette)
+
+
+def function_source(text: str, signature: str) -> str | None:
+    """A Swift function declaration, verbatim, signature through closing brace."""
+    start = text.find(signature)
+    if start < 0:
+        return None
+    span = function_span(text, signature)
+    if span is None:
+        return None
+    return text[start:span[1] + 1]
+
+
+# Bodies used when the real ones cannot be found, so the executed checks report
+# a wrong answer under their own names instead of the whole Swift unit failing
+# to compile under a message about braces.
+UNAVAILABLE_ARITHMETIC = """\
+    private func effectivePercent(for identifier: String) -> Int { -1 }
+    private func setEffectivePercent(_ percent: Int, for identifier: String) {}
+"""
+UNAVAILABLE_FEATURED = """\
+    nonisolated static func featuredApp<App>(
+        in apps: [App], isActive: (App) -> Bool
+    ) -> App? { nil }
+"""
+
+
+def palette_unit_swift() -> str:
+    """The palette's percent arithmetic and suggestion rule, spliced out of the
+    real file so the Swift checks execute the shipping text.
+
+    `AudioEngine` is replaced by a stub with the same four method names. That is
+    the seam and it is a narrow one: rename an engine method and this stops
+    compiling, which is the intended signal, not a false alarm.
+
+    The only edit made to the spliced text is dropping a leading `private`, so
+    the checks below can call what they are checking. Bodies are untouched — the
+    arithmetic executed here is character-for-character the arithmetic that
+    ships.
+    """
+    parts: list[str] = []
+    for signature in (
+        "private func effectivePercent(",
+        "private func setEffectivePercent(",
+    ):
+        source = function_source(palette_code, signature)
+        if source is None:
+            failures.append(
+                f"ConsumerCommandPalette: could not splice {signature.strip()} — "
+                "the executed arithmetic checks cannot run"
+            )
+            parts = [UNAVAILABLE_ARITHMETIC]
+            break
+        source = re.sub(r"\Aprivate\s+", "", source)
+        parts.append("    " + source.replace("\n", "\n    ").rstrip() + "\n")
+
+    featured = function_source(palette_code, "static func featuredApp")
+    if featured is None:
+        failures.append(
+            "ConsumerCommandPalette: could not splice featuredApp — the "
+            "empty-active-set check cannot run"
+        )
+        featured_swift = UNAVAILABLE_FEATURED
+    else:
+        featured_swift = "    " + featured.replace("\n", "\n    ").rstrip() + "\n"
+
+    ceiling = re.search(r"static let maximumPercent\s*=\s*(\d+)", palette_code)
+    if ceiling is None:
+        failures.append(
+            "ConsumerCommandPalette: could not read maximumPercent — the "
+            "executed arithmetic checks would be pinning this script's guess"
+        )
+    ceiling_value = ceiling.group(1) if ceiling else "-1"
+
+    return (
+        "struct PaletteArithmetic {\n"
+        "    final class EngineStub {\n"
+        "        var volume: Float = 1\n"
+        "        var boost: BoostLevel = .x1\n"
+        "        func getVolumeForInactive(identifier: String) -> Float { volume }\n"
+        "        func setVolumeForInactive(identifier: String, to volume: Float) {\n"
+        "            self.volume = volume\n"
+        "        }\n"
+        "        func getBoostForInactive(identifier: String) -> BoostLevel { boost }\n"
+        "        func setBoostForInactive(identifier: String, to boost: BoostLevel) {\n"
+        "            self.boost = boost\n"
+        "        }\n"
+        "    }\n"
+        "    let audioEngine = EngineStub()\n"
+        f"    static let maximumPercent = {ceiling_value}\n"
+        "\n" + "\n".join(parts) + "}\n"
+        "\n"
+        "enum PaletteSuggestion {\n" + featured_swift + "}\n"
+    )
+
+
 def run_swift_checks() -> None:
     swiftc = shutil.which("xcrun")
     argv: list[str]
@@ -528,7 +755,9 @@ def run_swift_checks() -> None:
     with tempfile.TemporaryDirectory(prefix="melo-verify-volume-eq-") as tmp:
         work = Path(tmp)
         (work / "main.swift").write_text(
-            MAIN_SWIFT.replace("// @GUIDE_ENTRIES@", guide_entries_swift())
+            MAIN_SWIFT
+            .replace("// @GUIDE_ENTRIES@", guide_entries_swift())
+            .replace("// @PALETTE_UNIT@", palette_unit_swift())
         )
         binary = work / "checks"
         compile_result = subprocess.run(
@@ -577,73 +806,97 @@ controls = read("Sources/Melo/Views/Rows/AppRowControls.swift")
 if "range: 0...400" not in controls:
     failures.append("AppRowControls: the editable percentage must span 0...400")
 
-def function_span(text: str, signature: str) -> tuple[int, int] | None:
-    """Character range of a Swift function body, by brace matching.
 
-    Deliberately naive — it does not know about braces inside string literals —
-    because the two functions it is pointed at contain none, and a mismatch
-    surfaces as a failed check rather than as a silent pass.
-    """
-    start = text.find(signature)
-    if start < 0:
-        return None
-    open_at = text.find("{", start)
-    if open_at < 0:
-        return None
-    depth = 0
-    for index in range(open_at, len(text)):
-        if text[index] == "{":
-            depth += 1
-        elif text[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return (open_at, index)
-    return None
-
-
-# Find an Action. Every read and write of an app's volume here has to go through
-# the two boost-aware helpers; a bare `audioEngine.setVolume` in this file is, by
-# construction, a site that has forgotten boost exists.
-palette = read("Sources/Melo/Views/Components/ConsumerCommandPalette.swift")
-for symbol, helper in (
-    ("audioEngine.getVolume(", "private func effectivePercent("),
-    ("audioEngine.setVolume(", "private func setEffectivePercent("),
-):
-    uses = [m.start() for m in re.finditer(re.escape(symbol), palette)]
-    span = function_span(palette, helper)
-    if len(uses) != 1:
+# Every read and write of an app's volume or boost has to go through the two
+# boost-aware helpers. A bare volume write anywhere else in this file is, by
+# construction, a site that has forgotten boost exists — which is how an app
+# boosted to 2x once reported "100%" while its own row said "200%".
+ACCESSOR = re.compile(r"audioEngine\.(get|set)(Volume|Boost)[A-Za-z]*\(")
+reader = function_span(palette_code, "private func effectivePercent(")
+writer = function_span(palette_code, "private func setEffectivePercent(")
+if reader is None or writer is None:
+    failures.append(
+        "ConsumerCommandPalette: could not find effectivePercent / setEffectivePercent"
+    )
+else:
+    reads: list[tuple[str, str]] = []
+    writes: list[tuple[str, str]] = []
+    strays: list[str] = []
+    for match in ACCESSOR.finditer(palette_code):
+        kind = (match.group(1), match.group(2))
+        if reader[0] < match.start() < reader[1]:
+            reads.append(kind)
+        elif writer[0] < match.start() < writer[1]:
+            writes.append(kind)
+        else:
+            strays.append(match.group(0))
+    if strays:
         failures.append(
-            f"ConsumerCommandPalette: expected exactly one {symbol!r}, "
-            f"inside {helper.split()[-1]}; found {len(uses)}"
+            "ConsumerCommandPalette: an app's volume or boost is touched outside "
+            f"the two percent helpers: {sorted(set(strays))}"
         )
-    elif span is None:
-        failures.append(f"ConsumerCommandPalette: could not find {helper.strip()}")
-    elif not span[0] < uses[0] < span[1]:
+    if sorted(reads) != [("get", "Boost"), ("get", "Volume")]:
         failures.append(
-            f"ConsumerCommandPalette: {symbol!r} must live inside {helper.split()[-1]}"
+            "ConsumerCommandPalette: effectivePercent must read exactly one volume "
+            f"and one boost, and write neither; got {sorted(reads)}"
         )
-if "audioEngine.getBoost(" not in palette:
-    failures.append("ConsumerCommandPalette: the palette must read the app's boost")
-if "VolumeMapping.components(" not in palette:
+    if sorted(writes) != [("set", "Boost"), ("set", "Volume")]:
+        failures.append(
+            "ConsumerCommandPalette: setEffectivePercent must write exactly one "
+            f"volume and one boost, and read neither; got {sorted(writes)}"
+        )
+
+if "VolumeMapping.components(" not in palette_code:
     failures.append(
         "ConsumerCommandPalette: writes must go through VolumeMapping.components, "
         "the same decomposition the slider uses"
     )
-if "min(1, audioEngine.getVolume" in palette:
+if re.search(r"min\(1,\s*audioEngine\.getVolume", palette_code):
     failures.append("ConsumerCommandPalette: Raise must not clamp to a gain of 1.0")
 
-# The default list has to contain the thing Melo is for. `appCommands` used to
-# exist only once a query had been typed, so a palette opened in a per-app
-# volume app suggested scenes, devices and Settings and never a single app —
-# and the "Raise …" copy this file checks was unreachable from a cold open.
-suggested = function_span(palette, "private var suggestedCommands:")
+# The palette must not address apps by the active-only list. `audioEngine.apps`
+# is `processMonitor.activeApps`; the popup lists `displayableApps`, which is
+# that plus open-but-silent plus pinned. Every command keyed on the former is
+# unreachable for an app sitting in plain sight making no sound, which is most
+# apps most of the time.
+if re.search(r"audioEngine\.apps\b", palette_code):
+    failures.append(
+        "ConsumerCommandPalette: back on audioEngine.apps — an app the popup "
+        "lists but that is not currently playing would have no commands"
+    )
+
+# The default list has to contain the thing Melo is for: a palette opened in a
+# per-app volume app must not suggest only scenes, devices and Settings.
+#
+# The previous check for this asserted that the token `appCommands` appeared
+# inside `suggestedCommands`. It was green while `appCommands` read
+# `audioEngine.apps`, so on a Mac with nothing playing the list it guarded was
+# empty and the check said so was fine — a rule proved correct and never proved
+# connected, the pattern this project's anchor records. What replaces it names
+# the wiring exactly, and hands the decision itself to the Swift checks, which
+# run it against the empty-active-set state the render harness cannot stage.
+suggested = function_span(palette_code, "private var suggestedCommands:")
 if suggested is None:
     failures.append("ConsumerCommandPalette: could not find suggestedCommands")
-elif "appCommands" not in palette[suggested[0]:suggested[1]]:
-    failures.append(
-        "ConsumerCommandPalette: suggestedCommands must offer per-app commands "
-        "before anything is typed"
-    )
+else:
+    body = palette_code[suggested[0]:suggested[1]]
+    if "audioEngine.displayableApps" not in body:
+        failures.append(
+            "ConsumerCommandPalette: suggestedCommands must draw its app from "
+            "displayableApps — every app the popup lists, not only the ones "
+            "currently making sound"
+        )
+    if "featuredApp(" not in body:
+        failures.append(
+            "ConsumerCommandPalette: suggestedCommands must choose with "
+            "featuredApp(in:isActive:), the rule the Swift checks execute; "
+            "inlining the choice puts it back out of reach of every test"
+        )
+    if "commands(for:" not in body:
+        failures.append(
+            "ConsumerCommandPalette: suggestedCommands must offer per-app commands "
+            "before anything is typed"
+        )
 
 # Shortcuts. There used to be a second, independent copy of the boost thresholds
 # here; two copies is how these surfaces drifted apart in the first place.

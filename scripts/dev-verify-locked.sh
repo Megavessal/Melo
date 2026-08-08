@@ -54,6 +54,15 @@ rm -f "$OUT"/_ax_ready* "$OUT"/_ax_done* 2>/dev/null || true
 # comes from ax-check.sh itself — it owns the assertions, so it owns which
 # scenes have to be staged for them.
 AX_SCENES="$("$ROOT/scripts/ax-check.sh" --scenes)"
+# Compiled here, before the app is launched, and handed to ax-check.sh. Doing it
+# inside ax-check.sh put a 16-second swiftc between the harness signalling its
+# window and the checker asking about it, and the window did not survive the
+# wait — see the comment on the dwell loop in SnapshotHarness.swift.
+export MELO_AX_CHECK_BIN="$STAGE/ax-check"
+swiftc -O "$ROOT/scripts/ax-check.swift" -o "$MELO_AX_CHECK_BIN" || {
+    echo "ACCESSIBILITY CHECKER DID NOT COMPILE — scripts/ax-check.swift" >&2
+    exit 1
+}
 if [ -n "${MELO_SNAPSHOT_FAIL_AFTER:-}" ]; then
     open -n --env MELO_SNAPSHOT_DIR="$OUT" \
         --env MELO_SNAPSHOT_FAIL_AFTER="$MELO_SNAPSHOT_FAIL_AFTER" "$STAGE/Melo.app"
