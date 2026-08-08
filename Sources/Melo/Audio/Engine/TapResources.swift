@@ -13,7 +13,7 @@ import os
 ///
 /// Violating this order can leak HAL resources or crash on shutdown.
 nonisolated struct TapResources {
-    private static let logger = Logger(subsystem: "dev.local.Melo", category: "TapResources")
+    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "TapResources")
 
     var tapID: AudioObjectID = .unknown
     var aggregateDeviceID: AudioObjectID = .unknown

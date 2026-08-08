@@ -40,6 +40,60 @@ nonisolated enum UpdateStartupConfirmation {
         try? (payload + "\n").write(to: marker, atomically: true, encoding: .utf8)
     }
 
+    /// What the swap script left behind, read once by the build that comes back
+    /// up. A rollback ends with the *old* Melo running again and no trace in the
+    /// UI: without this the user watches the app quit, reopen, and still say the
+    /// old version, with nothing anywhere saying why.
+    struct InstallOutcome: Equatable, Sendable {
+        let status: String
+        let version: String
+        let build: Int
+        let logPath: String
+
+        var reason: String {
+            switch status {
+            case "rolled-back":
+                return "The new build was installed but never finished starting up, so Melo put the version you were running back."
+            case "old-process-alive":
+                return "The running copy of Melo never quit, so nothing was replaced."
+            case "staging-lost":
+                return "The prepared update went missing before it could be installed, so nothing was replaced."
+            case "swap-failed":
+                return "Melo could not move the new version into place, so the version you were running was restored."
+            default:
+                return "The install did not finish. The version you were running is still in place."
+            }
+        }
+    }
+
+    static func outcomeURL() throws -> URL {
+        try updateStorageDirectory()
+            .appendingPathComponent("last-install-outcome", isDirectory: false)
+    }
+
+    /// Reads and clears the record. Clearing is the point: this is a report
+    /// about one install attempt, and showing it twice would look like it
+    /// happened twice.
+    static func consumeInstallOutcome() -> InstallOutcome? {
+        guard let url = try? outcomeURL(),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        try? FileManager.default.removeItem(at: url)
+
+        var fields: [String: String] = [:]
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let separator = line.firstIndex(of: "=") else { continue }
+            fields[String(line[line.startIndex..<separator])] =
+                String(line[line.index(after: separator)...])
+        }
+        guard let status = fields["status"], !status.isEmpty else { return nil }
+        return InstallOutcome(
+            status: status,
+            version: fields["version"] ?? "",
+            build: Int(fields["build"] ?? "") ?? 0,
+            logPath: fields["log"] ?? ""
+        )
+    }
+
     static func updateStorageDirectory() throws -> URL {
         let support = try FileManager.default.url(
             for: .applicationSupportDirectory,
@@ -110,10 +164,17 @@ enum UpdateInstallationCoordinator {
         let scriptURL = storage.appendingPathComponent("install-developer-update-\(manifest.build).sh")
         let logURL = storage.appendingPathComponent("install-developer-update-\(manifest.build).log")
 
+        // Stale from an earlier attempt: the running build already reported it,
+        // and leaving it would make this install look like it failed too.
+        if let outcome = try? UpdateStartupConfirmation.outcomeURL() {
+            try? FileManager.default.removeItem(at: outcome)
+        }
+
         let script = swapScript(
             version: manifest.version,
             build: manifest.build,
             oldPID: ProcessInfo.processInfo.processIdentifier,
+            outcomePath: (try? UpdateStartupConfirmation.outcomeURL())?.path ?? "",
             logPath: logURL.path,
             currentPath: currentApp.path,
             incomingPath: incoming.path,
@@ -203,6 +264,7 @@ enum UpdateInstallationCoordinator {
         version: String,
         build: Int,
         oldPID: Int32,
+        outcomePath: String,
         logPath: String,
         currentPath: String,
         incomingPath: String,
@@ -219,10 +281,12 @@ enum UpdateInstallationCoordinator {
         return """
         #!/bin/zsh
         set -u
-        exec >> \(shellQuote(logPath)) 2>&1
+        LOG_PATH=\(shellQuote(logPath))
+        exec >> "$LOG_PATH" 2>&1
         echo "=== Melo \(version) (build \(build)) — $(date) ==="
 
         OLD_PID=\(oldPID)
+        OUTCOME=\(shellQuote(outcomePath))
         CURRENT=\(shellQuote(currentPath))
         INCOMING=\(shellQuote(incomingPath))
         BACKUP=\(shellQuote(backupPath))
@@ -233,6 +297,15 @@ enum UpdateInstallationCoordinator {
         ARCHIVE=\(shellQuote(archivePath))
         LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 
+        # Every path that ends without the new build running leaves a note the
+        # relaunched app reads once. A rollback is otherwise completely silent:
+        # Melo quits, comes back, and is still the old version.
+        report() {
+          [[ -n "$OUTCOME" ]] || return 0
+          printf 'status=%s\\nversion=%s\\nbuild=%s\\nlog=%s\\n' \\
+            "$1" \(shellQuote(version)) \(build) "$LOG_PATH" > "$OUTCOME"
+        }
+
         # 1. Never touch a live bundle. Moving a running .app leaves Launch Services
         #    pointing at a path the process no longer occupies, so `open` reactivates
         #    the old copy, the new build never starts, and the update "fails".
@@ -242,6 +315,7 @@ enum UpdateInstallationCoordinator {
         done
         if kill -0 "$OLD_PID" 2>/dev/null; then
           echo "Previous Melo (pid $OLD_PID) is still running; aborting with nothing changed"
+          report old-process-alive
           rm -rf "$INCOMING"
           rm -f "$TOKEN"
           exit 3
@@ -249,6 +323,7 @@ enum UpdateInstallationCoordinator {
 
         if [[ ! -d "$INCOMING" ]]; then
           echo "Staged update is missing; nothing was changed"
+          report staging-lost
           rm -f "$TOKEN"
           exit 1
         fi
@@ -259,12 +334,14 @@ enum UpdateInstallationCoordinator {
         # 2. Two atomic renames on one volume — at no point is there no Melo.app.
         if ! mv "$CURRENT" "$BACKUP"; then
           echo "Could not move the current Melo aside"
+          report swap-failed
           rm -rf "$INCOMING"
           rm -f "$TOKEN"
           exit 1
         fi
         if ! mv "$INCOMING" "$CURRENT"; then
           echo "Could not move the update into place; restoring the previous version"
+          report swap-failed
           mv "$BACKUP" "$CURRENT"
           [[ -x "$LSREG" ]] && "$LSREG" -f "$CURRENT" 2>/dev/null
           /usr/bin/open -n "$CURRENT"
@@ -301,6 +378,7 @@ enum UpdateInstallationCoordinator {
         done
 
         echo "New Melo build did not confirm startup; rolling back"
+        report rolled-back
         /usr/bin/pkill -x Melo 2>/dev/null || true
         sleep 1.5
         rm -rf "$CURRENT"

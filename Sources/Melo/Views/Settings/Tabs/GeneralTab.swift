@@ -10,6 +10,10 @@ struct GeneralTab: View {
     let audioEngine: AudioEngine
     let onResetAll: () -> Void
     let onSettingsRestored: () -> Void
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
 
     @State private var showResetConfirmation = false
     @State private var showEraseConfirmation = false
@@ -25,13 +29,16 @@ struct GeneralTab: View {
                 generalSection
                 menuBarSection
                 supportSection
+                privacySection
                 dataSection
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .guidedSectionScroll(target: sectionTarget)
         .confirmationDialog(
             "Reset all settings?",
             isPresented: $showResetConfirmation,
@@ -91,6 +98,7 @@ struct GeneralTab: View {
                     .controlSize(.small)
             }
         }
+        .settingsSectionAnchor("Getting Started", target: sectionTarget)
     }
 
     private var generalSection: some View {
@@ -176,7 +184,11 @@ struct GeneralTab: View {
             SettingsRowDivider()
             SettingsRow(
                 "Bluetooth Features",
-                description: "Show paired audio devices and their battery level"
+                // Not "and their battery level". Melo has never read a Bluetooth
+                // battery — `PairedBluetoothDevice` carries a name and an icon —
+                // so that half of the sentence described a feature the switch
+                // does not turn on.
+                description: "Show paired audio devices, with a button to connect them"
             ) {
                 Toggle("", isOn: $settings.appSettings.bluetoothFeaturesEnabled)
                     .toggleStyle(.switch).controlSize(.small).labelsHidden()
@@ -188,6 +200,7 @@ struct GeneralTab: View {
                     }
             }
         }
+        .settingsSectionAnchor("General", target: sectionTarget)
     }
 
     private var menuBarSection: some View {
@@ -218,6 +231,7 @@ struct GeneralTab: View {
                 PopupSizeTilePicker(selection: $settings.appSettings.popupSize)
             }
         }
+        .settingsSectionAnchor("Menu Bar", target: sectionTarget)
     }
 
     private var supportSection: some View {
@@ -246,6 +260,46 @@ struct GeneralTab: View {
                 .padding(.vertical, 8)
             }
         }
+        .settingsSectionAnchor("Help and Diagnostics", target: sectionTarget)
+    }
+
+    /// The switch reads `.granted` as on and both `.denied` and `.unasked` as
+    /// off, but writing never produces `.unasked` again: once this control has
+    /// been touched the question has definitively been answered, and the
+    /// one-time launch prompt must not come back afterwards.
+    private var analyticsSharingBinding: Binding<Bool> {
+        Binding(
+            get: { settings.appSettings.analyticsConsent == .granted },
+            set: { isOn in
+                var appSettings = settings.appSettings
+                appSettings.analyticsConsent = isOn ? .granted : .denied
+                settings.appSettings = appSettings
+                TelemetryService.shared.refreshConsent()
+            }
+        )
+    }
+
+    private var privacySection: some View {
+        SettingsSection("Privacy") {
+            SettingsRow(
+                "Share Anonymous Usage",
+                description: "Help decide what to improve next. Off unless you turn it on."
+            ) {
+                Toggle("", isOn: analyticsSharingBinding)
+                    .toggleStyle(.switch).controlSize(.small).labelsHidden()
+            }
+            SettingsRowDivider()
+            // Spelled out rather than linked to a privacy policy: the promise
+            // that matters here is that app and device names never leave the
+            // machine, and it should be readable at the switch that controls it.
+            SettingsRow(
+                "What Melo Collects",
+                description: "Melo’s version, your macOS version, roughly which Mac chip you have, your language, and which features were used. Never the names of your apps, your audio devices, or your Mac, and never what you listen to."
+            ) {
+                EmptyView()
+            }
+        }
+        .settingsSectionAnchor("Privacy", target: sectionTarget)
     }
 
     private var dataSection: some View {
@@ -283,6 +337,7 @@ struct GeneralTab: View {
                     .controlSize(.small)
             }
         }
+        .settingsSectionAnchor("Data", target: sectionTarget)
     }
 
     private func saveBackup() {

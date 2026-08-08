@@ -2,7 +2,7 @@
 import AudioToolbox
 import os
 
-private let logger = Logger(subsystem: "dev.local.Melo", category: "OrphanedTapCleanup")
+private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "OrphanedTapCleanup")
 
 /// Scans CoreAudio for orphaned Melo aggregate devices and destroys them.
 /// Orphans occur when Melo crashes or is force-killed (`kill -9`), leaving

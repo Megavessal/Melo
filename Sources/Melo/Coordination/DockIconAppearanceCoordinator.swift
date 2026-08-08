@@ -17,7 +17,7 @@ import OSLog
 final class DockIconAppearanceCoordinator {
     static let shared = DockIconAppearanceCoordinator()
 
-    private nonisolated static let logger = Logger(subsystem: "dev.local.Melo", category: "DockIcon")
+    private nonisolated static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "DockIcon")
 
     private var observer: NSObjectProtocol?
     private var cache: [String: NSImage] = [:]

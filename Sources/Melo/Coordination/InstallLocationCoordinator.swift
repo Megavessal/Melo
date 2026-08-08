@@ -16,7 +16,7 @@ import os
 /// location: if it was in the wrong place before, it still is.
 @MainActor
 final class InstallLocationCoordinator {
-    private static let logger = Logger(subsystem: "dev.local.Melo", category: "InstallLocation")
+    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "InstallLocation")
 
     private enum Keys {
         /// Stores the build the user last dismissed, so "Not Now" is honoured for
@@ -25,7 +25,7 @@ final class InstallLocationCoordinator {
     }
 
     private let defaults: UserDefaults
-    private var window: NSWindow?
+    private var window: UnpromptedWindowPanel?
     private var closeObserver: InstallLocationWindowCloseObserver?
 
     init(defaults: UserDefaults = .standard) {
@@ -96,20 +96,21 @@ final class InstallLocationCoordinator {
 
     func show() {
         if let window {
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            window.presentUnprompted()
             return
         }
 
-        let window = NSWindow(
+        // First of the four windows the launch block can open by itself, so on a
+        // fresh install this is the first thing a user meets — and as a plain
+        // `NSWindow` it was the first one that would ignore their clicks. See
+        // `UnpromptedWindowPanel`.
+        let window = UnpromptedWindowPanel(
             contentRect: NSRect(x: 0, y: 0, width: 520, height: 380),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: UnpromptedWindowPanel.styleMask(),
             backing: .buffered,
             defer: false
         )
         window.title = "Move Melo to Applications"
-        window.titlebarAppearsTransparent = true
-        window.isMovableByWindowBackground = true
         window.center()
 
         let view = MoveToApplicationsView(
@@ -119,7 +120,6 @@ final class InstallLocationCoordinator {
             onDismiss: { [weak self] in self?.dismiss(remembering: true) }
         )
         window.contentViewController = NSHostingController(rootView: view)
-        window.isReleasedWhenClosed = false
 
         let observer = InstallLocationWindowCloseObserver { [weak self] in
             self?.rememberDismissal()
@@ -128,8 +128,7 @@ final class InstallLocationCoordinator {
         closeObserver = observer
 
         self.window = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        window.presentUnprompted()
     }
 
     private func dismiss(remembering: Bool) {

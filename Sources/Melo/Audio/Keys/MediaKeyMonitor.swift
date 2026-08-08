@@ -31,7 +31,7 @@ final class MediaKeyMonitor {
     private let hudController: MediaKeyHUDPresenting
     private let popupVisibility: PopupVisibilityService
     private let mediaKeyStatus: MediaKeyStatus
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "MediaKeyMonitor")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "MediaKeyMonitor")
 
     // MARK: - Tap state
 

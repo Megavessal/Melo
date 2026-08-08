@@ -24,6 +24,10 @@ final class DeveloperUpdateManager: ObservableObject {
         case ready(DeveloperUpdateCandidate)
         case building(DeveloperUpdateCandidate)
         case installing(DeveloperUpdateCandidate)
+        /// The swap ran, the new build did not come up, and the installer put
+        /// the previous one back. Distinct from `.failed` because nothing the
+        /// user can retry went wrong here — a build did.
+        case rolledBack(version: String, build: Int, reason: String)
         case failed(String)
     }
 
@@ -51,7 +55,7 @@ final class DeveloperUpdateManager: ObservableObject {
 
     init(defaults: UserDefaults = .standard, bundle: Bundle = .main) {
         self.defaults = defaults
-        expectedBundleIdentifier = bundle.bundleIdentifier ?? "dev.local.Melo"
+        expectedBundleIdentifier = bundle.bundleIdentifier ?? "io.github.megavessal.Melo"
         automaticallyChecksFolder = defaults.object(forKey: Keys.automaticFolderChecks) as? Bool ?? false
         refreshFolderName()
     }
@@ -59,6 +63,22 @@ final class DeveloperUpdateManager: ObservableObject {
     func start() {
         guard Self.isEnabled, !started else { return }
         started = true
+
+        // Report the last install before looking for the next one. A rollback
+        // leaves this exact build running again, so "no newer build" would
+        // otherwise be the only thing the user ever sees about it.
+        if let outcome = UpdateStartupConfirmation.consumeInstallOutcome() {
+            if !outcome.logPath.isEmpty {
+                lastBuildLogURL = URL(fileURLWithPath: outcome.logPath)
+            }
+            status = .rolledBack(
+                version: outcome.version,
+                build: outcome.build,
+                reason: outcome.reason
+            )
+            return
+        }
+
         if automaticallyChecksFolder, watchedFolderName != nil {
             checkRememberedFolder()
         }
@@ -352,4 +372,14 @@ final class DeveloperUpdateManager: ObservableObject {
     nonisolated private static func message(for error: Error) -> String {
         (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
     }
+
+    #if MELO_DEV
+    /// Snapshot seam. A rollback can only be produced by shipping a build that
+    /// refuses to launch, so the one state that reports the worst outcome would
+    /// otherwise never be looked at.
+    func setStatusForSnapshot(_ status: Status, logURL: URL? = nil) {
+        self.status = status
+        lastBuildLogURL = logURL
+    }
+    #endif
 }

@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>Melo</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.local.Melo</string>
+	<string>io.github.megavessal.Melo</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -17,12 +17,12 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.9.3</string>
+	<string>2.9.4</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>dev.local.Melo</string>
+			<string>io.github.megavessal.Melo</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>melo</string>
@@ -30,17 +30,21 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>298</string>
+	<string>299</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.4</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>MeloAnalyticsAppID</key>
+	<string></string>
+	<key>MeloCrashReportingDSN</key>
+	<string></string>
 	<key>MeloDiagnosticsEndpoint</key>
 	<string></string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>Melo needs access to process and route audio from individual applications.</string>
+	<string>The app adjusts the volume and tone of each app you control and plays that audio straight back, without recording or saving it.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Melo uses Bluetooth to connect paired audio devices from the menu bar.</string>
 	<key>NSHighResolutionCapable</key>
@@ -50,11 +54,13 @@
 	<key>SUAutomaticallyUpdate</key>
 	<false/>
 	<key>SUEnableAutomaticChecks</key>
-	<false/>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://megavessal.github.io/Melo/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>7JecoPcstk5rOZtPoiNUlnYweiuhfggX8yNQSDaiAkc=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 	<key>SUVerifyUpdateBeforeExtraction</key>
 	<true/>
 </dict>

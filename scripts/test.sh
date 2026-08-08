@@ -37,7 +37,7 @@ APP="$ROOT/outputs/Melo.app"
 [[ -d "$APP" ]]
 [[ "$(defaults read "$APP/Contents/Info" CFBundleShortVersionString)" == "2.8.3" ]]
 [[ "$(defaults read "$APP/Contents/Info" CFBundleVersion)" == "283" ]]
-[[ "$(defaults read "$APP/Contents/Info" CFBundleIdentifier)" == "dev.local.Melo" ]]
+[[ "$(defaults read "$APP/Contents/Info" CFBundleIdentifier)" == "io.github.megavessal.Melo" ]]
 find "$APP/Contents" -name 'Metadata.appintents' -print -quit | grep -q .
 
 codesign --verify --deep --strict --verbose=2 "$APP"

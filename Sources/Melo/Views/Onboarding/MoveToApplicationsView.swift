@@ -42,13 +42,15 @@ struct MoveToApplicationsView: View {
                 .font(DesignTokens.Typography.Scale.title2())
             Text(
                 isTranslocated
-                    ? "macOS is running Melo from a temporary, read-only location."
+                    ? "macOS is running Melo from a temporary, read-only copy it made when you opened the download."
                     : "Melo is running from outside your \(destinationName) folder."
             )
             .font(DesignTokens.Typography.Scale.footnote())
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var dragIllustration: some View {
@@ -108,8 +110,8 @@ struct MoveToApplicationsView: View {
     private var explanation: some View {
         Text(
             isTranslocated
-                ? "Updates and settings cannot be saved from there. Moving Melo to \(destinationName) fixes it permanently."
-                : "Melo updates itself in place, which only works from a permanent location. Moving it now avoids failed updates later."
+                ? "Settings and updates cannot be saved from there, so nothing you change now will survive. Melo will copy itself to \(destinationName) and reopen from there."
+                : "Melo replaces itself in place when it updates, which only works from a permanent folder. Melo will copy itself to \(destinationName) and reopen from there — it takes a second and nothing is lost."
         )
         .font(DesignTokens.Typography.Scale.footnote())
         .foregroundStyle(.secondary)
@@ -119,16 +121,24 @@ struct MoveToApplicationsView: View {
     }
 
     private var actions: some View {
-        HStack(spacing: DesignTokens.Spacing.sm) {
-            if !isTranslocated {
-                Button("Not Now") { onDismiss() }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-            }
-            Button("Move to \(destinationName)") { onMove() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
+        // Stacks rather than truncating: "Move to Applications" at .large plus a
+        // second button already fills a 520pt window at the default text size.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: DesignTokens.Spacing.sm) { actionButtons }
+            VStack(spacing: DesignTokens.Spacing.sm) { actionButtons }
         }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        if !isTranslocated {
+            Button("Not Now") { onDismiss() }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+        }
+        Button("Move to \(destinationName)") { onMove() }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
     }
 }

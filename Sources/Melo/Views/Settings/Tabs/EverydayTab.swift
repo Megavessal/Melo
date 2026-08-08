@@ -8,6 +8,10 @@ struct EverydayTab: View {
     @Bindable var audioEngine: AudioEngine
     @Bindable var automationManager: ConsumerAutomationManager
     @Bindable var sleepTimer: SleepTimerManager
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
 
     @State private var showCreateScene = false
     @State private var showCreateAutomation = false
@@ -32,8 +36,10 @@ struct EverydayTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .guidedSectionScroll(target: sectionTarget)
         .sheet(isPresented: $showCreateScene) {
             CreateConsumerSceneSheet { name, symbol in
                 let scene = audioEngine.saveCurrentConsumerScene(name: name, symbolName: symbol)
@@ -116,6 +122,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .settingsSectionAnchor("Scenes", target: sectionTarget)
     }
 
     private func sceneCard(_ scene: ConsumerScene) -> some View {
@@ -201,6 +208,7 @@ struct EverydayTab: View {
                 }
                 .padding(12)
             }
+            .settingsSectionAnchor("Compare", target: sectionTarget)
         }
     }
 
@@ -264,6 +272,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .settingsSectionAnchor("Automations", target: sectionTarget)
     }
 
     private func automationRow(_ automation: ConsumerAutomation) -> some View {
@@ -319,6 +328,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .settingsSectionAnchor("Focus & Shortcuts", target: sectionTarget)
     }
 
     private func openShortcuts() {
@@ -360,6 +370,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .settingsSectionAnchor("Sleep Timer", target: sectionTarget)
     }
 
     private var recentChangesSection: some View {
@@ -404,6 +415,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .settingsSectionAnchor("Recent Changes", target: sectionTarget)
     }
 
     private var helpSection: some View {
@@ -447,6 +459,7 @@ struct EverydayTab: View {
             }
             .padding(12)
         }
+        .settingsSectionAnchor("Audio Help", target: sectionTarget)
     }
 
     private func friendlyEmptyState(symbol: String, title: String, message: String) -> some View {

@@ -9,66 +9,144 @@ import Foundation
 /// on-screen anchor (a new app icon, a policy change). Those steps render as a
 /// centred card with no cutout and no pointer.
 struct SpotlightStep: Identifiable, Sendable {
+    /// What a step says when its target is not on screen. A first run usually
+    /// has nothing playing, so the steps about app rows had been spotlighting an
+    /// empty rectangle and describing controls that were not there — the exact
+    /// shape of a tutorial that is fluff. Those steps now point at the "nothing
+    /// is playing" placeholder and say something true about it.
+    struct Alternate: Sendable {
+        let target: GuidedTourTarget?
+        /// Same job as the step's own `pointerTarget`, and needed for the same
+        /// reason: an alternate that falls back to a region puts the pointer on
+        /// whatever control sits at its centre.
+        let pointerTarget: GuidedTourTarget?
+        let title: String
+        let message: String
+
+        init(
+            target: GuidedTourTarget?,
+            pointerTarget: GuidedTourTarget? = nil,
+            title: String,
+            message: String
+        ) {
+            self.target = target
+            self.pointerTarget = pointerTarget
+            self.title = title
+            self.message = message
+        }
+    }
+
     let id: String
     let title: String
     let message: String
     let target: GuidedTourTarget?
+    /// Where the pointer goes when `target` is a region rather than one
+    /// control. The centre of a region is whatever control happens to sit
+    /// there, which for the device list is the mute button — the opposite of
+    /// what the step asks you to click.
+    let pointerTarget: GuidedTourTarget?
+    let unavailable: Alternate?
+
+    init(
+        id: String,
+        title: String,
+        message: String,
+        target: GuidedTourTarget?,
+        pointerTarget: GuidedTourTarget? = nil,
+        unavailable: Alternate? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.message = message
+        self.target = target
+        self.pointerTarget = pointerTarget
+        self.unavailable = unavailable
+    }
 }
 
 @Observable
 @MainActor
 final class GuidedTourCoordinator {
-    /// The first-run walkthrough, carried over verbatim from when it was an enum
-    /// plus a `copy(for:)` switch. The ids are the old case names: the overlay
-    /// still keys its pointer placement off them, and the verify scripts match
-    /// on them.
+    /// The first-run walkthrough. The ids are the old enum case names, which the
+    /// popup's reveal mapping and the verify scripts both match on.
+    ///
+    /// Each step names one control and points at that control: a highlight
+    /// around a whole row while the card talks about the equalizer inside it
+    /// teaches the row, not the equalizer. Every step's control is reachable
+    /// through the cutout while the step is on screen, so a step is an
+    /// invitation to do the thing rather than a caption about it. The steps
+    /// that need an app row carry an `unavailable` alternate, because a first
+    /// run usually has nothing playing.
     static let firstRunTour: [SpotlightStep] = [
         SpotlightStep(
             id: "appList",
             title: "Each app gets its own volume",
-            message: "Play audio in an app, then move only that app’s slider. Other apps and your main output stay where they are.",
-            target: .apps
+            message: "Melo opened this app's row. Drag the highlighted slider — only this app moves, and every other app and your main output stay where they are.",
+            target: .appVolume,
+            unavailable: SpotlightStep.Alternate(
+                target: .emptyApps,
+                title: "Apps show up here as they play",
+                message: "Nothing is making sound yet. The moment an app plays audio it takes a row here with a volume of its own, independent of every other app and of the main output."
+            )
         ),
         SpotlightStep(
             id: "appControls",
             title: "More controls live inside each row",
-            message: "Expand an app to mute it, route it to one or several devices, raise it beyond 100%, adjust stereo balance, and open its equalizer.",
-            target: .apps
+            message: "This arrow opens and closes an app's row. Everything for that app is inside it: mute, routing to one device or several, boost past 100%, balance, and its equalizer.",
+            target: .appDisclosure,
+            unavailable: SpotlightStep.Alternate(
+                target: .emptyApps,
+                title: "More controls live inside each row",
+                message: "No app has a row yet. When one does, the arrow beside its name opens mute, device routing, boost past 100%, stereo balance, and that app’s equalizer."
+            )
         ),
         SpotlightStep(
             id: "devices",
             title: "Choose speakers, displays, or headphones",
-            message: "Select the main output here. Melo remembers your device priority and restores preferred devices when they reconnect.",
-            target: .devices
+            message: "Every output you can use is in this list, and it is live — click a row to make that device the main output. Melo remembers your order and restores a preferred device when it reconnects.",
+            target: .devices,
+            pointerTarget: .deviceSelection
         ),
         SpotlightStep(
             id: "autoEQ",
             title: "AutoEQ corrects supported headphones",
-            message: "The wand beside a supported output searches headphone profiles and applies measured correction. This is device correction, separate from an app’s creative EQ.",
-            target: .devices
+            message: "This wand searches measured headphone profiles and applies the correction for your model. That is device correction, separate from an app’s creative EQ.",
+            target: .autoEQ,
+            unavailable: SpotlightStep.Alternate(
+                target: .devices,
+                pointerTarget: .deviceSelection,
+                title: "AutoEQ corrects supported headphones",
+                message: "Nothing connected right now supports it. Connect headphones Melo has a profile for and a wand appears in their row here, applying measured correction for that model."
+            )
         ),
         SpotlightStep(
             id: "smartAudio",
             title: "Smart Sound adapts automatically",
-            message: "This control can smooth loudness, protect transients, and make gentle content-aware adjustments. Start at Low or Medium and compare before using High.",
-            target: .smartAudio
+            message: "Smart Sound smooths loudness and protects transients. Pick a level here — start at Low or Medium and compare before trying High.",
+            target: .smartSoundLevel
         ),
         SpotlightStep(
             id: "equalizer",
             title: "EQ changes the tone of one app",
-            message: "Use a preset or move the ten frequency bands. The switch bypasses the curve without deleting it, and custom curves can be saved as presets.",
-            target: .equalizer
+            message: "These ten bands shape this app and nothing else. Start from a preset, then move a band. The switch bypasses a curve without deleting it.",
+            target: .equalizer,
+            pointerTarget: .eqPreset,
+            unavailable: SpotlightStep.Alternate(
+                target: .emptyApps,
+                title: "EQ changes the tone of one app",
+                message: "Each row that appears here carries its own ten-band equalizer: presets to start from, a switch that bypasses a curve without deleting it, and saving for curves you want again."
+            )
         ),
         SpotlightStep(
             id: "search",
             title: "Search finds actions, not only labels",
-            message: "Open search with this button or ⌘K. Natural phrases such as ‘quiet apps,’ ‘headphones,’ ‘updates,’ or ‘volume keys’ lead to the relevant control.",
+            message: "Press ⌘K, or click the highlighted button. Plain phrases such as ‘quiet apps,’ ‘headphones,’ ‘updates,’ or ‘volume keys’ go straight to the control that does it.",
             target: .search
         ),
         SpotlightStep(
             id: "settings",
             title: "Settings holds the deeper options",
-            message: "Use Settings for themes, shortcuts, updates, accessibility, quiet-app behavior, diagnostics, and replaying this tutorial.",
+            message: "Themes, shortcuts, updates, accessibility, quiet-app behavior, diagnostics — and a button that replays this tour whenever you want it again.",
             target: .settings
         )
     ]
@@ -156,4 +234,27 @@ final class GuidedTourCoordinator {
     func skip() {
         finish()
     }
+
+    #if MELO_DEV
+    /// Which walkthrough a snapshot frame should be showing.
+    enum SnapshotTour {
+        case firstRun
+        case custom([SpotlightStep])
+    }
+
+    /// Places the tour on an exact step so the render harness can capture each
+    /// one. Deliberately bypasses `start` / `next`: stepping there from zero
+    /// each frame would fire the first-run lifecycle and stamp
+    /// `guidedTourVersionCompleted`, which would mean taking snapshots silently
+    /// cancelled the real tour for whoever ran them.
+    func jump(to index: Int, in tour: SnapshotTour) {
+        switch tour {
+        case .firstRun: steps = Self.firstRunTour
+        case .custom(let custom): steps = custom
+        }
+        ownsFirstRunLifecycle = false
+        self.index = max(0, min(index, steps.count - 1))
+        isActive = !steps.isEmpty
+    }
+    #endif
 }

@@ -31,7 +31,7 @@ manifest = {
     "schemaVersion": 1,
     "version": version,
     "build": int(build),
-    "bundleIdentifier": "dev.local.Melo",
+    "bundleIdentifier": "io.github.megavessal.Melo",
     "packageType": "source",
     "minimumMacOS": "15.4",
     "sourceSubdirectory": source_name,

@@ -27,8 +27,6 @@ extension MenuBarIconImage {
             source = nil
         case .systemSymbol(let name):
             source = NSImage(systemSymbolName: name, accessibilityDescription: accessibilityDescription)
-        case .asset(let name):
-            source = NSImage(named: name)
         }
         guard let source else { return nil }
 
@@ -76,7 +74,16 @@ extension MenuBarIconImage {
         let image = NSImage(size: canvasSize, flipped: false) { _ in
             // One cell per point keeps the grid aligned to the pixel grid at
             // every backing scale factor.
-            let cell = min(canvasSize.width / CGFloat(columns), canvasSize.height / CGFloat(rows.count))
+            // Floored to a whole point, because the comment above is the intent
+            // and the division alone did not achieve it: 22/20 and 18/11 give
+            // 1.1pt, so cell edges landed at 1.1, 2.2, 3.3 … — 2.2 and 4.4
+            // device pixels at 2x. The mark rasterised with columns alternating
+            // two and three pixels wide, which is precisely the artefact drawing
+            // it as pixel art exists to avoid.
+            let cell = min(
+                canvasSize.width / CGFloat(columns),
+                canvasSize.height / CGFloat(rows.count)
+            ).rounded(.down)
             let originX = ((canvasSize.width - cell * CGFloat(columns)) / 2).rounded()
             // Whole cells only. A sub-cell offset would put the artwork between
             // device pixels and undo the point of drawing it as pixel art.

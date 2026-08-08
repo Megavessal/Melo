@@ -9,6 +9,10 @@ struct ShortcutsTab: View {
     @Bindable var mediaKeyStatus: MediaKeyStatus
     let mediaKeyMonitor: MediaKeyMonitor
     let shortcutsRegistry: ShortcutsRegistry
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
 
     var body: some View {
         ScrollView {
@@ -20,8 +24,10 @@ struct ShortcutsTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .guidedSectionScroll(target: sectionTarget)
         .onChange(of: settings.appSettings.mediaKeyControlEnabled) { _, _ in
             mediaKeyMonitor.reconcile()
         }
@@ -45,6 +51,7 @@ struct ShortcutsTab: View {
                 .fixedSize()
             }
         }
+        .settingsSectionAnchor("Volume", target: sectionTarget)
     }
 
     // MARK: - Media Keys
@@ -87,6 +94,7 @@ struct ShortcutsTab: View {
                 }
             }
         }
+        .settingsSectionAnchor("Media Keys", target: sectionTarget)
     }
 
     // MARK: - Hotkeys
@@ -106,6 +114,7 @@ struct ShortcutsTab: View {
                 }
             }
         }
+        .settingsSectionAnchor("Hotkeys", target: sectionTarget)
     }
 
     private func description(for action: ShortcutAction) -> String {

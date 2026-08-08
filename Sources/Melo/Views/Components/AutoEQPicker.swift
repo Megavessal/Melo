@@ -26,6 +26,21 @@ struct AutoEQPicker: View {
 
     private let popoverWidth: CGFloat = 260
 
+    // MARK: - Network Disclosure
+
+    /// Melo's only outbound request, said where it happens.
+    ///
+    /// The catalog and every profile come from raw.githubusercontent.com, and
+    /// until now nothing in the app said so — for an app that sells itself on
+    /// keeping audio local, an undisclosed request is a broken promise even
+    /// though it carries no user data. It reads here rather than only in
+    /// Settings › Privacy because this popover is where the request is caused;
+    /// a line in a tab nobody opened would document the behaviour without
+    /// disclosing it to the person triggering it.
+    static let networkDisclosure =
+        "Profiles come from the open-source AutoEQ project on GitHub, "
+        + "downloaded when you open this panel. Nothing about you is sent."
+
     // MARK: - Computed
 
     private var iconColor: Color {
@@ -79,6 +94,12 @@ struct AutoEQPicker: View {
         .onHover { isButtonHovered = $0 }
         .help(isExpanded ? "Close AutoEQ" : "AutoEQ correction")
         .animation(DesignTokens.Animation.hover, value: isButtonHovered)
+        // The guided tour's AutoEQ step points here. The anchor has to sit on
+        // the button rather than on `AutoEQPicker` as a whole: the picker's
+        // body puts `PopoverHost` — an NSViewRepresentable with no intrinsic
+        // size — in its background, which inflates the composite's bounds to
+        // the whole device row, so a spotlight on it highlighted the row.
+        .guidedTourTarget(.autoEQ)
     }
 
     // MARK: - Popover Content
@@ -111,8 +132,12 @@ struct AutoEQPicker: View {
                 preampEnabled: preampEnabled,
                 onPreampToggle: onPreampToggle
             )
+            disclosureFooter
         }
         .frame(width: popoverWidth)
+        // The catalog refresh lives here, not in `AutoEQProfileManager.init`,
+        // so the request happens with the disclosure above it on screen.
+        .task { await profileManager.prepareCatalog() }
         .background(
             VisualEffectBackground(material: .menu, blendingMode: .behindWindow)
                 .clipShape(DesignTokens.Dimensions.Shape.custom(8))
@@ -121,5 +146,21 @@ struct AutoEQPicker: View {
             DesignTokens.Dimensions.Shape.custom(8)
                 .strokeBorder(DesignTokens.Colors.glassBorder, lineWidth: 0.5)
         }
+    }
+
+    private var disclosureFooter: some View {
+        HStack(alignment: .top, spacing: DesignTokens.Spacing.xs) {
+            Image(systemName: "globe")
+                .font(.system(size: 9))
+                .foregroundStyle(DesignTokens.Colors.textTertiary)
+            Text(Self.networkDisclosure)
+                .font(.system(size: 9))
+                .foregroundStyle(DesignTokens.Colors.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, DesignTokens.Spacing.sm)
+        .padding(.vertical, DesignTokens.Spacing.xs)
+        .accessibilityElement(children: .combine)
     }
 }

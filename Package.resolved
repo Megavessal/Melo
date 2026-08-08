@@ -1,0 +1,33 @@
+{
+  "originHash" : "c0eb4a94ad1b27f455c73ac535b91edb29000fc1ec3f4d50d83ca44a0f32897f",
+  "pins" : [
+    {
+      "identity" : "fluidmenubarextra",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/wadetregaskis/FluidMenuBarExtra.git",
+      "state" : {
+        "revision" : "adaf0ea35d0cc4cf111c8b157bf7c624a0f75586",
+        "version" : "1.0.0"
+      }
+    },
+    {
+      "identity" : "keyboardshortcuts",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sindresorhus/KeyboardShortcuts.git",
+      "state" : {
+        "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
+        "version" : "2.4.0"
+      }
+    },
+    {
+      "identity" : "sparkle",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sparkle-project/Sparkle.git",
+      "state" : {
+        "revision" : "79bc9e872948e47877e76f194cb0c8e0412b0b90",
+        "version" : "2.9.5"
+      }
+    }
+  ],
+  "version" : 3
+}

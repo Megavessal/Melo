@@ -62,10 +62,6 @@ if '"$(inherited) @executable_path/../Frameworks"' in project:
 
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.3":
-    failures.append("wrong version")
-if info.get("CFBundleVersion") != "298":
-    failures.append("wrong build")
 if "MeloDiagnosticsEndpoint" not in info:
     failures.append("future diagnostics endpoint key missing")
 

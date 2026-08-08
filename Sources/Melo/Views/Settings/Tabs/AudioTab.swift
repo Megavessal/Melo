@@ -8,6 +8,10 @@ struct AudioTab: View {
     @Bindable var deviceVolumeMonitor: DeviceVolumeMonitor
     @Bindable var callDuckingManager: CallDuckingManager
     @Bindable var powerSourceMonitor: PowerSourceMonitor
+    /// The section the Guide sent the reader here to see. No default: dropping
+    /// it at the call site is then a build error rather than a tab that quietly
+    /// opens at the top again.
+    let sectionTarget: SettingsSectionTarget?
 
     @State private var showCallAppPicker = false
 
@@ -39,8 +43,10 @@ struct AudioTab: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 20)
             .frame(maxWidth: .infinity, alignment: .leading)
+            .scrollTargetLayout()
         }
         .scrollIndicators(.never)
+        .guidedSectionScroll(target: sectionTarget)
         .onAppear { updateSortedDevices() }
         .onChange(of: audioEngine.outputDevices) { _, _ in updateSortedDevices() }
         .onChange(of: settings.appSettings.lockInputDevice) { oldValue, newValue in
@@ -102,6 +108,7 @@ struct AudioTab: View {
                     .controlSize(.small)
             }
         }
+        .settingsSectionAnchor("Calls", target: sectionTarget)
     }
 
     // MARK: - Accessibility
@@ -134,6 +141,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
+        .settingsSectionAnchor("Listening", target: sectionTarget)
     }
 
     // MARK: - Privacy
@@ -164,6 +172,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
+        .settingsSectionAnchor("Privacy", target: sectionTarget)
     }
 
     // MARK: - Adaptive Audio
@@ -219,6 +228,7 @@ struct AudioTab: View {
                 }
             }
         }
+        .settingsSectionAnchor("Smart Sound", target: sectionTarget)
     }
 
     // MARK: - Volume
@@ -246,6 +256,7 @@ struct AudioTab: View {
                     .labelsHidden()
             }
         }
+        .settingsSectionAnchor("Volume", target: sectionTarget)
     }
 
     // MARK: - Devices
@@ -314,6 +325,7 @@ struct AudioTab: View {
                 }
             }
         }
+        .settingsSectionAnchor("Devices", target: sectionTarget)
     }
 
     private func updateSortedDevices() {

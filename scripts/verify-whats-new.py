@@ -103,13 +103,36 @@ require(
     "var lastSeenReleaseBuild: Int = 0",
     "decodeIfPresent(Int.self, forKey: .lastSeenReleaseBuild)",
 )
-require("Sources/Melo/Views/Onboarding/WhatsNewView.swift", "Show Me", "Version \\(note.version)")
+# The needle is the button, not the phrase. It was bare "Show Me", which this
+# file's own doc comment above `hasTour` also contains — measured 2026-08-08:
+# renaming the button and leaving the comment kept this green.
+require(
+    "Sources/Melo/Views/Onboarding/WhatsNewView.swift",
+    'Button("Show Me")',
+    "Version \\(note.version)",
+)
 require("Sources/Melo/Views/Settings/Tabs/AboutTab.swift", "What's New in Melo", "showWhatsNew()")
 app = require("Sources/Melo/FineTuneApp.swift", "whatsNew.showIfNeeded(suppressedByOnboarding:")
 # A fresh install must never see release notes, so the coordinator has to be
 # handed the fact that setup is about to appear rather than guessing.
 if "onboarding.isSetupPending" not in app:
     failures.append("FineTuneApp.swift: What's New does not stand down for first-run setup")
+
+# The Bluetooth rules used to live here and have moved to
+# scripts/verify-unasked-actions.py, which is their subject. Two of them were
+# also wrong by the time they were removed.
+#
+# The engine check required `onboardingVersionCompleted >= …`, on the stated
+# grounds that setup showed a page explaining Bluetooth first. That page was
+# deleted, and `decodeSettings` stamps onboarding complete for every
+# pre-existing install, so the guard passed at launch on exactly the machines it
+# was supposed to protect. Launch no longer touches IOBluetooth at all, which is
+# checked there by reading the startup block.
+#
+# The monitor check counted `guard isStarted` and wanted at least four. One of
+# the four is `start()`'s own idempotence guard, which is not an IOBluetooth
+# entry point — so the count could stay at four while `connect()` lost its gate.
+# The replacement reads each entry point's body individually.
 
 # The tour is data-driven now, and MenuBarPopupView's row-expansion mapping keys
 # off SpotlightStep ids. Renaming an id without updating the popup still

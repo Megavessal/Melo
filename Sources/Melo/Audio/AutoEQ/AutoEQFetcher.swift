@@ -14,7 +14,7 @@ final class AutoEQFetcher {
     private(set) var catalogState: FetchState = .idle
     private(set) var catalog: [AutoEQCatalogEntry] = []
 
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "AutoEQFetcher")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "AutoEQFetcher")
 
     // MARK: - URLs
 
@@ -46,29 +46,30 @@ final class AutoEQFetcher {
 
     // MARK: - Catalog
 
-    /// Load catalog from cache first, then refresh from GitHub in the background.
-    func loadCatalog() async {
-        // Try cached catalog first
-        if let cached = loadCatalogFromCache() {
-            catalog = cached
-            catalogState = .loaded
-            logger.info("Loaded \(cached.count) catalog entries from cache")
+    /// Loads whatever catalog is already on disk. Touches no network at all, so
+    /// the app can build its search index at launch without Melo having reached
+    /// anywhere. This used to be one method with the fetch below, which meant an
+    /// empty or week-old cache turned every launch into an undisclosed request
+    /// to raw.githubusercontent.com.
+    func loadCachedCatalog() {
+        guard let cached = loadCatalogFromCache() else { return }
+        catalog = cached
+        catalogState = .loaded
+        logger.info("Loaded \(cached.count) catalog entries from cache")
+    }
 
-            // Refresh in background if cache is stale
-            if isCatalogCacheStale() {
-                Task { @MainActor in
-                    await refreshCatalogFromGitHub()
-                }
-            }
-            return
-        }
-
-        // No cache — must fetch
+    /// The one place Melo goes to the network on its own, and only when the
+    /// cache cannot answer. Its caller is the AutoEQ panel opening, so a user
+    /// who never opens AutoEQ never causes a request.
+    func refreshCatalogIfNeeded() async {
+        guard catalog.isEmpty || isCatalogCacheStale() else { return }
         await refreshCatalogFromGitHub()
     }
 
     /// Fetch the catalog from GitHub INDEX.md and cache it.
-    func refreshCatalogFromGitHub() async {
+    /// Private so `refreshCatalogIfNeeded()` stays the only entrance: a caller
+    /// that could reach this directly could reach the network unconditionally.
+    private func refreshCatalogFromGitHub() async {
         catalogState = .loading
         do {
             let (data, response) = try await URLSession.shared.data(from: Self.indexURL)

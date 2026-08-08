@@ -7,6 +7,9 @@ import AppKit
 struct EditablePercentage: View {
     @Binding var percentage: Int
     let range: ClosedRange<Int>
+    /// Whose volume this shows, e.g. "Spotify". Defaulted so call sites outside
+    /// the popup keep compiling.
+    var subject: String = ""
     var onCommit: ((Int) -> Void)? = nil
     /// True when this row is the popup's keyboard selection (gates keyboard entry).
     var isRowFocused: Bool = false
@@ -91,8 +94,21 @@ struct EditablePercentage: View {
         .frame(width: DesignTokens.Dimensions.percentageWidth, alignment: .trailing)
         .contentShape(Rectangle())
         .onTapGesture { if !isEditing { startEditing() } }
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel("Edit volume percentage")
+        // Click-to-type was the only way to reach this, so the value it exists
+        // to set precisely was the one value VoiceOver could not set at all.
+        // One point per step: this field is the fine control beside the
+        // slider's coarse one — the same split the slider's own Option
+        // modifier makes — and 5% of a 0–400 range would be 20 points a press.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(subject.isEmpty ? "Volume percentage" : "\(subject) volume percentage")
+        .accessibilityValue("\(percentage)%")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: step(by: 1)
+            case .decrement: step(by: -1)
+            @unknown default: break
+            }
+        }
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -118,6 +134,16 @@ struct EditablePercentage: View {
         }
         .animation(DesignTokens.Animation.quick, value: isEditing)
         .animation(DesignTokens.Animation.hover, value: isHovered)
+    }
+
+    /// Same write path as `commit()`, so a typed value and an adjusted one
+    /// reach the row through the same door.
+    private func step(by delta: Int) {
+        let next = min(max(percentage + delta, range.lowerBound), range.upperBound)
+        guard next != percentage else { return }
+        percentage = next
+        onCommit?(next)
+        Haptics.step()
     }
 
     private func startEditing() {

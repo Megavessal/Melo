@@ -25,7 +25,7 @@ final class AccessibilityPermissionService: AccessibilityTrustProviding {
     private var trustObserver: NSObjectProtocol?
     private var debounceTask: Task<Void, Never>?
 
-    private let logger = Logger(subsystem: "dev.local.Melo", category: "AccessibilityPermissionService")
+    private let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "AccessibilityPermissionService")
 
     var refreshDidFinish: (() -> Void)?
 

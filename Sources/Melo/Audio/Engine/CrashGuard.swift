@@ -38,7 +38,7 @@ private nonisolated func crashSignalHandler(_ sig: Int32) {
     raise(sig)
 }
 
-private nonisolated let logger = Logger(subsystem: "dev.local.Melo", category: "CrashGuard")
+private nonisolated let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "CrashGuard")
 
 // MARK: - Public API
 

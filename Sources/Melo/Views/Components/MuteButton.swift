@@ -6,11 +6,23 @@ import SwiftUI
 struct MuteButton: View {
     let isMuted: Bool
     let levelFraction: Double
+    /// What this button mutes, e.g. "Spotify" or "MacBook Pro Speakers". Every
+    /// row in the popup has one of these, so without a subject VoiceOver reads
+    /// "Mute, button" four times running with nothing to tell them apart —
+    /// exactly the ambiguity Apple's criteria describe with "which cart item
+    /// will be deleted?". Defaulted so call sites outside the popup compile.
+    let subject: String
     let action: () -> Void
 
-    init(isMuted: Bool, levelFraction: Double = 1.0, action: @escaping () -> Void) {
+    init(
+        isMuted: Bool,
+        levelFraction: Double = 1.0,
+        subject: String = "",
+        action: @escaping () -> Void
+    ) {
         self.isMuted = isMuted
         self.levelFraction = levelFraction
+        self.subject = subject
         self.action = action
     }
 
@@ -22,6 +34,7 @@ struct MuteButton: View {
             layoutReferenceIcon: "speaker.wave.3.fill",
             mutedHelp: "Unmute",
             unmutedHelp: "Mute",
+            subject: subject,
             action: action
         )
     }
@@ -31,6 +44,7 @@ struct MuteButton: View {
 /// Shows mic when unmuted, mic.slash when muted
 struct InputMuteButton: View {
     let isMuted: Bool
+    var subject: String = ""
     let action: () -> Void
 
     var body: some View {
@@ -41,6 +55,7 @@ struct InputMuteButton: View {
             layoutReferenceIcon: nil,
             mutedHelp: "Unmute microphone",
             unmutedHelp: "Mute microphone",
+            subject: subject,
             action: action
         )
     }
@@ -56,7 +71,16 @@ private struct BaseMuteButton: View {
     let layoutReferenceIcon: String?
     let mutedHelp: String
     let unmutedHelp: String
+    let subject: String
     let action: () -> Void
+
+    /// "Mute Spotify" rather than "Mute". The tooltip stays bare — a pointer is
+    /// already resting on the row that names the app, and a VoiceOver cursor is
+    /// not.
+    private var spokenLabel: String {
+        let verb = isMuted ? mutedHelp : unmutedHelp
+        return subject.isEmpty ? verb : "\(verb) \(subject)"
+    }
 
     @State private var isPulsing = false
     @State private var isHovered = false
@@ -105,7 +129,7 @@ private struct BaseMuteButton: View {
             isHovered = hovering
         }
         .help(isMuted ? mutedHelp : unmutedHelp)
-        .accessibilityLabel(isMuted ? mutedHelp : unmutedHelp)
+        .accessibilityLabel(spokenLabel)
         .animation(DesignTokens.Animation.toggle, value: isPulsing)
         .animation(DesignTokens.Animation.hover, value: isHovered)
         .onChange(of: isMuted) { _, _ in

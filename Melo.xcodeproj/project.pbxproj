@@ -73,6 +73,11 @@
 		C4722DBC2ABB9AB4B66A183E /* MediaKeyStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */; };
 		CD3D058532662CB2B596820C /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */; };
 		CEE567D8B9800ED4A0BDA4E0 /* WhatsNewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFDB9291050D43A6A9AE6083 /* WhatsNewCoordinator.swift */; };
+		140B2EBB52D01DCFB9D6091F /* TelemetryEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE28F478E08C26808EB9D386 /* TelemetryEvent.swift */; };
+		2EB2D55F55D083DDCE8BF2B9 /* TelemetryEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF684C8C02BE04AAB5B083C /* TelemetryEnvironment.swift */; };
+		7BC27DEA96F6ECF0134BC6CA /* TelemetrySink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465AA26EBA924175F3A723C1 /* TelemetrySink.swift */; };
+		2D712D654025F3CF7F18C296 /* TelemetryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347B55062ACF31FB317B9173 /* TelemetryService.swift */; };
+		28D4EA747A2880BF4EFFA23D /* AnalyticsConsentPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0F15FD64E619A79CE0E638F /* AnalyticsConsentPrompt.swift */; };
 		47B1161301B8D6A7D6568359 /* PopupVisibilityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */; };
 		C565963592ADA5EAAC91D8A8 /* PowerSourceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */; };
 		1FAD0DB5CE7144F56506B9F7 /* SleepTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */; };
@@ -215,6 +220,12 @@
 		DA2E82959DEEDBF714F00440 /* SparkleUpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8EA129D0BCA10C96CE4881C /* SparkleUpdateController.swift */; };
 		7E9ACFA8A5180621C1A7F380 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 4EC397D4AD41F140D9BE3546 /* Sparkle */; };
 		B82E6E7CD170172A3FBE79D3 /* Sparkle-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8D324355EE7A9A0C7BE54F85 /* Sparkle-LICENSE.txt */; };
+		8F7D335B11E443AEAD66257F /* SnapshotHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = 602D160EEF954371824009D2 /* SnapshotHarness.swift */; };
+		5EFD8C37A8504BA0A7DF415B /* SnapshotScenes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333B597EE66841B684A5859F /* SnapshotScenes.swift */; };
+		1CF81DDB78D1452EA047EFBF /* PendingUpdateBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D2FD45FEACE46D69BE8FA40 /* PendingUpdateBanner.swift */; };
+		77424C17B976428A9D025C68 /* CallActivityDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 802C0085AA9540C1843DE8D1 /* CallActivityDetector.swift */; };
+		A9E2FFEDF5444A70B0375D87 /* LegacyDefaultsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */; };
+		93DD4D49475D461496537FD9 /* SettingsGuidedNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE51E19596047FDA1771756 /* SettingsGuidedNavigation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -285,6 +296,11 @@
 		BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/MediaKeyStatus.swift; sourceTree = SOURCE_ROOT; };
 		4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/OnboardingWindowController.swift; sourceTree = SOURCE_ROOT; };
 		AFDB9291050D43A6A9AE6083 /* WhatsNewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/WhatsNewCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		EE28F478E08C26808EB9D386 /* TelemetryEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Telemetry/TelemetryEvent.swift; sourceTree = SOURCE_ROOT; };
+		CFF684C8C02BE04AAB5B083C /* TelemetryEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Telemetry/TelemetryEnvironment.swift; sourceTree = SOURCE_ROOT; };
+		465AA26EBA924175F3A723C1 /* TelemetrySink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Telemetry/TelemetrySink.swift; sourceTree = SOURCE_ROOT; };
+		347B55062ACF31FB317B9173 /* TelemetryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Telemetry/TelemetryService.swift; sourceTree = SOURCE_ROOT; };
+		E0F15FD64E619A79CE0E638F /* AnalyticsConsentPrompt.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/AnalyticsConsentPrompt.swift; sourceTree = SOURCE_ROOT; };
 		74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PopupVisibilityService.swift; sourceTree = SOURCE_ROOT; };
 		CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PowerSourceMonitor.swift; sourceTree = SOURCE_ROOT; };
 		65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/SleepTimerManager.swift; sourceTree = SOURCE_ROOT; };
@@ -428,6 +444,12 @@
 		F8EA129D0BCA10C96CE4881C /* SparkleUpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/SparkleUpdateController.swift; sourceTree = SOURCE_ROOT; };
 		041912F103B334352BBB1CC1 /* Melo.local.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Config/Melo.local.entitlements; sourceTree = SOURCE_ROOT; };
 		8D324355EE7A9A0C7BE54F85 /* Sparkle-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Resources/Sparkle-LICENSE.txt; sourceTree = SOURCE_ROOT; };
+		602D160EEF954371824009D2 /* SnapshotHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/SnapshotHarness.swift; sourceTree = SOURCE_ROOT; };
+		333B597EE66841B684A5859F /* SnapshotScenes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/SnapshotScenes.swift; sourceTree = SOURCE_ROOT; };
+		4D2FD45FEACE46D69BE8FA40 /* PendingUpdateBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/PendingUpdateBanner.swift; sourceTree = SOURCE_ROOT; };
+		802C0085AA9540C1843DE8D1 /* CallActivityDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Types/CallActivityDetector.swift; sourceTree = SOURCE_ROOT; };
+		3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/LegacyDefaultsMigration.swift; sourceTree = SOURCE_ROOT; };
+		3CE51E19596047FDA1771756 /* SettingsGuidedNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/SettingsGuidedNavigation.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -457,6 +479,7 @@
 			F2C40B14E124178C2A85E553 /* IntentSearch.swift */,
 			22E30D4B206BA32CA150461D /* GuidedTourOverlay.swift */,
 			2A108AFDF4FB3D912CC2616A /* DeveloperUpdateManifest.swift */,
+			4D2FD45FEACE46D69BE8FA40 /* PendingUpdateBanner.swift */,
 			084D9974DE56612627FBC3B3 /* UpdateFolderBookmark.swift */,
 			132676624646211787267055 /* UpdatePackageValidator.swift */,
 			6A8AC880A63518ABD9C0BCA8 /* UpdateBuildCoordinator.swift */,
@@ -521,15 +544,22 @@
 			2BEEB8770CF02064C9D6263E /* DeviceVolumeProviding.swift */,
 			2032A2E010B3180BC5B4561C /* AudioRecordingPermission.swift */,
 			DF71C2EB76B05D7DC19C95E3 /* AudioScope.swift */,
+			802C0085AA9540C1843DE8D1 /* CallActivityDetector.swift */,
 			E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */,
 			7DE7F06B980C7D37F64538B5 /* TransportType.swift */,
 			BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */,
+			3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */,
 			EBC30BBD341C272738383CFC /* CallDuckingManager.swift */,
 			EB8B32EC58A69AD17559242A /* ConsumerAutomationManager.swift */,
 			E45FFC675BF167F1A75CEB30 /* ConsumerUndoManager.swift */,
 			BEE50FA8B09133F8752A97C9 /* MediaKeyStatus.swift */,
 			4A554489B224A3816FC4BEB0 /* OnboardingWindowController.swift */,
 			AFDB9291050D43A6A9AE6083 /* WhatsNewCoordinator.swift */,
+			EE28F478E08C26808EB9D386 /* TelemetryEvent.swift */,
+			CFF684C8C02BE04AAB5B083C /* TelemetryEnvironment.swift */,
+			465AA26EBA924175F3A723C1 /* TelemetrySink.swift */,
+			347B55062ACF31FB317B9173 /* TelemetryService.swift */,
+			E0F15FD64E619A79CE0E638F /* AnalyticsConsentPrompt.swift */,
 			74D013F41FAAD86ACBB475FA /* PopupVisibilityService.swift */,
 			CAE11B0FFD53CEB29EFACF27 /* PowerSourceMonitor.swift */,
 			65DB1887C96A1A9D91BF9008 /* SleepTimerManager.swift */,
@@ -560,6 +590,8 @@
 			EDEC4D1AF95BF62C5556252E /* ShortcutsRegistry.swift */,
 			7874A2FEACC9129601503D71 /* TargetAppResolver.swift */,
 			6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */,
+			333B597EE66841B684A5859F /* SnapshotScenes.swift */,
+			602D160EEF954371824009D2 /* SnapshotHarness.swift */,
 			840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */,
 			1557F6B5E3DB648765CBF49D /* InstallLocationCoordinator.swift */,
 			7A1C4D0E2FB3419A8C55D002 /* DockIconAppearanceCoordinator.swift */,
@@ -630,6 +662,7 @@
 			146A0CE4B0AD5EB4563C4BA3 /* InputDeviceRow.swift */,
 			67A4F57A622B1F67F2CE33D3 /* PairedDeviceRow.swift */,
 			791A3A57228764DA56EB3F6B /* AboutLinkChip.swift */,
+			3CE51E19596047FDA1771756 /* SettingsGuidedNavigation.swift */,
 			CA336732BCD1D4AC39A9D08E /* AccessibilityPromptStrip.swift */,
 			825DFC7CD5FB1D10E45C3383 /* HUDStyleSegmentedControl.swift */,
 			8DC83E866B6A074EBED1B0AC /* IconStyleSegmentedControl.swift */,
@@ -711,6 +744,12 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			93DD4D49475D461496537FD9 /* SettingsGuidedNavigation.swift in Sources */,
+			A9E2FFEDF5444A70B0375D87 /* LegacyDefaultsMigration.swift in Sources */,
+			77424C17B976428A9D025C68 /* CallActivityDetector.swift in Sources */,
+			1CF81DDB78D1452EA047EFBF /* PendingUpdateBanner.swift in Sources */,
+			5EFD8C37A8504BA0A7DF415B /* SnapshotScenes.swift in Sources */,
+			8F7D335B11E443AEAD66257F /* SnapshotHarness.swift in Sources */,
 			06C4C9684241D4403F097C28 /* FirstRunAudioPrimer.swift in Sources */,
 			A1B2C3D4E5F60718293A4B5C /* AppSupportCoordinator.swift in Sources */,
 			6A5E287245EE9118697D543F /* GuidedTourCoordinator.swift in Sources */,
@@ -790,6 +829,11 @@
 			C4722DBC2ABB9AB4B66A183E /* MediaKeyStatus.swift in Sources */,
 			CD3D058532662CB2B596820C /* OnboardingWindowController.swift in Sources */,
 			CEE567D8B9800ED4A0BDA4E0 /* WhatsNewCoordinator.swift in Sources */,
+			140B2EBB52D01DCFB9D6091F /* TelemetryEvent.swift in Sources */,
+			2EB2D55F55D083DDCE8BF2B9 /* TelemetryEnvironment.swift in Sources */,
+			7BC27DEA96F6ECF0134BC6CA /* TelemetrySink.swift in Sources */,
+			2D712D654025F3CF7F18C296 /* TelemetryService.swift in Sources */,
+			28D4EA747A2880BF4EFFA23D /* AnalyticsConsentPrompt.swift in Sources */,
 			47B1161301B8D6A7D6568359 /* PopupVisibilityService.swift in Sources */,
 			C565963592ADA5EAAC91D8A8 /* PowerSourceMonitor.swift in Sources */,
 			1FAD0DB5CE7144F56506B9F7 /* SleepTimerManager.swift in Sources */,
@@ -946,7 +990,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 298;
+			CURRENT_PROJECT_VERSION = 299;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -957,9 +1001,9 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.3;
+			MARKETING_VERSION = 2.9.4;
 			ONLY_ACTIVE_ARCH = NO;
-			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
+			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;
 			SWIFT_EMIT_LOC_STRINGS = YES;
 			SWIFT_STRICT_CONCURRENCY = complete;
@@ -976,7 +1020,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 298;
+			CURRENT_PROJECT_VERSION = 299;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -987,9 +1031,9 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.3;
+			MARKETING_VERSION = 2.9.4;
 			ONLY_ACTIVE_ARCH = NO;
-			PRODUCT_BUNDLE_IDENTIFIER = dev.local.Melo;
+			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;
 			SWIFT_EMIT_LOC_STRINGS = YES;
 			SWIFT_STRICT_CONCURRENCY = complete;

@@ -8,8 +8,25 @@ import SwiftUI
 @MainActor
 struct WhatsNewView: View {
     let notes: [MeloReleaseNote]
+    /// True when this was reopened from Settings → About, which hands over the
+    /// whole history rather than what was missed. The header used to claim
+    /// these were "updates you have not seen yet" either way, which was false
+    /// every single time someone asked for it deliberately.
+    let showsFullHistory: Bool
     let onDone: () -> Void
     let onShowMe: () -> Void
+
+    init(
+        notes: [MeloReleaseNote],
+        showsFullHistory: Bool = false,
+        onDone: @escaping () -> Void,
+        onShowMe: @escaping () -> Void
+    ) {
+        self.notes = notes
+        self.showsFullHistory = showsFullHistory
+        self.onDone = onDone
+        self.onShowMe = onShowMe
+    }
 
     /// Show Me only makes sense when at least one item has somewhere to point.
     private var hasTour: Bool {
@@ -64,7 +81,12 @@ struct WhatsNewView: View {
     }
 
     private var subtitle: String {
-        notes.count > 1
+        if showsFullHistory {
+            return notes.count > 1
+                ? "Every change across the last \(notes.count) releases, newest first."
+                : "Every change in this release."
+        }
+        return notes.count > 1
             ? "Here is everything that changed across the \(notes.count) updates you have not seen yet."
             : "Here is what changed in this update."
     }

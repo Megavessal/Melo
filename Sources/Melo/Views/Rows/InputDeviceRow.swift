@@ -73,6 +73,13 @@ struct InputDeviceRow: View {
             }
             .hoverableRow()
             .keyboardFocusRing(isFocused)
+            // Same gap as `DeviceRow`: tap-to-choose-this-input was a pointer
+            // gesture with no accessibility equivalent.
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(isDefault ? "\(device.name), current input" : device.name)
+            .accessibilityAction(named: "Use as input") {
+                if !isDefault { onSetDefault() }
+            }
             .onChange(of: volume) { _, newValue in
                 // Skip external sync mid-drag.
                 guard !isEditing else { return }
@@ -96,7 +103,7 @@ struct InputDeviceRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             // Mute button (mic icon)
-            InputMuteButton(isMuted: showMutedIcon) {
+            InputMuteButton(isMuted: showMutedIcon, subject: device.name) {
                 if showMutedIcon {
                     // Unmute: restore to default if displayed as 0%
                     if displayedPercentage == 0 {
@@ -141,6 +148,7 @@ struct InputDeviceRow: View {
                     set: { sliderValue = Double($0) / 100.0 }
                 ),
                 range: 0...100,
+                subject: device.name,
                 isRowFocused: isFocused
             )
         }

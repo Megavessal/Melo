@@ -67,7 +67,7 @@ class BiquadProcessor: @unchecked Sendable, BiquadProcessable {
     ///   - initiallyEnabled: Whether processing starts enabled. Default `false`.
     init(sampleRate: Double, maxSections: Int, category: String, initiallyEnabled: Bool = false) {
         self.sampleRate = sampleRate
-        self.logger = Logger(subsystem: "dev.local.Melo", category: category)
+        self.logger = Logger(subsystem: "io.github.megavessal.Melo", category: category)
         self._isEnabled = initiallyEnabled
         self.delayBufferSize = (2 * maxSections) + 2
 

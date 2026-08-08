@@ -4,7 +4,7 @@ import Foundation
 import os
 
 private let logger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "dev.local.Melo",
+    subsystem: Bundle.main.bundleIdentifier ?? "io.github.megavessal.Melo",
     category: "AudioDeviceID+Inspector"
 )
 

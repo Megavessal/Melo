@@ -178,6 +178,10 @@ struct InactiveAppRow: View {
                         .buttonStyle(.meloHover)
                         .help(isEQExpanded ? "Hide \(appInfo.displayName) controls" : "Show all \(appInfo.displayName) controls")
                         .accessibilityLabel(isEQExpanded ? "Hide app controls" : "Show all app controls")
+                        // Only the open row publishes this, so the tour step
+                        // about the disclosure arrow highlights the one row it
+                        // is talking about rather than the last row drawn.
+                        .guidedTourTarget(.appDisclosure, when: isEQExpanded)
                     }
 
                     if let subtitle = DevicePicker.routingSubtitle(
@@ -199,6 +203,7 @@ struct InactiveAppRow: View {
                     Image(systemName: "speaker.slash.fill")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DesignTokens.Colors.mutedIndicator)
+                        .accessibilityLabel("Muted")
                 }
 
                 Text("\(displayedPercentage)%")
@@ -255,6 +260,9 @@ struct InactiveAppRow: View {
                     onDeleteUserPreset: onDeleteUserPreset,
                     onRenameUserPreset: onRenameUserPreset
                 )
+                // The equalizer step is about the ten bands, not about the row
+                // that contains them alongside volume and balance.
+                .guidedTourTarget(.equalizer)
 
                 StereoFieldControlView(
                     settings: $localStereoFieldSettings,

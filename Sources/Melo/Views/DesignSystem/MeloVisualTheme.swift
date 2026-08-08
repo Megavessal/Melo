@@ -92,6 +92,7 @@ struct MeloThemeBackdrop: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
+                DeskMacPeek(accent: accent, isVisible: isVisible)
 
             case .space:
                 // Alphas were 0.97/0.92/0.94, which painted over the
@@ -134,8 +135,10 @@ struct MeloThemeBackdrop: View {
                 RocketFlight(isVisible: isVisible)
 
             case .aurora:
+                // The rocket belongs to Space and Galaxy. Aurora is the one
+                // themed sky with ground under it, and its own visitor lives
+                // there — see `CabinWindowLight`.
                 AuroraNightBackdrop(isVisible: isVisible)
-                RocketFlight(isVisible: isVisible)
 
             case .custom:
                 LinearGradient(
@@ -143,6 +146,7 @@ struct MeloThemeBackdrop: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
+                PaintBrushStroke(accent: accent, isVisible: isVisible)
 
             case .aiGenerated:
                 GeneratedThemeBackdrop(
@@ -286,7 +290,7 @@ private struct RocketFlight: View {
                 // argument at all, so the rocket kept flying behind a closed
                 // popup.
                 TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: isStatic)) { timeline in
-                    let now = timeline.date.timeIntervalSinceReferenceDate
+                    let now = meloEggTime(timeline.date)
                     ForEach(0..<Self.laneCount, id: \.self) { lane in
                         rocket(lane: lane, now: now, size: geometry.size)
                     }
@@ -425,6 +429,449 @@ private struct PixelRocketGlyph: View {
     }
 }
 
+// MARK: - Per-theme easter eggs
+//
+// The rocket is the reference for everything below it: one small thing, rarely,
+// briefly, drawn in the pixel idiom, gone again. Each theme gets a visitor that
+// belongs to *that* theme rather than the rocket in a different colour, and all
+// of them share three rules:
+//
+// 1. They rest. `EggCycle` returns `nil` for most of every cycle and nothing is
+//    drawn at all in that time — not a transparent draw, no draw.
+// 2. They stop when the popup is closed. `isVisible` comes down from
+//    `MenuBarPopupView`, and a hidden host takes the no-timeline branch, so a
+//    closed popup never schedules a redraw. This is the defect fixed once
+//    already for the star fields and the rocket; do not reintroduce it.
+// 3. Reduce Motion takes the same branch and shows the visitor in a still rest
+//    pose. Matching the rocket's parked glyph, so motion-sensitive users get the
+//    same easter egg rather than none.
+
+#if MELO_DEV
+/// Snapshot-only clock override.
+///
+/// These eggs appear for a handful of seconds out of every minute or two, so a
+/// frame rendered against wall-clock time almost always catches an empty stage.
+/// That is correct behaviour and a useless screenshot. Pinning the clock lets a
+/// scene capture one mid-appearance **without making the effect commoner**,
+/// which is the trade that would actually damage the feature.
+///
+/// Applies to the rockets as well, so the Space and Galaxy gate is capturable
+/// on the same terms.
+///
+/// **It is sticky.** Nothing clears it between scenes, so a scene that sets it
+/// would otherwise freeze an egg into every frame rendered after it. Clear it in
+/// the shared `prepare` wrapper in `SnapshotScenes.swift` — the one that already
+/// calls `applyAppearance(scheme)` — before each scene's own `prepare` runs.
+///
+/// `nonisolated(unsafe)` because the timeline closures that read it are not
+/// actor-isolated. It is written from the main thread by the snapshot harness
+/// and is not compiled into a release build at all.
+enum MeloEasterEggClock {
+    nonisolated(unsafe) static var forcedTime: TimeInterval?
+}
+#endif
+
+private func meloEggTime(_ date: Date) -> TimeInterval {
+    #if MELO_DEV
+    if let forced = MeloEasterEggClock.forcedTime { return forced }
+    #endif
+    return date.timeIntervalSinceReferenceDate
+}
+
+/// A long rest and a short appearance. `nil` means resting.
+private struct EggCycle {
+    /// Seconds from one appearance to the next.
+    let period: Double
+    /// Seconds the visitor is on screen. Kept under a tenth of `period`.
+    let duration: Double
+    /// Staggers the themes against one another, so switching themes doesn't
+    /// hand every one of them the same phase.
+    let offset: Double
+
+    /// - Returns: the cycle number, so successive appearances can vary, and
+    ///   progress through the appearance in `0...1`.
+    func appearance(at now: TimeInterval) -> (index: Int, progress: Double)? {
+        let shifted = now + offset
+        let index = Int(floor(shifted / period))
+        let elapsed = shifted - Double(index) * period
+        guard elapsed < duration else { return nil }
+        return (index, min(max(elapsed / duration, 0), 1))
+    }
+}
+
+/// The integer hash the star field and rocket already use, as a free function
+/// so the eggs below vary per appearance without a fourth copy of it.
+private func meloEggUnit(index: Int, salt: Int) -> Double {
+    var value = UInt64(truncatingIfNeeded: index &* 1_103_515_245 &+ salt &* 12_345)
+    value ^= value >> 16
+    value &*= 0x7FEB352D
+    value ^= value >> 15
+    return Double(value % 10_000) / 10_000
+}
+
+private func meloEggEase(_ unit: Double) -> Double {
+    let clamped = min(max(unit, 0), 1)
+    return clamped * clamped * (3 - 2 * clamped)
+}
+
+/// Maps `unit` from `range` onto `0...1`, clamped outside it. Lets one progress
+/// value drive several overlapping phases of an appearance.
+private func meloEggSegment(_ unit: Double, _ range: ClosedRange<Double>) -> Double {
+    let span = range.upperBound - range.lowerBound
+    guard span > 0 else { return unit >= range.upperBound ? 1 : 0 }
+    return min(max((unit - range.lowerBound) / span, 0), 1)
+}
+
+private func meloFillPixel(
+    _ context: inout GraphicsContext,
+    color: Color,
+    x: Int,
+    y: Int,
+    width: Int = 1,
+    height: Int = 1,
+    pixel: CGFloat,
+    xInset: CGFloat,
+    yInset: CGFloat,
+    opacity: Double = 1
+) {
+    let rect = CGRect(
+        x: xInset + CGFloat(x) * pixel,
+        y: yInset + CGFloat(y) * pixel,
+        width: CGFloat(width) * pixel,
+        height: CGFloat(height) * pixel
+    )
+    context.opacity = opacity
+    context.fill(Path(rect), with: .color(color))
+}
+
+// MARK: Mac — the desk Mac
+
+/// The visitor for `.systemAccent`.
+///
+/// A small pixel-art all-in-one computer rises just past the bottom edge, its
+/// screen powers on in the Mac's current accent colour, it sits there for a few
+/// seconds, and it sinks back out of frame. This theme's whole identity is "your
+/// Mac's accent", so the accent is what the little screen shows.
+///
+/// It carries a dark outline and a light body on purpose: `.systemAccent` and
+/// `.custom` are the two themes that do **not** force dark appearance, so this
+/// glyph can land on a white panel. Contrast comes from the outline, never from
+/// the accent, which may be graphite.
+private struct DeskMacPeek: View {
+    let accent: Color
+    var isVisible: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isStatic: Bool { reduceMotion || !isVisible }
+
+    private static let cycle = EggCycle(period: 78, duration: 6.2, offset: 4)
+    /// A 12×12 grid at 2.5pt — a third of the rocket's footprint.
+    private static let glyphSize = CGSize(width: 30, height: 30)
+
+    var body: some View {
+        GeometryReader { geometry in
+            if isStatic {
+                machine(geometry: geometry, rise: 1, screen: 1, flash: 0)
+                    .opacity(0.50)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: isStatic)) { timeline in
+                    if let appearance = Self.cycle.appearance(at: meloEggTime(timeline.date)) {
+                        let rise = meloEggEase(meloEggSegment(appearance.progress, 0...0.16))
+                            * (1 - meloEggEase(meloEggSegment(appearance.progress, 0.80...1)))
+                        // The screen comes on a beat after the machine settles,
+                        // with one bright frame, the way a CRT strikes.
+                        let flash = 1 - meloEggEase(meloEggSegment(appearance.progress, 0.22...0.27))
+                        let screen = meloEggEase(meloEggSegment(appearance.progress, 0.21...0.24))
+                            * (1 - meloEggEase(meloEggSegment(appearance.progress, 0.82...0.94)))
+                        machine(
+                            geometry: geometry,
+                            rise: rise,
+                            screen: screen,
+                            flash: appearance.progress > 0.21 ? flash : 0,
+                            cycleIndex: appearance.index
+                        )
+                        .opacity(0.62)
+                    }
+                }
+            }
+        }
+    }
+
+    private func machine(
+        geometry: GeometryProxy,
+        rise: Double,
+        screen: Double,
+        flash: Double,
+        cycleIndex: Int = 0
+    ) -> some View {
+        // Left of centre, and never under the right edge where the scroll
+        // indicator and the row disclosure controls sit.
+        let unit = meloEggUnit(index: cycleIndex, salt: 419)
+        let x = geometry.size.width * CGFloat(0.10 + unit * 0.32)
+        let hidden = geometry.size.height + Self.glyphSize.height * 0.7
+        let peeked = geometry.size.height - Self.glyphSize.height * 0.5 + 3
+        let y = hidden + (peeked - hidden) * CGFloat(rise)
+
+        return DeskMacGlyph(accent: accent, screenLevel: screen, flash: flash)
+            .frame(width: Self.glyphSize.width, height: Self.glyphSize.height)
+            .position(x: x, y: y)
+    }
+}
+
+/// Drawn on a 12×12 logical pixel grid.
+private struct DeskMacGlyph: View {
+    let accent: Color
+    let screenLevel: Double
+    let flash: Double
+
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            let pixel = min(size.width / 12, size.height / 12)
+            let xInset = (size.width - pixel * 12) / 2
+            let yInset = (size.height - pixel * 12) / 2
+
+            context.addFilter(.shadow(color: .black.opacity(0.32), radius: 2, x: 0, y: 1))
+
+            let outline = Color(red: 0.16, green: 0.15, blue: 0.14)
+            let shell = Color(red: 0.90, green: 0.87, blue: 0.81)
+            let shellShade = Color(red: 0.76, green: 0.73, blue: 0.68)
+
+            // Case: one dark rectangle with the shell inset inside it, so the
+            // outline is a real 1-pixel border rather than eight edge fills.
+            meloFillPixel(&context, color: outline, x: 1, y: 0, width: 10, height: 10, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: shell, x: 2, y: 1, width: 8, height: 8, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: shellShade, x: 2, y: 8, width: 8, pixel: pixel, xInset: xInset, yInset: yInset)
+
+            // Screen well, dark whether or not it is lit.
+            meloFillPixel(&context, color: outline.opacity(0.86), x: 3, y: 2, width: 6, height: 4, pixel: pixel, xInset: xInset, yInset: yInset)
+            if screenLevel > 0.01 {
+                meloFillPixel(&context, color: accent, x: 4, y: 3, width: 4, height: 2, pixel: pixel, xInset: xInset, yInset: yInset, opacity: 0.55 + screenLevel * 0.45)
+                meloFillPixel(&context, color: .white, x: 4, y: 3, pixel: pixel, xInset: xInset, yInset: yInset, opacity: min(0.9, screenLevel * 0.45 + flash * 0.85))
+            }
+
+            // Drive slot and the stand it rests on.
+            meloFillPixel(&context, color: outline.opacity(0.7), x: 4, y: 7, width: 4, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: shellShade, x: 4, y: 10, width: 4, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: outline, x: 2, y: 11, width: 8, pixel: pixel, xInset: xInset, yInset: yInset)
+            context.opacity = 1
+        }
+    }
+}
+
+// MARK: Aurora — the cabin
+
+/// The visitor for `.aurora`.
+///
+/// Once in a while a single warm window lights up on the far ridge, holds with a
+/// lamp's small unsteadiness, and goes dark again. Aurora is the only theme with
+/// ground drawn under its sky, so its egg is that someone lives out there and is
+/// also watching. Nothing new is drawn except the light itself — the mountain it
+/// sits on is already there.
+///
+/// It beat a shooting star, which would have been the star field's own
+/// vocabulary sped up, and the rocket's gesture wearing a different costume.
+private struct CabinWindowLight: View {
+    var isVisible: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isStatic: Bool { reduceMotion || !isVisible }
+
+    private static let cycle = EggCycle(period: 74, duration: 7.4, offset: 21)
+
+    /// Points that sit below `NightMountainSilhouette`'s far ridge and above its
+    /// near one, so the lamp always reads as standing on the distant slope
+    /// rather than floating in the sky or on the black foreground mass.
+    private static let spots: [CGPoint] = [
+        CGPoint(x: 0.33, y: 0.80),
+        CGPoint(x: 0.60, y: 0.78),
+        CGPoint(x: 0.22, y: 0.75)
+    ]
+
+    var body: some View {
+        GeometryReader { geometry in
+            if isStatic {
+                lamp(geometry: geometry, spot: Self.spots[0], level: 0.55)
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: isStatic)) { timeline in
+                    let now = meloEggTime(timeline.date)
+                    if let appearance = Self.cycle.appearance(at: now) {
+                        let rise = meloEggEase(meloEggSegment(appearance.progress, 0...0.19))
+                        let fall = 1 - meloEggEase(meloEggSegment(appearance.progress, 0.78...1))
+                        // A few percent of unsteadiness. A lamp, not a beacon.
+                        let unsteady = 0.94 + (sin(now * 2.6) + 1) * 0.03
+                        lamp(
+                            geometry: geometry,
+                            spot: Self.spots[abs(appearance.index) % Self.spots.count],
+                            level: rise * fall * unsteady
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func lamp(geometry: GeometryProxy, spot: CGPoint, level: Double) -> some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            guard level > 0.01 else { return }
+            let warm = Color(red: 1.0, green: 0.80, blue: 0.46)
+            let center = CGPoint(x: size.width * spot.x, y: size.height * spot.y)
+
+            let halo = CGRect(x: center.x - 9, y: center.y - 9, width: 18, height: 18)
+            context.opacity = level * 0.32
+            context.fill(
+                Path(ellipseIn: halo),
+                with: .radialGradient(
+                    Gradient(colors: [warm.opacity(0.85), .clear]),
+                    center: center,
+                    startRadius: 0,
+                    endRadius: 9
+                )
+            )
+
+            context.opacity = level * 0.86
+            context.fill(
+                Path(CGRect(x: center.x - 1.6, y: center.y - 1.3, width: 3.2, height: 2.6)),
+                with: .color(warm)
+            )
+            context.opacity = 1
+        }
+        .frame(width: geometry.size.width, height: geometry.size.height)
+    }
+}
+
+// MARK: Custom — the brush
+
+/// The visitor for `.custom`.
+///
+/// A small pixel paintbrush leans in low on the left, sweeps right leaving a
+/// short stroke in the user's own colour, lifts away, and the stroke dries off.
+///
+/// `.custom` is the one theme whose colour is unknown at build time — it can be
+/// white, black, or anything between — so **the character is shape-based and the
+/// colour is only what it paints.** The brush's legibility comes from its dark
+/// outline and the same drop-shadow filter the rocket uses, never from the hue;
+/// the accent appears in the bristles and the stroke, where being pale or dark
+/// is the point rather than a contrast failure. An accent-tinted glow, or the
+/// rocket recoloured, would both have disappeared at the ends of the range.
+private struct PaintBrushStroke: View {
+    let accent: Color
+    var isVisible: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var isStatic: Bool { reduceMotion || !isVisible }
+
+    private static let cycle = EggCycle(period: 68, duration: 5.6, offset: 47)
+    private static let glyphSize = CGSize(width: 28, height: 16)
+
+    var body: some View {
+        GeometryReader { geometry in
+            let y = min(geometry.size.height * 0.855, geometry.size.height - 26)
+            let startX = geometry.size.width * 0.08
+
+            if isStatic {
+                let endX = startX + geometry.size.width * 0.28
+                ZStack {
+                    stroke(from: startX, to: endX, y: y, opacity: 0.42, size: geometry.size)
+                    brush(at: endX, y: y, lift: 0, opacity: 0.45)
+                }
+            } else {
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: isStatic)) { timeline in
+                    if let appearance = Self.cycle.appearance(at: meloEggTime(timeline.date)) {
+                        let unit = meloEggUnit(index: appearance.index, salt: 617)
+                        let span = geometry.size.width * CGFloat(0.22 + unit * 0.12)
+                        let sweep = meloEggEase(meloEggSegment(appearance.progress, 0.09...0.48))
+                        let lift = meloEggEase(meloEggSegment(appearance.progress, 0.48...0.60))
+                        let enter = meloEggEase(meloEggSegment(appearance.progress, 0...0.09))
+                        let tipX = startX + span * CGFloat(sweep)
+                        // The stroke outlives the brush by a couple of seconds,
+                        // then dries off; the panel is left exactly as it was.
+                        let strokeFade = 1 - meloEggEase(meloEggSegment(appearance.progress, 0.62...1))
+
+                        ZStack {
+                            stroke(from: startX, to: tipX, y: y, opacity: 0.58 * strokeFade, size: geometry.size)
+                            brush(at: tipX, y: y, lift: lift, opacity: 0.72 * enter * (1 - lift))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func stroke(from startX: CGFloat, to endX: CGFloat, y: CGFloat, opacity: Double, size: CGSize) -> some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, _ in
+            guard endX - startX > 1, opacity > 0.01 else { return }
+            context.addFilter(.shadow(color: .black.opacity(0.26), radius: 1.5, x: 0, y: 1))
+
+            var path = Path()
+            path.move(to: CGPoint(x: startX, y: y))
+            let segments = 8
+            for segment in 1...segments {
+                let unit = CGFloat(segment) / CGFloat(segments)
+                // A hand's waver, under a point of it, so the stroke doesn't
+                // read as a divider rule drawn across the panel.
+                let waver = sin(Double(unit) * .pi * 2.1) * 0.8
+                path.addLine(to: CGPoint(x: startX + (endX - startX) * unit, y: y + CGFloat(waver)))
+            }
+
+            context.opacity = opacity
+            context.stroke(
+                path,
+                with: .color(accent),
+                style: StrokeStyle(lineWidth: 4.6, lineCap: .round, lineJoin: .round)
+            )
+            context.opacity = 1
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    private func brush(at tipX: CGFloat, y: CGFloat, lift: Double, opacity: Double) -> some View {
+        PaintBrushGlyph(accent: accent)
+            .frame(width: Self.glyphSize.width, height: Self.glyphSize.height)
+            // Handle up, bristles down onto the line — a clockwise tilt is what
+            // puts the tip on the stroke instead of hovering above it. Lifting
+            // rolls the brush back toward flat as it rises.
+            .rotationEffect(.degrees(20 - lift * 16))
+            .position(
+                x: tipX - Self.glyphSize.width * 0.36,
+                y: y - Self.glyphSize.height * 0.34 - CGFloat(lift) * 11
+            )
+            .opacity(opacity)
+    }
+}
+
+/// Drawn on a 14×8 logical pixel grid, bristles leading, so the paint appears
+/// behind the tip rather than in front of it.
+private struct PaintBrushGlyph: View {
+    let accent: Color
+
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: true) { context, size in
+            let pixel = min(size.width / 14, size.height / 8)
+            let xInset = (size.width - pixel * 14) / 2
+            let yInset = (size.height - pixel * 8) / 2
+
+            context.addFilter(.shadow(color: .black.opacity(0.32), radius: 2, x: 0, y: 1))
+
+            let outline = Color(red: 0.14, green: 0.13, blue: 0.13)
+            let handle = Color(red: 0.87, green: 0.74, blue: 0.51)
+            let ferrule = Color(red: 0.78, green: 0.80, blue: 0.83)
+
+            // Dark silhouette first, light inset second: the outline is what
+            // keeps this readable on a white panel and on a black one.
+            meloFillPixel(&context, color: outline, x: 0, y: 2, width: 10, height: 4, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: outline, x: 9, y: 1, width: 5, height: 6, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: handle, x: 0, y: 3, width: 7, height: 2, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: ferrule, x: 7, y: 3, width: 3, height: 2, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: accent, x: 10, y: 2, width: 4, height: 4, pixel: pixel, xInset: xInset, yInset: yInset)
+            meloFillPixel(&context, color: .white, x: 10, y: 2, width: 2, pixel: pixel, xInset: xInset, yInset: yInset, opacity: 0.28)
+            context.opacity = 1
+        }
+    }
+}
+
 // MARK: - Aurora
 
 private struct AuroraNightBackdrop: View {
@@ -452,6 +899,7 @@ private struct AuroraNightBackdrop: View {
             )
             AuroraRibbons(isVisible: isVisible)
             NightMountainSilhouette()
+            CabinWindowLight(isVisible: isVisible)
         }
     }
 }

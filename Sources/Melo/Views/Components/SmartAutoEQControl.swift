@@ -50,6 +50,9 @@ struct SmartAutoEQControl: View {
                 RoundedRectangle(cornerRadius: DesignTokens.Dimensions.buttonRadius + 2)
                     .fill(DesignTokens.Colors.pickerBackground)
             )
+            // The Smart Sound step is about choosing a level, so it highlights
+            // the picker rather than the row's icon and description too.
+            .guidedTourTarget(.smartSoundLevel)
         }
         .padding(.horizontal, DesignTokens.Spacing.sm)
         .padding(.vertical, 7)

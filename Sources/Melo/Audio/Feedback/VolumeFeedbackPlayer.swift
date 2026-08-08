@@ -35,14 +35,14 @@ final class VolumeFeedbackPlayer {
     // playback device after long process uptime (Apple #12506583).
     private static nonisolated let fallbackSoundPath = "/System/Library/Sounds/Tink.aiff"
 
-    private nonisolated let logger = Logger(subsystem: "dev.local.Melo", category: "VolumeFeedbackPlayer")
+    private nonisolated let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "VolumeFeedbackPlayer")
 
     private var lastPlay: TimeInterval = -.infinity
 
     /// `play()` blocks ~10–40 ms — too long for the main thread at key-repeat and
     /// HUD-drag rates, so playback happens on a dedicated serial queue.
     /// `sound`/`loadAttempted` are confined to `queue` — that is the contract.
-    private nonisolated let queue = DispatchQueue(label: "dev.local.Melo.volume-feedback", qos: .userInitiated)
+    private nonisolated let queue = DispatchQueue(label: "io.github.megavessal.Melo.volume-feedback", qos: .userInitiated)
     private nonisolated(unsafe) var sound: NSSound?
     private nonisolated(unsafe) var loadAttempted = false
 

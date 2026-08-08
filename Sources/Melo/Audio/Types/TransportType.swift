@@ -62,7 +62,7 @@ nonisolated enum TransportType: Sendable, Hashable, CustomStringConvertible {
         case .hdmi:        return "tv"
         case .displayPort: return "tv"
         case .aggregate:   return "speaker.wave.2"
-        case .unknown:     return "hifispeaker"
+        case .unknown:     return "speaker.wave.2"
         }
     }
 }

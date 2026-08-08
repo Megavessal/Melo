@@ -203,19 +203,73 @@ nonisolated enum IntentSearch {
         return Array(scored.prefix { $0.score >= floor }.prefix(limit).map(\.item))
     }
 
+    /// How strongly a phrase *names* a thing — an app, a speaker, a microphone —
+    /// as opposed to how good an answer that thing is to the phrase. Returns 0
+    /// when the phrase does not name it.
+    ///
+    /// `score` drops any result that accounts for less than half of what was
+    /// typed. That is the right rule for ranking rows and the wrong one for
+    /// pulling a name out of a sentence, because the name is only ever one word
+    /// of it. Measured: scoring "Spotify" against "set spotify to 200%" returns
+    /// **0** — three meaningful words, one of them the app — so Find an Action
+    /// produced no command at all for a request Shortcuts has always handled,
+    /// while the terser "spotify to 200%" worked. The question is reversed here:
+    /// the words of the *name* are expected in the query, and the rest of the
+    /// query is expected to be about what to do to it.
+    static func mention(of name: String, in query: String) -> Int {
+        let nameTokens = tokens(in: name).filter { !stopwords.contains($0) }
+        guard !nameTokens.isEmpty else { return 0 }
+        let queryTokens = Set(tokens(in: query))
+        guard !queryTokens.isEmpty else { return 0 }
+
+        // Exact or typo-close, deliberately *not* `weight`'s prefix rule. That
+        // rule treats a name token as matched when any query word merely starts
+        // with it, which is right for ranking and wrong here: it lets "pro"
+        // match "problem", so "my sound has a problem" would name AirPods Pro
+        // and offer to route an app to it. `fuzzyMatch` still absorbs typos and
+        // half-typed words, because it accepts either string being a prefix of
+        // the other once both are four characters — long enough that "pro"
+        // cannot reach. Exact equality carries no length floor at all, so apps
+        // genuinely called "TV" or "X" stay reachable.
+        let matched = nameTokens.filter { token in
+            queryTokens.contains(token) || queryTokens.contains { fuzzyMatch(token, $0) }
+        }.count
+        guard matched > 0 else { return 0 }
+
+        // Most of the name's words matched wins first, so "AirPods Pro" beats
+        // "AirPods Max" on "airpods pro"; the ratio only breaks ties between
+        // names that matched the same number of words.
+        var score = matched * 100 + Int(Double(matched) / Double(nameTokens.count) * 50)
+        if normalize(query).contains(normalize(name)) { score += 200 }
+        return score
+    }
+
     static func containsIntent(_ query: String, any terms: [String]) -> Bool {
         let expanded = expandedTokens(for: normalize(query))
         let target = Set(terms.flatMap { expandedTokens(for: normalize($0)) })
         return !expanded.isDisjoint(with: target)
     }
 
-    /// Reads a volume out of a phrase such as "Spotify to 40%". A bare number is
-    /// only accepted when it carries a percent sign or an explicit "to"/"at", so an
-    /// app named "Studio 3" is not silently read as a volume.
+    /// Loudest per-app volume Melo will accept, as a percent.
+    ///
+    /// A percent in Melo means **effective gain × 100**: an app's base volume
+    /// multiplied by its boost, so 200% is a 2× boosted app. 400 is the same
+    /// ceiling the app row's editable field enforces and the same one
+    /// `SetMeloAppVolumeIntent` documents. This used to stop at 100, which meant
+    /// typing "Music to 200%" into Find an Action produced no command at all
+    /// while the identical request through Shortcuts worked.
+    static let maximumVolumePercent = 400
+
+    /// Reads a volume out of a phrase such as "Spotify to 40%" or "Music to 200%".
+    /// A bare number is only accepted when it carries a percent sign or an explicit
+    /// "to"/"at", so an app named "Studio 3" is not silently read as a volume.
+    /// Anything above `maximumVolumePercent` returns nil rather than being clamped:
+    /// offering "Set Music to 400%" for a typed 900 would be answering a different
+    /// question than the one asked.
     static func percentage(in query: String) -> Int? {
         let patterns = [
-            #"(?<!\d)(100|[1-9]?\d)\s*%"#,
-            #"\b(?:to|at)\s+(100|[1-9]?\d)\b"#
+            #"(?<!\d)(\d{1,3})\s*%"#,
+            #"\b(?:to|at)\s+(\d{1,3})\b"#
         ]
         for pattern in patterns {
             guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
@@ -225,7 +279,7 @@ nonisolated enum IntentSearch {
                   ),
                   let range = Range(match.range(at: 1), in: query),
                   let value = Int(query[range]),
-                  (0...100).contains(value) else { continue }
+                  (0...maximumVolumePercent).contains(value) else { continue }
             return value
         }
         return nil
