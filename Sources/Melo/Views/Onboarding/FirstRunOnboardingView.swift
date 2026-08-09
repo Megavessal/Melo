@@ -2,22 +2,52 @@ import AVFoundation
 import AppKit
 import SwiftUI
 
-/// The sound behind setup's one interactive control.
+/// The sound behind setup's one interactive page.
 ///
-/// Deliberately `AVAudioPlayer` on Melo's own bundled file rather than the audio
-/// engine: it needs no permission, so the slider works identically whether the
-/// person allowed system audio or refused it, and it cannot alter anything the
+/// Deliberately Melo's own bundled file rather than the audio engine's tap: it
+/// needs no permission, so the controls work identically whether the person
+/// allowed system audio or refused it, and they cannot alter anything the
 /// person has set. A demo that only works after a grant would teach nobody who
 /// said no — and they are exactly the people left wondering what Melo does.
+///
+/// `AVAudioEngine` rather than `AVAudioPlayer`, because the last page now hands
+/// over the real `EQPanelView`. `AVAudioPlayer` has no effect chain, so on that
+/// path every band the reader drags would move a slider and change nothing they
+/// can hear: an equalizer that is visibly real and audibly inert, taught as the
+/// first thing they learn about Melo. That is the severed-wiring failure this
+/// project has already measured once.
 @Observable
 @MainActor
 final class OnboardingVolumeDemo {
     var volume: Double = 0.7 {
-        didSet { player?.volume = Float(volume) }
+        // Pushed at the node only once it is attached to the engine. The slider
+        // can be dragged before Play has ever been pressed, and mixing
+        // properties on a detached node are not a supported thing to set;
+        // `start()` applies the current value anyway.
+        didSet { if isWired { player.volume = Float(volume) } }
     }
 
     private(set) var isPlaying = false
-    @ObservationIgnored private var player: AVAudioPlayer?
+
+    @ObservationIgnored private let engine = AVAudioEngine()
+    @ObservationIgnored private let player = AVAudioPlayerNode()
+    @ObservationIgnored private let equalizer = AVAudioUnitEQ(numberOfBands: EQSettings.bandCount)
+    @ObservationIgnored private var theme: AVAudioPCMBuffer?
+    @ObservationIgnored private var isWired = false
+
+    init() {
+        // Bands are shaped here rather than in `prepare()` so a curve dragged
+        // before Play is pressed survives: `prepare()` runs on the first press
+        // and must not reset gains the reader has already set.
+        for (index, band) in equalizer.bands.enumerated() where index < EQSettings.frequencies.count {
+            band.filterType = .parametric
+            band.frequency = Float(EQSettings.frequencies[index])
+            // One octave per band, which is what the panel's 32…16k labels
+            // describe — ten octave-spaced ISO centres.
+            band.bandwidth = 1.0
+            band.bypass = false
+        }
+    }
 
     func toggle() {
         if isPlaying {
@@ -28,22 +58,72 @@ final class OnboardingVolumeDemo {
     }
 
     func start() {
-        guard let url = Bundle.main.url(forResource: "MeloFirstRunIntro", withExtension: "wav") else { return }
-        if player == nil {
-            player = try? AVAudioPlayer(contentsOf: url)
-            // Looped, because the point is to keep playing while the slider is
-            // dragged. A one-shot clip ends before the gesture does.
-            player?.numberOfLoops = -1
+        guard prepare(), let theme else { return }
+        do {
+            try engine.start()
+        } catch {
+            return
         }
-        player?.volume = Float(volume)
-        guard player?.play() == true else { return }
+        // Re-scheduled on every press: `stop()` empties the node's queue, so a
+        // second Play would otherwise run a started engine in silence.
+        player.scheduleBuffer(theme, at: nil, options: .loops)
+        player.volume = Float(volume)
+        player.play()
         isPlaying = true
     }
 
     func stop() {
-        player?.stop()
-        player?.currentTime = 0
+        player.stop()
+        engine.stop()
         isPlaying = false
+    }
+
+    /// Puts the curve the reader is dragging onto the sound they are hearing.
+    /// The single connection point between `EQPanelView` and the audio, called
+    /// from one `onChange` so a preset pick reaches the sound by the same route
+    /// a band drag does.
+    func apply(_ settings: EQSettings) {
+        let gains = settings.clampedGains
+        for (index, band) in equalizer.bands.enumerated() where index < gains.count {
+            band.gain = settings.isEnabled ? gains[index] : 0
+        }
+        // The same automatic headroom the real EQ path applies
+        // (`EQSettings.preampDB`), so a boosting curve reads as the tone change
+        // it is rather than as "louder" — and so the panel's own Headroom
+        // label, which is visible on this page, describes something true.
+        equalizer.globalGain = settings.isEnabled ? settings.preampDB : 0
+    }
+
+    private func prepare() -> Bool {
+        if isWired { return true }
+        // The full theme, not a clip: 90 seconds is long enough to play with the
+        // volume and the EQ without the track restarting under you, which a
+        // two-second loop did on roughly every third drag.
+        guard let url = Bundle.main.url(forResource: "MeloTheme", withExtension: "m4a"),
+              let file = try? AVAudioFile(forReading: url) else { return false }
+        let format = file.processingFormat
+        // Decoded once into a looping buffer rather than re-scheduled at the end
+        // of each pass: `.loops` repeats inside the render thread with no gap and
+        // no completion handler to hop back to the main actor from. It costs the
+        // decoded theme in memory for as long as setup is open, and that is freed
+        // with the window.
+        guard file.length > 0, let buffer = AVAudioPCMBuffer(
+            pcmFormat: format,
+            frameCapacity: AVAudioFrameCount(file.length)
+        ) else { return false }
+        do {
+            try file.read(into: buffer)
+        } catch {
+            return false
+        }
+        theme = buffer
+
+        engine.attach(player)
+        engine.attach(equalizer)
+        engine.connect(player, to: equalizer, format: format)
+        engine.connect(equalizer, to: engine.mainMixerNode, format: format)
+        isWired = true
+        return true
     }
 }
 
@@ -67,6 +147,11 @@ struct FirstRunOnboardingView: View {
     /// already been and gone.
     @State private var didRequestAccessibility = false
     @State private var demo = OnboardingVolumeDemo()
+    /// The last page's equalizer state. Local, and deliberately not any app's
+    /// stored curve: the panel is the real one, so a binding into settings here
+    /// would mean a tutorial drag silently re-tuning an app the reader has not
+    /// met yet.
+    @State private var demoEQ = EQSettings()
 
     init(
         settings: SettingsManager,
@@ -609,79 +694,197 @@ struct FirstRunOnboardingView: View {
     // MARK: - Finish
 
     /// The one page where the reader does the thing instead of reading about it.
-    /// Everything before this hands off to a macOS alert; this hands them a real
-    /// slider attached to real audio, in the shape of the row they will use every
-    /// day. Reciting where the controls live — which is what this page used to do
-    /// — is the memorisation failure Apple's onboarding guidance names.
+    /// Everything before this hands off to a macOS alert; this hands them the
+    /// popup's own row and the popup's own equalizer, attached to real audio, so
+    /// the minute spent here is a minute spent in the control surface rather
+    /// than reading a description of it. Reciting where the controls live —
+    /// which is what this page used to do — is the memorisation failure Apple's
+    /// onboarding guidance names.
     ///
-    /// Nothing on this page writes a setting. Melo's own sound needs no
-    /// permission and touches nothing outside this window, so replaying setup
-    /// from Settings changes exactly nothing, which is what the row that offers
-    /// the replay promises.
+    /// No icon, and tighter than the pages before it. A page whose content is
+    /// itself the illustration does not also need a symbol above the title, and
+    /// the ten EQ bands need every point the chrome can give back — see the
+    /// height note on `playground`.
+    ///
+    /// Two things here outlive the window, and both only from a control the
+    /// reader operated: the Dock switch, which is Settings › General's own
+    /// preference, and saving, renaming or deleting an EQ preset, which is that
+    /// button doing exactly what it says. The curve itself, the volume and the
+    /// sound are local to this window, so arriving on this page and leaving
+    /// again still changes nothing — which is what the Settings row offering to
+    /// replay setup promises.
     private var finishPage: some View {
         onboardingPage(
-            symbol: "hand.draw",
+            customIcon: AnyView(EmptyView()),
+            // `scripts/verify-consumer-foundations.py` matches this title
+            // literally, as its only proof that the flow still ends on the page
+            // that hands over a control. Rename it there in the same change.
             title: "Try It Once",
-            message: "Melo will loop a short sound. Drag its volume and listen — every app in Melo gets a row exactly like this one.",
-            detail: "This is Melo’s own sound. Nothing else on your Mac is touched by it."
+            // Two lines each, at these widths. Every line of copy here is a line
+            // the equalizer does not get: see the height note on `playground`.
+            message: "Every app in Melo gets this row and this equalizer. Press Play, then drag anything you can see.",
+            detail: "Melo’s own theme, playing inside this window only. Nothing else on your Mac is touched by it.",
+            spacing: DesignTokens.Spacing.md,
+            verticalPadding: DesignTokens.Spacing.md
         ) {
-            demoRow
+            playground
         }
     }
 
-    /// Deliberately built to match the popup's collapsed app row — icon, name,
-    /// slider, editable-looking percentage — so the gesture practised here is the
-    /// gesture that works later.
-    private var demoRow: some View {
-        VStack(spacing: DesignTokens.Spacing.xs) {
-            HStack(spacing: DesignTokens.Spacing.sm) {
-                Image(nsImage: NSApplication.shared.applicationIconImage ?? NSImage())
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 26, height: 26)
+    /// The popup's app row, running on Melo's theme instead of on an app.
+    ///
+    /// `ExpandableGlassRow`, `LiquidGlassSlider`, `EditablePercentage` and
+    /// `EQPanelView` are the same types `AppRow` builds from, at the popup's own
+    /// content width — not a tutorial mock of them. The point of the page is
+    /// that the control practised here *is* the control met later, and a
+    /// look-alike would teach a surface that does not exist.
+    ///
+    /// Two controls of the real row are left out rather than shown dead: the
+    /// device picker and the boost chevrons have nothing to act on in a window
+    /// with no app in it. The Play button is the page's own, because the popup
+    /// never needs one.
+    ///
+    /// Height, because this page is the one that can overflow: the ten EQ bands
+    /// alone are 100pt inside a panel that is about 160, the row around them
+    /// about 250, and the window's own chrome — Skip, dots, Back/Show Me — takes
+    /// roughly 130 before the scroll area starts. That leaves about 350pt of
+    /// viewport at the 480pt minimum height and about 430 at the height the
+    /// window opens at, against a page that wants roughly 550. It scrolls, and
+    /// the copy above is cut to two lines and one line to keep the overflow to
+    /// the tail. Order is the mitigation: the row and its equalizer come first,
+    /// so what falls below the fold is the Dock switch and the closing
+    /// paragraph, never the thing the page invites you to touch.
+    private var playground: some View {
+        VStack(spacing: DesignTokens.Spacing.md) {
+            ExpandableGlassRow(isExpanded: true) {
+                HStack(spacing: DesignTokens.Spacing.sm) {
+                    Image(nsImage: NSApplication.shared.applicationIconImage ?? NSImage())
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(
+                            width: DesignTokens.Dimensions.rowContentHeight - 4,
+                            height: DesignTokens.Dimensions.rowContentHeight - 4
+                        )
+                        // The name beside it is the label; an unnamed image
+                        // element here would just be a stop with nothing in it.
+                        .accessibilityHidden(true)
 
-                Text("Melo Introduction")
-                    .font(DesignTokens.Typography.Scale.body(.medium))
-                    .lineLimit(1)
+                    // Name over a quiet second line, exactly where a real row
+                    // carries its routing subtitle — and what belongs there for
+                    // a piece of music is what a music app would put there.
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Melo Theme")
+                            .font(DesignTokens.Typography.rowName)
+                            .lineLimit(1)
+                        Text(demo.isPlaying ? "Playing — 1:30, looping" : "Melo’s own theme — 1:30")
+                            .font(.system(size: 9))
+                            .foregroundStyle(DesignTokens.Colors.textTertiary)
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                Slider(value: $demo.volume, in: 0...1)
-                    .frame(minWidth: 130)
-                    .accessibilityLabel("Melo Introduction volume")
+                    Button(demo.isPlaying ? "Stop" : "Play") { demo.toggle() }
+                        .buttonStyle(.bordered)
+                }
+                .frame(height: DesignTokens.Dimensions.rowContentHeight)
+            } expandedContent: {
+                VStack(spacing: DesignTokens.Spacing.xs) {
+                    HStack(spacing: DesignTokens.Spacing.sm) {
+                        LiquidGlassSlider(
+                            value: $demo.volume,
+                            accessibilityTitle: "Melo Theme volume",
+                            valueDescription: { "\(Int(($0 * 100).rounded()))%" }
+                        )
+                        .frame(width: DesignTokens.Dimensions.sliderWidth)
+                        .scrollWheelStep($demo.volume, in: 0.0...1.0)
 
-                Text("\(Int((demo.volume * 100).rounded()))%")
-                    .font(DesignTokens.Typography.Scale.body(.medium))
-                    .monospacedDigit()
-                    .frame(width: 40, alignment: .trailing)
+                        EditablePercentage(
+                            percentage: Binding(
+                                get: { Int((demo.volume * 100).rounded()) },
+                                set: { demo.volume = Double($0) / 100 }
+                            ),
+                            range: 0...100,
+                            subject: "Melo Theme"
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .trailing)
 
-                Button(demo.isPlaying ? "Stop" : "Play") { demo.toggle() }
-                    .buttonStyle(.bordered)
+                    Divider()
+                        .padding(.vertical, 2)
+
+                    EQPanelView(
+                        settings: $demoEQ,
+                        // The reader's real presets, and real save/rename/delete.
+                        // A picker stocked with fake entries, or a save button
+                        // that closes its field and stores nothing, teaches a
+                        // control by lying about it once.
+                        userPresets: settings.getUserPresets(),
+                        onPresetSelected: { demoEQ = $0.settings },
+                        onUserPresetSelected: { demoEQ = $0.settings },
+                        onSettingsChanged: { _ in },
+                        onSavePreset: { name, eq in settings.createUserPreset(name: name, settings: eq) },
+                        onDeleteUserPreset: { settings.deleteUserPreset(id: $0) },
+                        onRenameUserPreset: { settings.updateUserPreset(id: $0, name: $1) }
+                    )
+                }
+                .padding(.top, DesignTokens.Spacing.sm)
             }
-            .padding(.horizontal, DesignTokens.Spacing.md)
-            .padding(.vertical, DesignTokens.Spacing.sm)
-            .background(DesignTokens.Dimensions.Shape.md.fill(DesignTokens.Colors.glassFillStrong))
-            .overlay(
-                DesignTokens.Dimensions.Shape.md
-                    .strokeBorder(DesignTokens.Colors.glassRowBorderHover, lineWidth: 0.5)
-            )
-            .frame(maxWidth: 470)
+            // One wire from the panel to the sound, watching the state every
+            // path writes. Hanging it off `onSettingsChanged` instead would
+            // leave preset picks silent, because the panel reports those
+            // through their own callbacks.
+            .onChange(of: demoEQ) { _, curve in demo.apply(curve) }
+            .frame(width: DesignTokens.Dimensions.contentWidth)
 
-            Text(demo.isPlaying
-                 ? "Drag the slider. Only this sound changes."
-                 : "Press Play, then drag the slider.")
-                .font(DesignTokens.Typography.Scale.footnote())
-                .foregroundStyle(.secondary)
+            // No caption under the row repeating "press Play, then drag": the
+            // page's own message says it, and the row's second line already
+            // reports whether the track is playing. Two of those, and the
+            // equalizer loses another line of height to say nothing new.
+            dockSettingRow
 
             // Last, not before the control: the one thing worth remembering
             // after setup is where the answers live, and it should not stand
             // between the invitation and the thing being offered.
-            Text("That’s setup done. Settings › Guide answers questions by problem as well as by name, and Settings › General can replay this whenever you like.")
+            Text("That’s setup done. Settings › Guide answers questions by problem, and Settings › General can replay this whenever you like.")
                 .font(DesignTokens.Typography.Scale.footnote())
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 430)
-                .padding(.top, DesignTokens.Spacing.sm)
         }
+    }
+
+    /// Settings' own row and switch, for Settings' own preference
+    /// (`showInDock`) — the reader meets the control here in the shape it keeps.
+    ///
+    /// "Keep", not "Show", and the subtitle says *after setup*. Setup's own
+    /// window holds a Dock tile for as long as it is open, whatever the
+    /// preference says, so a switch labelled "Show Melo in the Dock" would sit
+    /// beside an icon that is already there and appear to do nothing when
+    /// flipped. What it really decides is what happens when this window closes,
+    /// and that is what it now says.
+    ///
+    /// A two-way binding, not an opt-in: anyone replaying setup may already have
+    /// switched this on from Settings or the menu bar, and a box that always
+    /// arrived unticked would offer to take that away.
+    private var dockSettingRow: some View {
+        SettingsRow(
+            "Keep Melo in the Dock",
+            description: "When setup finishes, keep a Dock icon as well as the menu bar. Change it any time in Settings › General."
+        ) {
+            Toggle("", isOn: Binding(
+                get: { settings.appSettings.showInDock },
+                set: { newValue in
+                    var appSettings = settings.appSettings
+                    appSettings.showInDock = newValue
+                    settings.appSettings = appSettings
+                }
+            ))
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .labelsHidden()
+        }
+        .frame(width: DesignTokens.Dimensions.contentWidth)
     }
 
     // MARK: - Page chrome
@@ -709,14 +912,21 @@ struct FirstRunOnboardingView: View {
         )
     }
 
+    /// `spacing` and `verticalPadding` default to the flow's normal page rhythm.
+    /// The last page passes tighter values because its actions block is a full
+    /// app row and a ten-band equalizer: at the window's 480pt minimum the
+    /// scroll area is only a few hundred points tall, and page chrome set for a
+    /// paragraph and a button spends a fifth of it on air.
     private func onboardingPage<Actions: View>(
         customIcon: AnyView,
         title: String,
         message: String,
         detail: String,
+        spacing: CGFloat = 18,
+        verticalPadding: CGFloat = DesignTokens.Spacing.xl,
         @ViewBuilder actions: () -> Actions
     ) -> some View {
-        VStack(spacing: 18) {
+        VStack(spacing: spacing) {
             customIcon
                 .accessibilityHidden(true)
 
@@ -759,7 +969,7 @@ struct FirstRunOnboardingView: View {
             .padding(.top, DesignTokens.Spacing.xs)
         }
         .padding(.horizontal, 38)
-        .padding(.vertical, DesignTokens.Spacing.xl)
+        .padding(.vertical, verticalPadding)
         // `maxHeight: .infinity` inside a ScrollView collapses to the ideal
         // height; a minimum keeps short pages optically centred instead.
         .frame(maxWidth: .infinity, minHeight: 300)

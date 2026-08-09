@@ -68,17 +68,24 @@ final class AppSupportCoordinator {
         self.whatsNew = whatsNew
         self.audioEngine = audioEngine
         self.sparkle = sparkle
+        // Here rather than at either use site because this initializer runs
+        // synchronously inside `FineTuneApp.init`, before any view can put
+        // first-run setup or a tour on screen. `DockPresence` reads the
+        // preference through this reference every time it evaluates, so a claim
+        // released before it was configured would take away a tile the user had
+        // asked to keep.
+        DockPresence.shared.configure(settings: settings)
     }
 
     func applyDockPreferenceAtLaunch() {
-        applyDockVisibility(settings.appSettings.showInDock, activate: false)
+        DockPresence.shared.reapplyPreference(activate: false)
     }
 
     func setDockVisible(_ visible: Bool) {
         var appSettings = settings.appSettings
         appSettings.showInDock = visible
         settings.appSettings = appSettings
-        applyDockVisibility(visible, activate: visible)
+        DockPresence.shared.reapplyPreference(activate: visible)
     }
 
     func toggleDockVisibility() {
@@ -208,22 +215,6 @@ final class AppSupportCoordinator {
         } catch {
             logger.error("Could not erase and restart Melo: \(error.localizedDescription)")
             reportStatusMessage = "Could not restart Melo"
-        }
-    }
-
-    private func applyDockVisibility(_ visible: Bool, activate: Bool) {
-        let policy: NSApplication.ActivationPolicy = visible ? .regular : .accessory
-        guard NSApp.setActivationPolicy(policy) else {
-            logger.error("Could not change Dock visibility")
-            return
-        }
-        // A tile that has just appeared takes whatever icon is set at that
-        // moment, so re-assert the appearance-matched artwork here.
-        if visible {
-            DockIconAppearanceCoordinator.shared.apply()
-        }
-        if activate {
-            NSApp.activate(ignoringOtherApps: true)
         }
     }
 

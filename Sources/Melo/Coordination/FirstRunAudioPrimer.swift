@@ -33,7 +33,9 @@ final class FirstRunAudioPrimer {
 
         task = Task { @MainActor [weak self] in
             guard let self else { return }
-            guard let url = Bundle.main.url(forResource: "MeloFirstRunIntro", withExtension: "wav") else {
+            // The jingle is the theme's opening bar, so the sound that triggers
+            // the permission prompt is the same music the tutorial then plays.
+            guard let url = Bundle.main.url(forResource: "MeloJingle", withExtension: "m4a") else {
                 state = .unavailable("The introduction sound is missing from this build.")
                 return
             }

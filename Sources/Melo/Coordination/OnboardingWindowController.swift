@@ -58,7 +58,13 @@ final class UnpromptedWindowPanel: NSPanel {
             defer: flag
         )
         titlebarAppearsTransparent = true
-        isMovableByWindowBackground = true
+        // Deliberately off. With background dragging on, AppKit claims any drag
+        // that a subview does not consume — and a SwiftUI `Slider` inside the
+        // window loses its gesture to the window move, so the setup slider could
+        // be clicked but never dragged, while the whole panel slid across the
+        // screen instead. These windows are `.titled`, so the title bar still
+        // drags them, which is what every other macOS window does anyway.
+        isMovableByWindowBackground = false
         hidesOnDeactivate = false
         becomesKeyOnlyIfNeeded = false
         isReleasedWhenClosed = false
@@ -236,13 +242,25 @@ final class OnboardingWindowController {
     }
 
     func show() {
+        // Before the window is presented, not after. Setup is the flow the Dock
+        // tile exists for, and `setActivationPolicy` is the thing most likely to
+        // disturb key status — doing it first means `presentUnprompted()` is the
+        // last word on which window is key, rather than something a later policy
+        // switch has to undo.
+        DockPresence.shared.claim(.firstRunSetup)
+
         if let window {
             window.presentUnprompted()
             return
         }
 
         let window = UnpromptedWindowPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 590, height: 560),
+            // 700, not 560. The last page now carries a real popup row, the real
+            // equalizer and the Dock question; measured against the tokens those
+            // want roughly 550pt of content under ~130pt of chrome, so at 560 the
+            // equalizer opened below the fold — the one control the page exists
+            // to let people touch.
+            contentRect: NSRect(x: 0, y: 0, width: 590, height: 700),
             // Resizable vertically: the view is fixed at 590 wide but grows
             // downwards, and at large accessibility text sizes a 470pt window
             // makes every page a scroller. Letting it be dragged taller is the
@@ -252,7 +270,10 @@ final class OnboardingWindowController {
             defer: false
         )
         window.title = "Welcome to Melo"
-        window.contentMinSize = NSSize(width: 590, height: 480)
+        // 560 rather than 480: below this the equalizer on the last page is cut
+        // off entirely rather than merely tight, and a page whose subject is
+        // invisible is worse than one that scrolls.
+        window.contentMinSize = NSSize(width: 590, height: 560)
         window.contentMaxSize = NSSize(width: 590, height: 1200)
         window.center()
 
@@ -277,6 +298,12 @@ final class OnboardingWindowController {
 
         let observer = OnboardingWindowCloseObserver { [weak self] in
             self?.markCompletedIfNeeded()
+            // In the close observer rather than in the Skip / Show Me handlers,
+            // for the same reason completion is written here: those two buttons
+            // are not the only way out. A claim released only by them would be
+            // held forever by anyone who closed the window with its title-bar
+            // button, and Melo would keep a Dock tile nobody asked for.
+            DockPresence.shared.release(.firstRunSetup)
         }
         window.delegate = observer
         closeObserver = observer

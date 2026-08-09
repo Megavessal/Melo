@@ -198,6 +198,13 @@ final class GuidedTourCoordinator {
     }
 
     private func start(_ steps: [SpotlightStep], ownsFirstRunLifecycle: Bool) {
+        // Every walkthrough goes through here, so this is the one place a tour
+        // can begin — including the replay from Settings, which is where the
+        // window kept getting lost. Claimed before the popup is told to open
+        // (callers open it a beat later), so the policy switch cannot land on a
+        // popup that is already key: the popup dismisses itself out of
+        // `windowDidResignKey`, and losing key here would close the tour.
+        DockPresence.shared.claim(.guidedTour)
         self.steps = steps
         self.ownsFirstRunLifecycle = ownsFirstRunLifecycle
         index = 0
@@ -229,6 +236,9 @@ final class GuidedTourCoordinator {
         }
         ownsFirstRunLifecycle = false
         isActive = false
+        // Paired with the claim in `start`. `skip()` routes here too, so there is
+        // no way to leave a tour that does not give the tile back.
+        DockPresence.shared.release(.guidedTour)
     }
 
     func skip() {

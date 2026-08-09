@@ -26,8 +26,12 @@ def require(path, *needles):
 # `Button("…")`, not the bare phrase — "Show Me" is a substring of "Show Me
 # Around" and of every doc comment that discusses either, so a bare needle
 # cannot tell the rename from the thing it renamed.
+# `MeloTheme`, not a phrase from the page copy. This needle used to be
+# 'short sound', which described a two-second clip that no longer exists — so it
+# pinned prose nobody was allowed to improve and said nothing about whether the
+# page could actually play anything. The asset name is the connection.
 require("Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",
-        'title: "Melo"', 'short sound', 'Button("Show Me")')
+        'title: "Melo"', 'MeloTheme', 'Button("Show Me")')
 require("Sources/Melo/Coordination/FirstRunAudioPrimer.swift", "runFirstRunAudioPrimer")
 require("Sources/Melo/Audio/Engine/ProcessTapController.swift", "startAudioDeviceOffMainThread")
 # Tour copy now lives beside the data in the coordinator; the overlay only
@@ -75,15 +79,53 @@ require("Sources/Melo/Updates/DeveloperUpdateManager.swift",
 require("Sources/Melo/Updates/UpdateInstallationCoordinator.swift",
         "confirmCurrentBuild", "rolling back", "Melo.previous.app", "preflightArgument")
 require("Documentation/MELO-2.7-UPDATES.md", "Sparkle 2.9.5", "replay onboarding")
-require("Resources/MeloFirstRunIntro.wav")
 
 project = (root / "Melo.xcodeproj/project.pbxproj").read_text()
 for source in (root / "Sources/Melo").rglob("*.swift"):
     rel = str(source.relative_to(root))
     if rel not in project:
         failures.append(f"Xcode target missing {rel}")
-if "MeloFirstRunIntro.wav in Resources" not in project:
-    failures.append("intro sound is not in the Xcode resources phase")
+
+# Every bundled resource the code asks for must actually ship, and be in the
+# Resources build phase. This replaces two assertions that named one .wav by
+# hand, which went red the moment that file was legitimately replaced while
+# saying nothing about any other resource.
+#
+# The failure this guards is silent, which is why it is worth a real check:
+# `Bundle.main.url(forResource:withExtension:)` returns nil for a file that is
+# present on disk but absent from the build phase, every caller here `guard`s on
+# it and returns early, and the feature does nothing at all with no error
+# anywhere. A tutorial that plays no sound reads as a bug in the audio code.
+asked = set()
+for source in (root / "Sources/Melo").rglob("*.swift"):
+    asked.update(re.findall(
+        r'url\(forResource:\s*"([^"]+)",\s*withExtension:\s*"([^"]+)"\)',
+        source.read_text(errors="replace")))
+# Negative control: if the pattern ever stops matching — a refactor to a helper,
+# a different call style — every check below passes vacuously. Then this check
+# has become the dead assertion it was written to replace.
+if not asked:
+    failures.append("no Bundle.main.url(forResource:) calls found; "
+                    "the bundled-resource check can no longer fail")
+
+# Search the Resources build PHASE, not the whole project file. Searching the
+# whole file passed a deliberately de-registered asset, because
+# "Foo.m4a in Resources" also appears in the PBXBuildFile object that declares
+# it — so the check proved a declaration existed and never that the file was
+# actually going to be copied. Caught by its own negative test.
+phase = re.search(r"isa = PBXResourcesBuildPhase;.*?files = \((.*?)\);", project, re.S)
+if phase is None:
+    failures.append("could not find the PBXResourcesBuildPhase; "
+                    "the bundled-resource check can no longer fail")
+phase_files = phase.group(1) if phase else ""
+
+for name, ext in sorted(asked):
+    rel = f"Resources/{name}.{ext}"
+    if not (root / rel).is_file():
+        failures.append(f"{rel} is requested by source but is not in Resources/")
+    elif f"{name}.{ext} in Resources" not in phase_files:
+        failures.append(f"{rel} exists but is not in the Xcode resources phase, "
+                        f"so Bundle.main.url() will return nil at runtime")
 
 icon_dir = root / "Resources/Assets.xcassets/AppIcon.appiconset"
 for name in ["icon_16x16.png", "icon_128x128@2x.png", "icon_512x512@2x.png"]:

@@ -758,7 +758,11 @@ final class AudioEngine {
         let ownApp = AudioApp(
             id: ownPID,
             processObjectIDs: processObjectIDs,
-            name: "Melo Introduction",
+            // Named for what is actually playing. This said "Melo Introduction",
+            // after a two-second clip that no longer exists; the primer now plays
+            // the theme's opening bar, and this name is what the user sees if the
+            // tap surfaces during the permission request.
+            name: "Melo Theme",
             icon: NSApplication.shared.applicationIconImage ?? NSImage(),
             bundleID: Bundle.main.bundleIdentifier,
             executablePath: Bundle.main.executableURL?.path

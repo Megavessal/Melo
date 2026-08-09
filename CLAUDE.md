@@ -120,6 +120,21 @@ Dated 2026-08-07.
 - Verify assertions that check a symbol *exists* rather than that a behaviour
   *holds*. One such assertion kept a dead function alive after the page that
   called it was deleted.
+- **Release notes and UI copy written as paragraphs.** One or two sentences.
+  Name what changed and stop. Anything the user will *hear, see, or press* needs
+  announcing, not explaining — prose is for what they cannot discover by using
+  the thing. Measured 2026-08-09: a 3.0 note spent **87 words** explaining that
+  the app now has a theme song, which they hear the moment setup opens. The
+  house voice is not the problem and must not be flattened; the length is.
+  A note that has to describe how something works is usually evidence the thing
+  itself is unclear.
+- **Release notes that cover only the last piece of work.** Write them against
+  the diff since the previous release, not against the brief for this round.
+  Measured 2026-08-09: 2.9.4 shipped three notes for roughly a dozen
+  user-facing changes — search highlighting, the command palette rewrite, the
+  first-run windows that stopped being dead, three new theme visitors — because
+  the notes were written from a task list rather than from what actually
+  changed.
 - **Checks that prove a rule is correct and never prove it is connected.**
   Measured 2026-08-07: four wiring points were severed at once — the EQ preamp
   dropped from its only call site (the parameter defaults to `1`, so it still

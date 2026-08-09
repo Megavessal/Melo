@@ -210,7 +210,6 @@
 		6A5E287245EE9118697D543F /* GuidedTourCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ADAE0D07EE3CE84F8461D42 /* GuidedTourCoordinator.swift */; };
 		56953D45CECE88A3ED30A413 /* IntentSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C40B14E124178C2A85E553 /* IntentSearch.swift */; };
 		9D00496EF695223226AD5D6F /* GuidedTourOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22E30D4B206BA32CA150461D /* GuidedTourOverlay.swift */; };
-		3BC18682302B84B86F8E3733 /* MeloFirstRunIntro.wav in Resources */ = {isa = PBXBuildFile; fileRef = ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */; };
 		B9E24FDF47B770B32489A40C /* DeveloperUpdateManifest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A108AFDF4FB3D912CC2616A /* DeveloperUpdateManifest.swift */; };
 		B2E0B5666E9B45DE90E4FDD9 /* UpdateFolderBookmark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 084D9974DE56612627FBC3B3 /* UpdateFolderBookmark.swift */; };
 		F5B2896DC6E266B928AD18BF /* UpdatePackageValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132676624646211787267055 /* UpdatePackageValidator.swift */; };
@@ -226,6 +225,9 @@
 		77424C17B976428A9D025C68 /* CallActivityDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 802C0085AA9540C1843DE8D1 /* CallActivityDetector.swift */; };
 		A9E2FFEDF5444A70B0375D87 /* LegacyDefaultsMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */; };
 		93DD4D49475D461496537FD9 /* SettingsGuidedNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CE51E19596047FDA1771756 /* SettingsGuidedNavigation.swift */; };
+		56BA1601FE704284B251DAB3 /* MeloTheme.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6CB57F6F5EB04ADEB7CDAC2A /* MeloTheme.m4a */; };
+		B60AD1618C5C49CC8B902539 /* MeloJingle.m4a in Resources */ = {isa = PBXBuildFile; fileRef = B13F89F1E750407F9218371E /* MeloJingle.m4a */; };
+		FBF2F996619A4DCB8DEE4319 /* DockPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE566B26122749F8874F5E67 /* DockPresence.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -434,7 +436,6 @@
 		0ADAE0D07EE3CE84F8461D42 /* GuidedTourCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/GuidedTourCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		F2C40B14E124178C2A85E553 /* IntentSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/IntentSearch.swift; sourceTree = SOURCE_ROOT; };
 		22E30D4B206BA32CA150461D /* GuidedTourOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Onboarding/GuidedTourOverlay.swift; sourceTree = SOURCE_ROOT; };
-		ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = Resources/MeloFirstRunIntro.wav; sourceTree = SOURCE_ROOT; };
 		2A108AFDF4FB3D912CC2616A /* DeveloperUpdateManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/DeveloperUpdateManifest.swift; sourceTree = SOURCE_ROOT; };
 		084D9974DE56612627FBC3B3 /* UpdateFolderBookmark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/UpdateFolderBookmark.swift; sourceTree = SOURCE_ROOT; };
 		132676624646211787267055 /* UpdatePackageValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Updates/UpdatePackageValidator.swift; sourceTree = SOURCE_ROOT; };
@@ -450,6 +451,9 @@
 		802C0085AA9540C1843DE8D1 /* CallActivityDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Audio/Types/CallActivityDetector.swift; sourceTree = SOURCE_ROOT; };
 		3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/LegacyDefaultsMigration.swift; sourceTree = SOURCE_ROOT; };
 		3CE51E19596047FDA1771756 /* SettingsGuidedNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Settings/Components/SettingsGuidedNavigation.swift; sourceTree = SOURCE_ROOT; };
+		6CB57F6F5EB04ADEB7CDAC2A /* MeloTheme.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.m4a; path = Resources/MeloTheme.m4a; sourceTree = SOURCE_ROOT; };
+		B13F89F1E750407F9218371E /* MeloJingle.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.m4a; path = Resources/MeloJingle.m4a; sourceTree = SOURCE_ROOT; };
+		BE566B26122749F8874F5E67 /* DockPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/DockPresence.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -548,6 +552,7 @@
 			E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */,
 			7DE7F06B980C7D37F64538B5 /* TransportType.swift */,
 			BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */,
+			BE566B26122749F8874F5E67 /* DockPresence.swift */,
 			3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */,
 			EBC30BBD341C272738383CFC /* CallDuckingManager.swift */,
 			EB8B32EC58A69AD17559242A /* ConsumerAutomationManager.swift */,
@@ -684,7 +689,8 @@
 			548050A3E439822C21CBCD6A /* DeviceDetailSheet.swift */,
 		); name = Sources; sourceTree = "<group>"; };
 		22D02A9EFAC9B3FBBAEBE062 /* Resources */ = {isa = PBXGroup; children = (
-			ABE825E5334715EA128FA91F /* MeloFirstRunIntro.wav */,
+			B13F89F1E750407F9218371E /* MeloJingle.m4a */,
+			6CB57F6F5EB04ADEB7CDAC2A /* MeloTheme.m4a */,
 			E0E27618A2D2A8FEBDD49F35 /* Assets.xcassets */,
 			E28DD19220FC4B68A0750FCF /* KeyboardShortcuts-LICENSE.txt */,
 			D83DD382F2A71339E39B9319 /* FluidMenuBarExtra-LICENSE.txt */,
@@ -731,7 +737,8 @@
 
 /* Begin PBXResourcesBuildPhase section */
 		C02F1309AF4906C92F1EAD44 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (
-			3BC18682302B84B86F8E3733 /* MeloFirstRunIntro.wav in Resources */,
+			B60AD1618C5C49CC8B902539 /* MeloJingle.m4a in Resources */,
+			56BA1601FE704284B251DAB3 /* MeloTheme.m4a in Resources */,
 			6AC32524C03360DF145882DA /* Assets.xcassets in Resources */,
 			F1F613E9C12FC2C6D3D61236 /* KeyboardShortcuts-LICENSE.txt in Resources */,
 			E179C37A1F73DE2B9CBEA53B /* FluidMenuBarExtra-LICENSE.txt in Resources */,
@@ -744,6 +751,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			FBF2F996619A4DCB8DEE4319 /* DockPresence.swift in Sources */,
 			93DD4D49475D461496537FD9 /* SettingsGuidedNavigation.swift in Sources */,
 			A9E2FFEDF5444A70B0375D87 /* LegacyDefaultsMigration.swift in Sources */,
 			77424C17B976428A9D025C68 /* CallActivityDetector.swift in Sources */,
@@ -990,7 +998,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 299;
+			CURRENT_PROJECT_VERSION = 300;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1001,7 +1009,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.4;
+			MARKETING_VERSION = 3.0.0;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;
@@ -1020,7 +1028,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 299;
+			CURRENT_PROJECT_VERSION = 300;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1031,7 +1039,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 2.9.4;
+			MARKETING_VERSION = 3.0.0;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;

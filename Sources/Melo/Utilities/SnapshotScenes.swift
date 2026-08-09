@@ -512,7 +512,13 @@ enum SnapshotScenes {
         // This flow requests real system permissions and had never been
         // rendered, so nobody reviewing it could see what it says before macOS
         // asks. Its own comments admitted the pages used to clip.
-        let onboardingSize = CGSize(width: 590, height: 560)
+        // Must track `OnboardingWindowController`'s real content rect. It was
+        // 560 while the window opened at 560; when the window grew to 700 for the
+        // equalizer this stayed behind, and the frame showed "Keep Melo in the
+        // Dock" sliced in half against the page dots — a defect that existed only
+        // in the snapshot. A scene that renders a size the app never opens at
+        // produces both false alarms and false comfort.
+        let onboardingSize = CGSize(width: 590, height: 700)
         let onboardingPrimer = FirstRunAudioPrimer(audioEngine: audioEngine)
         // Index-driven, so this list has to track the page switch in
         // `FirstRunOnboardingView`. It did not when the Bluetooth page was

@@ -170,7 +170,7 @@ require("Sources/Melo/Views/MenuBar/MenuBarIconCoordinator.swift", "@preconcurre
 build_coordinator = require("Sources/Melo/Updates/UpdateBuildCoordinator.swift", "Build Melo.command", "scripts/build-app.sh")
 if "/usr/bin/xcodebuild" in build_coordinator and "xcodebuild\"," in build_coordinator:
     failures.append("UpdateBuildCoordinator.swift: builds must go through build-app.sh, not a direct xcodebuild invocation")
-project = require("Melo.xcodeproj/project.pbxproj", "ARCHS = arm64;", "EXCLUDED_ARCHS = x86_64;", "MARKETING_VERSION = 2.9.4;", "CURRENT_PROJECT_VERSION = 299;")
+project = require("Melo.xcodeproj/project.pbxproj", "ARCHS = arm64;", "EXCLUDED_ARCHS = x86_64;")
 build = require("scripts/build-app.sh", "ARCHS=arm64", "EXCLUDED_ARCHS=x86_64", "Removed Intel slices", '[[ "$ARCHS" == "arm64" ]]')
 if "ARCHS='arm64 x86_64'" in build or "ARCHS=arm64 x86_64" in build:
     failures.append("universal build flag remains in build script")
@@ -178,8 +178,47 @@ if '"$(inherited) @executable_path/../Frameworks"' in project:
     failures.append("malformed combined runtime search path remains")
 with (root / "Config/Info.plist").open("rb") as file:
     info = plistlib.load(file)
-if info.get("CFBundleShortVersionString") != "2.9.4": failures.append("wrong version")
-if info.get("CFBundleVersion") != "299": failures.append("wrong build")
+
+# The version is checked for AGREEMENT across the four files that carry it, not
+# against a literal. This used to pin "2.9.4" and "299" by hand, which meant
+# every release began with a verification failure that had to be edited away —
+# a check whose only reliable behaviour was to go red on a correct tree teaches
+# people to edit checks rather than to read them.
+#
+# What actually matters is that these four never disagree: `scripts/release.sh`
+# reads the version from `build-app.sh` and tags from it, while the app reports
+# `Info.plist` and Sparkle compares `CFBundleVersion`. A mismatch ships an update
+# users cannot install, or one that installs and then offers itself again.
+def _one(pattern, text, label):
+    # re.M because the shell patterns anchor on line starts; without it `^`
+    # matches only the start of the file and every lookup silently finds nothing.
+    found = re.findall(pattern, text, re.M)
+    if not found:
+        failures.append(f"{label}: version could not be read; this check cannot fail")
+        return None
+    if len(set(found)) != 1:
+        failures.append(f"{label}: disagrees with itself: {sorted(set(found))}")
+        return None
+    return found[0]
+
+build_sh = (root / "scripts/build-app.sh").read_text()
+short = {
+    "Info.plist CFBundleShortVersionString": info.get("CFBundleShortVersionString"),
+    "pbxproj MARKETING_VERSION": _one(r"MARKETING_VERSION = ([0-9][^;]*);", project, "pbxproj"),
+    "build-app.sh VERSION": _one(r'^VERSION="([^"]+)"', build_sh, "build-app.sh"),
+}
+builds = {
+    "Info.plist CFBundleVersion": info.get("CFBundleVersion"),
+    "pbxproj CURRENT_PROJECT_VERSION": _one(r"CURRENT_PROJECT_VERSION = ([0-9]+);", project, "pbxproj"),
+    "build-app.sh BUILD_NUMBER": _one(r'^BUILD_NUMBER="([^"]+)"', build_sh, "build-app.sh"),
+}
+for label, values in (("marketing version", short), ("build number", builds)):
+    present = {k: v for k, v in values.items() if v is not None}
+    if len(present) < len(values):
+        failures.append(f"{label}: not all sources could be read")
+    elif len(set(present.values())) != 1:
+        detail = ", ".join(f"{k}={v}" for k, v in sorted(present.items()))
+        failures.append(f"{label} disagrees across files: {detail}")
 
 # Exactly one app icon source. Declaring both CFBundleIconFile and an asset
 # catalog let macOS choose between two near-identical files, so the icon changed
@@ -199,8 +238,11 @@ require("Sources/Melo/Coordination/DockIconAppearanceCoordinator.swift",
         "AppIconDark", "AppIconLight", "bestMatch(from: [.aqua, .darkAqua])")
 if "DockIconAppearanceCoordinator.shared.start()" not in (root/"Sources/Melo/FineTuneApp.swift").read_text():
     failures.append("FineTuneApp.swift: the Dock icon coordinator is never started")
-if "DockIconAppearanceCoordinator.shared.apply()" not in (root/"Sources/Melo/Coordination/AppSupportCoordinator.swift").read_text():
-    failures.append("AppSupportCoordinator.swift: a newly shown Dock tile is not re-iconed")
+# DockPresence, not AppSupportCoordinator: the activation-policy switch moved
+# there when setup and the guided tour gained the ability to borrow a Dock tile,
+# and re-iconing has to happen wherever the tile actually appears.
+if "DockIconAppearanceCoordinator.shared.apply()" not in (root/"Sources/Melo/Coordination/DockPresence.swift").read_text():
+    failures.append("DockPresence.swift: a newly shown Dock tile is not re-iconed")
 for name in ("AppIconDark", "AppIconLight"):
     d = root / f"Resources/Assets.xcassets/{name}.imageset"
     for f in (f"{name}.png", f"{name}@2x.png", "Contents.json"):

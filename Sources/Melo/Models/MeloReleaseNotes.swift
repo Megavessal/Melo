@@ -38,6 +38,107 @@ enum MeloReleaseNotes {
     /// entry ships with no items — so a release cannot go out silent.
     static let all: [MeloReleaseNote] = [
         MeloReleaseNote(
+            id: "3.0.0",
+            version: "3.0.0",
+            build: 300,
+            headline: "Melo has a sound of its own",
+            items: [
+                MeloReleaseNote.Item(
+                    id: "3.0.0-theme",
+                    title: "A Melo theme, written for Melo",
+                    // First because it is the only item in this release that an
+                    // existing install can act on today, and it is the item that
+                    // carries the route. `MeloExperienceVersion.onboarding` is
+                    // held at 3 again this release, so setup does not replay and
+                    // nobody who already has Melo meets the theme, the tutorial
+                    // or the playground by simply updating. Naming Replay
+                    // Tutorial here is what turns the next two notes from news
+                    // about somebody else's first run into something the reader
+                    // can go and hear. Same shape as 2.9.4's Bluetooth note.
+                    detail: "Ninety seconds of funky boom-bap, written for the app. Setup plays it while you try things, and its opening bar is what Melo plays when it first asks macOS for audio access.",
+                    // A piece of music playing during setup. There is no control
+                    // in the popup that is the thing this sentence is about.
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-setup-playground",
+                    title: "Setup ends on a real equalizer",
+                    // Second because it is the payoff of the note above — the
+                    // music is what the bands are dragged against — and because
+                    // it is the one item here whose subject really is in the
+                    // popup, so it claims the walkthrough's equalizer step.
+                    // `tourSteps` hands a control to the first note that asks for
+                    // it, so this has to sit above anything else that might want
+                    // the panel.
+                    detail: "The same ten-band panel from an app’s row is now on setup’s last page. Drag the bands against the music.",
+                    // The panel on that page is the popup's equalizer, so the
+                    // spotlight points at the thing the sentence is about rather
+                    // than at somewhere it is configured.
+                    target: .equalizer
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-setup-dock-icon",
+                    title: "Setup cannot get lost behind other apps",
+                    detail: "Melo keeps a Dock icon while setup and the guided tour are running, so the window cannot get lost behind other apps. It asks at the end whether to keep it — the default is no.",
+                    // A Dock tile, and a question asked at the end of setup.
+                    // Neither is in the popup. The Show Melo in Dock switch in
+                    // Settings › General is where it is configured afterwards,
+                    // which is not the same as it being what this sentence is
+                    // about — that reasoning is what had the walkthrough
+                    // spotlighting the gear four times running.
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-setup-slider-drag",
+                    title: "Fixed: the slider in setup can be dragged again",
+                    detail: "It moved the whole window instead. The slider takes the drag now, and the window moves from its title bar.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-windows-take-clicks",
+                    title: "Setup's windows answer the mouse again",
+                    detail: "The welcome and What’s New windows could open behind whatever you were doing, visible but with dead buttons. They take clicks now.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-search-highlights",
+                    title: "Search marks what it found",
+                    detail: "Opening a search result scrolls to that setting and highlights it. Results with no home of their own open the Guide on that topic.",
+                    target: .settings
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-palette-coverage",
+                    title: "The command palette knows far more of Melo",
+                    detail: "Apps you have not played anything in yet, per-app device routing, microphone choice, device volume and mute, and about a hundred settings by name. “Set Spotify to 200%” works as well as “Spotify to 200%”.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-settings-travel",
+                    title: "Settings goes to the setting you asked for",
+                    detail: "“Show me” in the Guide travels to the page and descends to the named section, marking it briefly, instead of printing directions.",
+                    target: .settings
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-theme-visitors",
+                    title: "Three new visitors in the themes",
+                    detail: "A desk Mac whose screen lights in your accent colour, a cabin window on Aurora’s far ridge, and a paintbrush that leaves a stroke in your own colour. Rockets stay in Space and Galaxy now, and the sky is emptier.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-reduce-motion-eggs",
+                    title: "Reduce Motion gets the visitors too",
+                    detail: "With Reduce Motion on they used to sit on screen permanently. Now they turn up about as often as everyone else’s, and never move.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.0.0-quieter-launch",
+                    title: "Quicker to start, and quieter during calls",
+                    detail: "A pause at launch is gone, and call ducking no longer drops your music for a notification chime — it waits for a real call.",
+                    target: nil
+                ),
+            ]
+        ),
+        MeloReleaseNote(
             id: "2.9.4",
             version: "2.9.4",
             build: 299,
@@ -53,7 +154,7 @@ enum MeloReleaseNotes {
                     // replay — so this is the only notice that cohort gets, and
                     // it has to arrive first for that reason. First also because
                     // it is what happens to them within seconds of this launch.
-                    detail: "Melo now has the identifier it will keep for good. macOS ties every permission to that identifier, so it treats this version as an app it has not met before and asks again — once for system audio access, once for the volume keys, and once for Bluetooth. Each request still waits until the feature that needs it comes up, with Melo's reason on screen first. Your app volumes, EQ curves, devices and shortcuts are all still here.",
+                    detail: "Melo now has the identifier it keeps for good, so macOS asks once more — system audio, the volume keys, Bluetooth — each one when the feature needs it. Your volumes, EQ curves, devices and shortcuts are untouched.",
                     // Three system prompts arriving over the next few minutes.
                     // There is no control in the popup that is the thing this
                     // sentence is about.
@@ -62,7 +163,7 @@ enum MeloReleaseNotes {
                 MeloReleaseNote.Item(
                     id: "2.9.4-analytics-choice",
                     title: "You decide whether Melo shares anything",
-                    detail: "Melo can send anonymous notes about which features get used, so the next version improves the parts you actually reach for. It stays off until you say yes, Melo only asks once, and the names of your apps, your audio devices, and your Mac never leave your machine. The switch is in Settings › General.",
+                    detail: "Anonymous notes about which features get used, off until you say yes, asked once. Your app names, your devices and your Mac never leave the machine. Settings › General.",
                     target: .settings
                 ),
                 MeloReleaseNote.Item(
@@ -73,7 +174,7 @@ enum MeloReleaseNotes {
                     // on purpose, so setup does not replay. This note is the only
                     // way an existing install learns the page exists, which is why
                     // it names the Settings switch as well.
-                    detail: "macOS used to ask about Bluetooth the moment Melo launched, before anything had explained why. Now setup has a page that says what the permission buys — seeing headphones you have paired but are not connected to, and connecting them from Melo — and the request only appears when you ask for it there, or from the Bluetooth switch in Settings › General.",
+                    detail: "It used to arrive the moment Melo launched, before anything explained why. Setup now has a page for it, and the request waits until you ask — there or in Settings › General.",
                     target: nil
                 )
             ]
@@ -120,7 +221,7 @@ enum MeloReleaseNotes {
                     // because this one describes the flow 2.9.3 shipped and is
                     // still accurate about it. If a page named here is renamed
                     // or removed, this line is the thing that goes stale.
-                    detail: "The welcome flow points out Melo's mark up in the menu bar, explains the system audio access Melo needs and asks macOS for it while a sound is playing, offers to hook up your volume keys, and finishes on a real app row — same icon, same slider, same percentage — for you to try.",
+                    detail: "It points out the menu bar mark, asks for system audio access while a sound is playing, offers to hook up your volume keys, and ends on a real app row for you to try.",
                     target: nil
                 ),
                 MeloReleaseNote.Item(

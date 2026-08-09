@@ -25,6 +25,35 @@ nonisolated enum MeloExperienceVersion {
     // actually needed — the popup already has copy for Bluetooth waiting and
     // Bluetooth refused, and the audio and volume-key prompts re-raise in
     // context too. A release note carries the news to that cohort instead.
+    //
+    // Held at 3 again for 3.0, which is a harder call than the Bluetooth one
+    // because the reward for bumping is real: setup gained a genuinely new
+    // question (keep the Dock icon?) and its last page is materially different,
+    // a live equalizer played against the new theme rather than a paragraph.
+    // Against, and jointly decisive:
+    //
+    //   1. The Dock question is already answered for every existing install.
+    //      `showInDock` defaults to false and has been settable since before
+    //      this release, from the switch in Settings › General and from the
+    //      menu bar menu. Setup's version of the question defaults to *not*
+    //      keeping the icon, so a replay would walk anyone who deliberately
+    //      turned their Dock icon on into a page whose default turns it back
+    //      off. Bluetooth was held at 3 for the weaker version of this — a page
+    //      whose question was merely already answered. This one can answer it
+    //      wrong.
+    //   2. `WhatsNewCoordinator.showIfNeeded` stamps the current build as seen
+    //      whenever setup suppresses it, so the bump spends the whole of 3.0's
+    //      What's New — four items, the largest set this app has shipped — on a
+    //      replay of five permission and consent pages that cohort has already
+    //      completed.
+    //   3. The reward does not need the bump. The theme, the playground and the
+    //      Dock question are all reachable on demand from Settings › General ›
+    //      Replay Tutorial, and `MeloReleaseNotes` 3.0.0 names that route in its
+    //      first item precisely so this cohort has one.
+    //
+    // What the bump would buy that a note cannot: the people who never open
+    // What's New and never replay the tutorial do not meet any of this. That is
+    // accepted. It buys them the theme, not a permission or a setting they need.
     static let onboarding = 3
     static let guidedTour = 2
 }
