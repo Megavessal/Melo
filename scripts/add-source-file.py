@@ -29,6 +29,17 @@ def oid(seen):
             return candidate
 
 
+def quoted(value):
+    """A pbxproj path, quoted when the OpenStep plist grammar requires it.
+
+    A bare string may only hold letters, digits, `_`, `.`, `/` and `-`; a `+`
+    is not in that set and an unquoted `Type+Thing.swift` path makes the whole
+    project unreadable. See CLAUDE.md, "`scripts/add-source-file.py` quotes
+    paths, and it has to".
+    """
+    return value if re.fullmatch(r"[A-Za-z0-9_./-]+", value) else f'"{value}"'
+
+
 def main(paths):
     if not paths:
         print(__doc__)
@@ -47,7 +58,7 @@ def main(paths):
         if not (ROOT / rel).exists():
             print(f"missing on disk: {rel}", file=sys.stderr)
             return 1
-        if f"path = {rel};" in text:
+        if f"path = {quoted(rel)};" in text:
             print(f"already in project: {rel}")
             continue
 
@@ -67,7 +78,7 @@ def main(paths):
         text = text.replace(
             "/* End PBXFileReference section */",
             f"\t\t{file_ref} /* {name} */ = {{isa = PBXFileReference; "
-            f"lastKnownFileType = sourcecode.swift; path = {rel}; "
+            f"lastKnownFileType = sourcecode.swift; path = {quoted(rel)}; "
             "sourceTree = SOURCE_ROOT; };\n"
             "/* End PBXFileReference section */",
             1,
@@ -91,11 +102,23 @@ def main(paths):
                 anchor, anchor + f"\t\t\t{file_ref} /* {name} */,\n", 1
             )
         else:
-            print(
-                f"no sibling group entry for {rel}; add it to a group manually",
-                file=sys.stderr,
+            # First file in a new directory has no sibling. The Sources group is
+            # flat — every .swift in the project is a direct child of it
+            # regardless of folder — so placement is arbitrary and the sibling
+            # search was only ever keeping the navigator tidy. Falling back to
+            # the head of that group beats returning 1, which made every new
+            # directory need a hand-edit of the pbxproj and is the kind of
+            # manual step that gets skipped and produces "cannot find X in
+            # scope" hours later.
+            head = re.search(r"(/\* Sources \*/ = \{isa = PBXGroup; children = \(\n)", text)
+            if not head:
+                print(f"no Sources group to place {rel} in", file=sys.stderr)
+                return 1
+            text = (
+                text[: head.end(1)]
+                + f"\t\t\t{file_ref} /* {name} */,\n"
+                + text[head.end(1) :]
             )
-            return 1
 
         # 4. Sources build phase
         sources = re.search(

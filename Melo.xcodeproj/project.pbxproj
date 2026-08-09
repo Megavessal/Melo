@@ -228,6 +228,61 @@
 		56BA1601FE704284B251DAB3 /* MeloTheme.m4a in Resources */ = {isa = PBXBuildFile; fileRef = 6CB57F6F5EB04ADEB7CDAC2A /* MeloTheme.m4a */; };
 		B60AD1618C5C49CC8B902539 /* MeloJingle.m4a in Resources */ = {isa = PBXBuildFile; fileRef = B13F89F1E750407F9218371E /* MeloJingle.m4a */; };
 		FBF2F996619A4DCB8DEE4319 /* DockPresence.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE566B26122749F8874F5E67 /* DockPresence.swift */; };
+		27FD7962D08C42998DE4FADB /* AnalysisSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD2679BBEF6413E941FFCC9 /* AnalysisSummaryView.swift */; };
+		E63ABFF9BBF04C269C7D1365 /* DestinationCatalogue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047A347881A74FFB942FAC9C /* DestinationCatalogue.swift */; };
+		62165AC10BFC49509343C23F /* DestinationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172F944D91D744D089962853 /* DestinationPicker.swift */; };
+		3221B0D6C0744F9D80FA0132 /* MoveProposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8978C1EFF441BA96C94175 /* MoveProposer.swift */; };
+		B12038FC4A84400483E40F15 /* AudioFileIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6682BCD7A9034751A6FAE431 /* AudioFileIO.swift */; };
+		33112267269F4A4088BAC92A /* CuttingRoomStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8B88C4677451EA8F4CBF8 /* CuttingRoomStore.swift */; };
+		CAD53F93B0EA40BFB97E9D38 /* EditorJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B02319A3A2A47E596B763EA /* EditorJob.swift */; };
+		C423283FD3E445C9968153E2 /* EditorSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397E439656E5496B8CE7D855 /* EditorSession.swift */; };
+		D68D09111B5A4274A55E4CB4 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35DA11D23D14704986ED8E7 /* EditorTypes.swift */; };
+		4DA4BEDADBAC4412853AD289 /* MoveKindDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1081F5F3A0724F258CC76B91 /* MoveKindDisplay.swift */; };
+		6D6E0B1542774E3EBEFCE40B /* LookaheadLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FB922D10B8455D92EB24B4 /* LookaheadLimiter.swift */; };
+		BFA11E2052F04A0D80DD96B3 /* LoudnessMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D3306536F1451CB758B2F6 /* LoudnessMeter.swift */; };
+		50954F2F60B442859D777A8F /* MoveProcessors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2860CD546F9400885602349 /* MoveProcessors.swift */; };
+		24BB16B252D840DAA3D5938B /* OfflineBiquadChain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 821883D317004EA69764FBEC /* OfflineBiquadChain.swift */; };
+		2571DCD536BD4A7693EB56E1 /* PCMBlockChannels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E9A17BD4A1D48DBB772A531 /* PCMBlockChannels.swift */; };
+		C52B30C2DD04428BA23DAB76 /* RenderEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53E51FF171D4441881A80836 /* RenderEngine.swift */; };
+		31587ACE1151419B92A30B89 /* SignalAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48FA1304F14843DBAA1AEE0C /* SignalAnalysis.swift */; };
+		D496594178704436A6752052 /* TruePeakMeter.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA2FC58187B341619C6A4FD9 /* TruePeakMeter.swift */; };
+		04B76C4592DA43EEA4027804 /* ExportCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F81943A79D44C818815BC04 /* ExportCoordinator.swift */; };
+		AB25458A19BF4A77A5BCFF06 /* ExportPresets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E0DE98A39564B77B1408B55 /* ExportPresets.swift */; };
+		ECF47EBB5465422595945F76 /* JobProgressStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6B92650A3154B50A9590B05 /* JobProgressStrip.swift */; };
+		DC9333AA346D4DB89C85382F /* ExternalToolLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F2758BDCED4F8D8C45B717 /* ExternalToolLocator.swift */; };
+		2F97E99968AD4774A85A02A4 /* LinkExtractor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 008FFD7FD03E4693A4B78FC7 /* LinkExtractor.swift */; };
+		AC14947157644CDD9192A828 /* LinkImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 311ECA1B0F354A7A96EA55A3 /* LinkImportSheet.swift */; };
+		4E184FBED0C54033A2E3B81C /* SystemAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D070CF1025402887992FF0 /* SystemAudioRecorder.swift */; };
+		1AF1E626CE804BF3B602FE8D /* SystemRecordSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACC14D65ACD44420AF2D648B /* SystemRecordSheet.swift */; };
+		1DEA4DD55ACD442791A578BC /* ToolProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F3252EAF6844E0FA503AD2E /* ToolProcessRunner.swift */; };
+		853A6E39C3C64DF09FED99A7 /* MeloThemeExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8627712ED3734BF28C758094 /* MeloThemeExport.swift */; };
+		AC6F5A9BC3DC430EA127EDE3 /* MeloThemeRemix.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7A1A0A55FBD47AE8BA61030 /* MeloThemeRemix.swift */; };
+		4F0C78FEE9F54B7FB0564B8B /* MeloThemeStarters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9178F2F2228A4F7892653300 /* MeloThemeStarters.swift */; };
+		034581FA0BA747DFB6C08ABD /* MeloThemeWelcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24075EA2942D47B8AAC5EBFA /* MeloThemeWelcome.swift */; };
+		5A7CC836FE344891B0269D32 /* AddMoveMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF813037746040BEB6AF231F /* AddMoveMenu.swift */; };
+		C913D16737E3476890BAA99A /* MoveInspector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59370F4AEC0640AB8FF862A7 /* MoveInspector.swift */; };
+		DC820B4F60CD4DB48015D51A /* MoveInspectorControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D718A07E4C342E2B641E2AA /* MoveInspectorControls.swift */; };
+		E89638C122A44756B21220CB /* MoveInspectorsCut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83E387FBCD574819A2C2FF84 /* MoveInspectorsCut.swift */; };
+		FD4D081483B546D59F69809D /* MoveInspectorsLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C5E50E819264804B871B4E0 /* MoveInspectorsLevel.swift */; };
+		A85D8168F50147A0B4636E10 /* MoveInspectorsShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20A39A19A724264A3290E29 /* MoveInspectorsShape.swift */; };
+		6F2C10D689F64AE0B36FCBEE /* MoveInspectorsTone.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9564F9D2D204417919BC5B5 /* MoveInspectorsTone.swift */; };
+		A84647F137174068A78DE243 /* MoveStackEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3909710C0FB1496F9E2F6907 /* MoveStackEmptyState.swift */; };
+		13AA4A5448524C509D3EDDEA /* MoveStackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8EFCD83CD74E489C39F084 /* MoveStackView.swift */; };
+		209C5525A0CB4CCC8D3644A7 /* EditorFormat+Precision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 146CEF6B603A4DF8871E73EE /* EditorFormat+Precision.swift */; };
+		43F41F6DAE764F38833CDF87 /* CuttingRoomCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68E940F7C54043A73A64E7 /* CuttingRoomCommands.swift */; };
+		24E42902D7334ED0AE7C5D90 /* CuttingRoomEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651FCE0F49FA445286DDDDE8 /* CuttingRoomEmptyState.swift */; };
+		23F18F04EDA940239D39C176 /* CuttingRoomRecents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA210461B44B4C19BB5FD9CE /* CuttingRoomRecents.swift */; };
+		4E99F965ABD3425FA89DD2AA /* CuttingRoomRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A13A1B1779E4866B94BC38C /* CuttingRoomRootView.swift */; };
+		17C1FEDBE16744AC9C57E8F5 /* CuttingRoomWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1248135978354103808175EE /* CuttingRoomWindowController.swift */; };
+		0FF654BD11F143BABC24BE5E /* EQCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51D65D537F334A23B7A6DFF3 /* EQCurveView.swift */; };
+		79F2B66B95EB4D87B31FF3C3 /* EQResponseCurve.swift in Sources */ = {isa = PBXBuildFile; fileRef = E989E9D0C1EE4B8B9FCA1516 /* EQResponseCurve.swift */; };
+		3A3116BD67E6499585B50CED /* EditorEQPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101B9C264E246BC9E096B86 /* EditorEQPanel.swift */; };
+		F129D8564C814FE98D61E1BE /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 047CF1E038414D91B3F38852 /* ExportSheet.swift */; };
+		B0CE80E1B4014E53BB02F82E /* EditorPlayback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B2EDC33BC496EA9B11B71 /* EditorPlayback.swift */; };
+		0D386ECF427944BEA3D59952 /* EditorTimeRuler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CED1DF842B4F168197CF67 /* EditorTimeRuler.swift */; };
+		C7F489F454E1497C8550E84F /* EditorTransportBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFDC2EFC4934765AF814B55 /* EditorTransportBar.swift */; };
+		2641458ECFF64334B7080F5A /* EditorTransportCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */; };
+		9E1E8FA2A16B4A8E89A67A88 /* EditorWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD5A8A2431544674BC371624 /* EditorWaveformView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -454,6 +509,61 @@
 		6CB57F6F5EB04ADEB7CDAC2A /* MeloTheme.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.m4a; path = Resources/MeloTheme.m4a; sourceTree = SOURCE_ROOT; };
 		B13F89F1E750407F9218371E /* MeloJingle.m4a */ = {isa = PBXFileReference; lastKnownFileType = audio.m4a; path = Resources/MeloJingle.m4a; sourceTree = SOURCE_ROOT; };
 		BE566B26122749F8874F5E67 /* DockPresence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/DockPresence.swift; sourceTree = SOURCE_ROOT; };
+		5CD2679BBEF6413E941FFCC9 /* AnalysisSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/AnalysisSummaryView.swift; sourceTree = SOURCE_ROOT; };
+		047A347881A74FFB942FAC9C /* DestinationCatalogue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/DestinationCatalogue.swift; sourceTree = SOURCE_ROOT; };
+		172F944D91D744D089962853 /* DestinationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/DestinationPicker.swift; sourceTree = SOURCE_ROOT; };
+		CA8978C1EFF441BA96C94175 /* MoveProposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/MoveProposer.swift; sourceTree = SOURCE_ROOT; };
+		6682BCD7A9034751A6FAE431 /* AudioFileIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/AudioFileIO.swift; sourceTree = SOURCE_ROOT; };
+		98F8B88C4677451EA8F4CBF8 /* CuttingRoomStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/CuttingRoomStore.swift; sourceTree = SOURCE_ROOT; };
+		1B02319A3A2A47E596B763EA /* EditorJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorJob.swift; sourceTree = SOURCE_ROOT; };
+		397E439656E5496B8CE7D855 /* EditorSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorSession.swift; sourceTree = SOURCE_ROOT; };
+		C35DA11D23D14704986ED8E7 /* EditorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorTypes.swift; sourceTree = SOURCE_ROOT; };
+		1081F5F3A0724F258CC76B91 /* MoveKindDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/MoveKindDisplay.swift; sourceTree = SOURCE_ROOT; };
+		66FB922D10B8455D92EB24B4 /* LookaheadLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/LookaheadLimiter.swift; sourceTree = SOURCE_ROOT; };
+		86D3306536F1451CB758B2F6 /* LoudnessMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/LoudnessMeter.swift; sourceTree = SOURCE_ROOT; };
+		A2860CD546F9400885602349 /* MoveProcessors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/MoveProcessors.swift; sourceTree = SOURCE_ROOT; };
+		821883D317004EA69764FBEC /* OfflineBiquadChain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/OfflineBiquadChain.swift; sourceTree = SOURCE_ROOT; };
+		9E9A17BD4A1D48DBB772A531 /* PCMBlockChannels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/PCMBlockChannels.swift; sourceTree = SOURCE_ROOT; };
+		53E51FF171D4441881A80836 /* RenderEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/RenderEngine.swift; sourceTree = SOURCE_ROOT; };
+		48FA1304F14843DBAA1AEE0C /* SignalAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/SignalAnalysis.swift; sourceTree = SOURCE_ROOT; };
+		BA2FC58187B341619C6A4FD9 /* TruePeakMeter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/DSP/TruePeakMeter.swift; sourceTree = SOURCE_ROOT; };
+		1F81943A79D44C818815BC04 /* ExportCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Export/ExportCoordinator.swift; sourceTree = SOURCE_ROOT; };
+		6E0DE98A39564B77B1408B55 /* ExportPresets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Export/ExportPresets.swift; sourceTree = SOURCE_ROOT; };
+		E6B92650A3154B50A9590B05 /* JobProgressStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Export/JobProgressStrip.swift; sourceTree = SOURCE_ROOT; };
+		75F2758BDCED4F8D8C45B717 /* ExternalToolLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Sources/ExternalToolLocator.swift; sourceTree = SOURCE_ROOT; };
+		008FFD7FD03E4693A4B78FC7 /* LinkExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Sources/LinkExtractor.swift; sourceTree = SOURCE_ROOT; };
+		311ECA1B0F354A7A96EA55A3 /* LinkImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Sources/LinkImportSheet.swift; sourceTree = SOURCE_ROOT; };
+		A7D070CF1025402887992FF0 /* SystemAudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Sources/SystemAudioRecorder.swift; sourceTree = SOURCE_ROOT; };
+		ACC14D65ACD44420AF2D648B /* SystemRecordSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Sources/SystemRecordSheet.swift; sourceTree = SOURCE_ROOT; };
+		8F3252EAF6844E0FA503AD2E /* ToolProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Sources/ToolProcessRunner.swift; sourceTree = SOURCE_ROOT; };
+		8627712ED3734BF28C758094 /* MeloThemeExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Theme/MeloThemeExport.swift; sourceTree = SOURCE_ROOT; };
+		B7A1A0A55FBD47AE8BA61030 /* MeloThemeRemix.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Theme/MeloThemeRemix.swift; sourceTree = SOURCE_ROOT; };
+		9178F2F2228A4F7892653300 /* MeloThemeStarters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Theme/MeloThemeStarters.swift; sourceTree = SOURCE_ROOT; };
+		24075EA2942D47B8AAC5EBFA /* MeloThemeWelcome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Theme/MeloThemeWelcome.swift; sourceTree = SOURCE_ROOT; };
+		DF813037746040BEB6AF231F /* AddMoveMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/AddMoveMenu.swift; sourceTree = SOURCE_ROOT; };
+		59370F4AEC0640AB8FF862A7 /* MoveInspector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveInspector.swift; sourceTree = SOURCE_ROOT; };
+		2D718A07E4C342E2B641E2AA /* MoveInspectorControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveInspectorControls.swift; sourceTree = SOURCE_ROOT; };
+		83E387FBCD574819A2C2FF84 /* MoveInspectorsCut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveInspectorsCut.swift; sourceTree = SOURCE_ROOT; };
+		2C5E50E819264804B871B4E0 /* MoveInspectorsLevel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveInspectorsLevel.swift; sourceTree = SOURCE_ROOT; };
+		A20A39A19A724264A3290E29 /* MoveInspectorsShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveInspectorsShape.swift; sourceTree = SOURCE_ROOT; };
+		F9564F9D2D204417919BC5B5 /* MoveInspectorsTone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveInspectorsTone.swift; sourceTree = SOURCE_ROOT; };
+		3909710C0FB1496F9E2F6907 /* MoveStackEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveStackEmptyState.swift; sourceTree = SOURCE_ROOT; };
+		DA8EFCD83CD74E489C39F084 /* MoveStackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveStackView.swift; sourceTree = SOURCE_ROOT; };
+		146CEF6B603A4DF8871E73EE /* EditorFormat+Precision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Editor/Views/Waveform/EditorFormat+Precision.swift"; sourceTree = SOURCE_ROOT; };
+		EB68E940F7C54043A73A64E7 /* CuttingRoomCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomCommands.swift; sourceTree = SOURCE_ROOT; };
+		651FCE0F49FA445286DDDDE8 /* CuttingRoomEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomEmptyState.swift; sourceTree = SOURCE_ROOT; };
+		BA210461B44B4C19BB5FD9CE /* CuttingRoomRecents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomRecents.swift; sourceTree = SOURCE_ROOT; };
+		9A13A1B1779E4866B94BC38C /* CuttingRoomRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomRootView.swift; sourceTree = SOURCE_ROOT; };
+		1248135978354103808175EE /* CuttingRoomWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomWindowController.swift; sourceTree = SOURCE_ROOT; };
+		51D65D537F334A23B7A6DFF3 /* EQCurveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/EQCurveView.swift; sourceTree = SOURCE_ROOT; };
+		E989E9D0C1EE4B8B9FCA1516 /* EQResponseCurve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/EQResponseCurve.swift; sourceTree = SOURCE_ROOT; };
+		2101B9C264E246BC9E096B86 /* EditorEQPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/EditorEQPanel.swift; sourceTree = SOURCE_ROOT; };
+		047CF1E038414D91B3F38852 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Export/ExportSheet.swift; sourceTree = SOURCE_ROOT; };
+		9C0B2EDC33BC496EA9B11B71 /* EditorPlayback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorPlayback.swift; sourceTree = SOURCE_ROOT; };
+		93CED1DF842B4F168197CF67 /* EditorTimeRuler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTimeRuler.swift; sourceTree = SOURCE_ROOT; };
+		0BFDC2EFC4934765AF814B55 /* EditorTransportBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTransportBar.swift; sourceTree = SOURCE_ROOT; };
+		E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTransportCommands.swift; sourceTree = SOURCE_ROOT; };
+		AD5A8A2431544674BC371624 /* EditorWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformView.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -477,6 +587,61 @@
 			00C45FD35CB0F9C5F764F070 /* Products */,
 		); sourceTree = "<group>"; };
 		9642F1047C1002A1EE72F0DB /* Sources */ = {isa = PBXGroup; children = (
+			9C0B2EDC33BC496EA9B11B71 /* EditorPlayback.swift */,
+			AD5A8A2431544674BC371624 /* EditorWaveformView.swift */,
+			E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */,
+			0BFDC2EFC4934765AF814B55 /* EditorTransportBar.swift */,
+			93CED1DF842B4F168197CF67 /* EditorTimeRuler.swift */,
+			EB68E940F7C54043A73A64E7 /* CuttingRoomCommands.swift */,
+			1248135978354103808175EE /* CuttingRoomWindowController.swift */,
+			9A13A1B1779E4866B94BC38C /* CuttingRoomRootView.swift */,
+			BA210461B44B4C19BB5FD9CE /* CuttingRoomRecents.swift */,
+			651FCE0F49FA445286DDDDE8 /* CuttingRoomEmptyState.swift */,
+			146CEF6B603A4DF8871E73EE /* EditorFormat+Precision.swift */,
+			DF813037746040BEB6AF231F /* AddMoveMenu.swift */,
+			DA8EFCD83CD74E489C39F084 /* MoveStackView.swift */,
+			3909710C0FB1496F9E2F6907 /* MoveStackEmptyState.swift */,
+			F9564F9D2D204417919BC5B5 /* MoveInspectorsTone.swift */,
+			A20A39A19A724264A3290E29 /* MoveInspectorsShape.swift */,
+			2C5E50E819264804B871B4E0 /* MoveInspectorsLevel.swift */,
+			83E387FBCD574819A2C2FF84 /* MoveInspectorsCut.swift */,
+			2D718A07E4C342E2B641E2AA /* MoveInspectorControls.swift */,
+			59370F4AEC0640AB8FF862A7 /* MoveInspector.swift */,
+			8627712ED3734BF28C758094 /* MeloThemeExport.swift */,
+			24075EA2942D47B8AAC5EBFA /* MeloThemeWelcome.swift */,
+			9178F2F2228A4F7892653300 /* MeloThemeStarters.swift */,
+			B7A1A0A55FBD47AE8BA61030 /* MeloThemeRemix.swift */,
+			75F2758BDCED4F8D8C45B717 /* ExternalToolLocator.swift */,
+			8F3252EAF6844E0FA503AD2E /* ToolProcessRunner.swift */,
+			ACC14D65ACD44420AF2D648B /* SystemRecordSheet.swift */,
+			A7D070CF1025402887992FF0 /* SystemAudioRecorder.swift */,
+			311ECA1B0F354A7A96EA55A3 /* LinkImportSheet.swift */,
+			008FFD7FD03E4693A4B78FC7 /* LinkExtractor.swift */,
+			1F81943A79D44C818815BC04 /* ExportCoordinator.swift */,
+			047CF1E038414D91B3F38852 /* ExportSheet.swift */,
+			E6B92650A3154B50A9590B05 /* JobProgressStrip.swift */,
+			6E0DE98A39564B77B1408B55 /* ExportPresets.swift */,
+			66FB922D10B8455D92EB24B4 /* LookaheadLimiter.swift */,
+			BA2FC58187B341619C6A4FD9 /* TruePeakMeter.swift */,
+			48FA1304F14843DBAA1AEE0C /* SignalAnalysis.swift */,
+			53E51FF171D4441881A80836 /* RenderEngine.swift */,
+			9E9A17BD4A1D48DBB772A531 /* PCMBlockChannels.swift */,
+			821883D317004EA69764FBEC /* OfflineBiquadChain.swift */,
+			A2860CD546F9400885602349 /* MoveProcessors.swift */,
+			86D3306536F1451CB758B2F6 /* LoudnessMeter.swift */,
+			6682BCD7A9034751A6FAE431 /* AudioFileIO.swift */,
+			1081F5F3A0724F258CC76B91 /* MoveKindDisplay.swift */,
+			C35DA11D23D14704986ED8E7 /* EditorTypes.swift */,
+			397E439656E5496B8CE7D855 /* EditorSession.swift */,
+			1B02319A3A2A47E596B763EA /* EditorJob.swift */,
+			98F8B88C4677451EA8F4CBF8 /* CuttingRoomStore.swift */,
+			5CD2679BBEF6413E941FFCC9 /* AnalysisSummaryView.swift */,
+			2101B9C264E246BC9E096B86 /* EditorEQPanel.swift */,
+			E989E9D0C1EE4B8B9FCA1516 /* EQResponseCurve.swift */,
+			51D65D537F334A23B7A6DFF3 /* EQCurveView.swift */,
+			CA8978C1EFF441BA96C94175 /* MoveProposer.swift */,
+			172F944D91D744D089962853 /* DestinationPicker.swift */,
+			047A347881A74FFB942FAC9C /* DestinationCatalogue.swift */,
 			9022A5647D8540DAE3D7FDE4 /* FirstRunAudioPrimer.swift */,
 			C5B4A39281706F5E4D3C2B1A /* AppSupportCoordinator.swift */,
 			0ADAE0D07EE3CE84F8461D42 /* GuidedTourCoordinator.swift */,
@@ -751,6 +916,61 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			9E1E8FA2A16B4A8E89A67A88 /* EditorWaveformView.swift in Sources */,
+			2641458ECFF64334B7080F5A /* EditorTransportCommands.swift in Sources */,
+			C7F489F454E1497C8550E84F /* EditorTransportBar.swift in Sources */,
+			0D386ECF427944BEA3D59952 /* EditorTimeRuler.swift in Sources */,
+			B0CE80E1B4014E53BB02F82E /* EditorPlayback.swift in Sources */,
+			F129D8564C814FE98D61E1BE /* ExportSheet.swift in Sources */,
+			3A3116BD67E6499585B50CED /* EditorEQPanel.swift in Sources */,
+			79F2B66B95EB4D87B31FF3C3 /* EQResponseCurve.swift in Sources */,
+			0FF654BD11F143BABC24BE5E /* EQCurveView.swift in Sources */,
+			17C1FEDBE16744AC9C57E8F5 /* CuttingRoomWindowController.swift in Sources */,
+			4E99F965ABD3425FA89DD2AA /* CuttingRoomRootView.swift in Sources */,
+			23F18F04EDA940239D39C176 /* CuttingRoomRecents.swift in Sources */,
+			24E42902D7334ED0AE7C5D90 /* CuttingRoomEmptyState.swift in Sources */,
+			43F41F6DAE764F38833CDF87 /* CuttingRoomCommands.swift in Sources */,
+			209C5525A0CB4CCC8D3644A7 /* EditorFormat+Precision.swift in Sources */,
+			13AA4A5448524C509D3EDDEA /* MoveStackView.swift in Sources */,
+			A84647F137174068A78DE243 /* MoveStackEmptyState.swift in Sources */,
+			6F2C10D689F64AE0B36FCBEE /* MoveInspectorsTone.swift in Sources */,
+			A85D8168F50147A0B4636E10 /* MoveInspectorsShape.swift in Sources */,
+			FD4D081483B546D59F69809D /* MoveInspectorsLevel.swift in Sources */,
+			E89638C122A44756B21220CB /* MoveInspectorsCut.swift in Sources */,
+			DC820B4F60CD4DB48015D51A /* MoveInspectorControls.swift in Sources */,
+			C913D16737E3476890BAA99A /* MoveInspector.swift in Sources */,
+			5A7CC836FE344891B0269D32 /* AddMoveMenu.swift in Sources */,
+			034581FA0BA747DFB6C08ABD /* MeloThemeWelcome.swift in Sources */,
+			4F0C78FEE9F54B7FB0564B8B /* MeloThemeStarters.swift in Sources */,
+			AC6F5A9BC3DC430EA127EDE3 /* MeloThemeRemix.swift in Sources */,
+			853A6E39C3C64DF09FED99A7 /* MeloThemeExport.swift in Sources */,
+			1DEA4DD55ACD442791A578BC /* ToolProcessRunner.swift in Sources */,
+			1AF1E626CE804BF3B602FE8D /* SystemRecordSheet.swift in Sources */,
+			4E184FBED0C54033A2E3B81C /* SystemAudioRecorder.swift in Sources */,
+			AC14947157644CDD9192A828 /* LinkImportSheet.swift in Sources */,
+			2F97E99968AD4774A85A02A4 /* LinkExtractor.swift in Sources */,
+			DC9333AA346D4DB89C85382F /* ExternalToolLocator.swift in Sources */,
+			ECF47EBB5465422595945F76 /* JobProgressStrip.swift in Sources */,
+			AB25458A19BF4A77A5BCFF06 /* ExportPresets.swift in Sources */,
+			04B76C4592DA43EEA4027804 /* ExportCoordinator.swift in Sources */,
+			D496594178704436A6752052 /* TruePeakMeter.swift in Sources */,
+			31587ACE1151419B92A30B89 /* SignalAnalysis.swift in Sources */,
+			C52B30C2DD04428BA23DAB76 /* RenderEngine.swift in Sources */,
+			2571DCD536BD4A7693EB56E1 /* PCMBlockChannels.swift in Sources */,
+			24BB16B252D840DAA3D5938B /* OfflineBiquadChain.swift in Sources */,
+			50954F2F60B442859D777A8F /* MoveProcessors.swift in Sources */,
+			BFA11E2052F04A0D80DD96B3 /* LoudnessMeter.swift in Sources */,
+			6D6E0B1542774E3EBEFCE40B /* LookaheadLimiter.swift in Sources */,
+			4DA4BEDADBAC4412853AD289 /* MoveKindDisplay.swift in Sources */,
+			D68D09111B5A4274A55E4CB4 /* EditorTypes.swift in Sources */,
+			C423283FD3E445C9968153E2 /* EditorSession.swift in Sources */,
+			CAD53F93B0EA40BFB97E9D38 /* EditorJob.swift in Sources */,
+			33112267269F4A4088BAC92A /* CuttingRoomStore.swift in Sources */,
+			B12038FC4A84400483E40F15 /* AudioFileIO.swift in Sources */,
+			3221B0D6C0744F9D80FA0132 /* MoveProposer.swift in Sources */,
+			62165AC10BFC49509343C23F /* DestinationPicker.swift in Sources */,
+			E63ABFF9BBF04C269C7D1365 /* DestinationCatalogue.swift in Sources */,
+			27FD7962D08C42998DE4FADB /* AnalysisSummaryView.swift in Sources */,
 			FBF2F996619A4DCB8DEE4319 /* DockPresence.swift in Sources */,
 			93DD4D49475D461496537FD9 /* SettingsGuidedNavigation.swift in Sources */,
 			A9E2FFEDF5444A70B0375D87 /* LegacyDefaultsMigration.swift in Sources */,
@@ -998,7 +1218,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 300;
+			CURRENT_PROJECT_VERSION = 310;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1009,7 +1229,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 3.0.0;
+			MARKETING_VERSION = 3.1.0;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;
@@ -1028,7 +1248,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 300;
+			CURRENT_PROJECT_VERSION = 310;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1039,7 +1259,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 3.0.0;
+			MARKETING_VERSION = 3.1.0;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;

@@ -30,8 +30,13 @@ def require(path, *needles):
 # 'short sound', which described a two-second clip that no longer exists — so it
 # pinned prose nobody was allowed to improve and said nothing about whether the
 # page could actually play anything. The asset name is the connection.
+# Tightened 2026-08-09: the page no longer resolves the asset itself, it asks
+# `MeloThemePlayback.currentURL`, which returns the user's adopted remix when
+# there is one and the bundled song otherwise. A bare 'MeloTheme' needle is now
+# satisfied by the *type* name alone, so it would stay green if the call were
+# severed and the page fell back to silence. Pin the call.
 require("Sources/Melo/Views/Onboarding/FirstRunOnboardingView.swift",
-        'title: "Melo"', 'MeloTheme', 'Button("Show Me")')
+        'title: "Melo"', 'MeloThemePlayback.currentURL', 'Button("Show Me")')
 require("Sources/Melo/Coordination/FirstRunAudioPrimer.swift", "runFirstRunAudioPrimer")
 require("Sources/Melo/Audio/Engine/ProcessTapController.swift", "startAudioDeviceOffMainThread")
 # Tour copy now lives beside the data in the coordinator; the overlay only

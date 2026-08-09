@@ -38,6 +38,70 @@ enum MeloReleaseNotes {
     /// entry ships with no items — so a release cannot go out silent.
     static let all: [MeloReleaseNote] = [
         MeloReleaseNote(
+            id: "3.1.0",
+            version: "3.1.0",
+            build: 310,
+            headline: "Melo can cut a sound now",
+            items: [
+                MeloReleaseNote.Item(
+                    id: "3.1.0-cutting-room",
+                    title: "The Cutting Room",
+                    // First because everything else in this release is inside
+                    // it. Names the three ways in that an existing install can
+                    // use today, which is what turns the notes below from news
+                    // into somewhere the reader can go.
+                    detail: "A window for one sound. Trim it, level it, shape it, and save it in another format. It is in the menu bar, in ⌘K, and you can drop a file on Melo.",
+                    // There is no popup control this sentence is about. The
+                    // scissors button opens a separate window, and
+                    // `GuidedTourTarget` anchors are only collected inside the
+                    // popup, so a step here would draw a card pointing at
+                    // nothing.
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.1.0-destinations",
+                    title: "Say where the sound is going",
+                    // The feature. If a reader takes one thing from this
+                    // release it is that Melo measures *their* file rather
+                    // than applying a preset — hence "your file" and the
+                    // promise that the numbers are editable.
+                    detail: "Pick Podcast, Music, Video, Ringtone or Voice memo. Melo measures your file and proposes the moves that get it there, each one explained, every number yours to change.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.1.0-link-and-record",
+                    title: "Audio off a link, or straight off your Mac",
+                    detail: "Paste a link and Melo pulls the sound out with yt-dlp, or record what this Mac is playing — everything, or one app.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.1.0-theme-remix",
+                    title: "Melo's theme is yours to cut up",
+                    detail: "Four one-tap starting points on the app's own track. Your version can become the one setup plays.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.1.0-eq-preset",
+                    title: "An editor curve can become a Melo preset",
+                    // The one thing here no other audio editor can do, and the
+                    // reason the equalizer is Melo's rather than a generic one.
+                    detail: "Save what you build in the Cutting Room's equalizer and use it on live apps.",
+                    target: .equalizer
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.1.0-capture-wording",
+                    title: "Melo's audio permission now says it can record",
+                    // Kept deliberately. Every other item here is something
+                    // that grew; this is the only one where a promise Melo made
+                    // to the user changed, and a release that quietly reworded
+                    // a privacy string would be the kind of thing this file
+                    // exists to prevent.
+                    detail: "Same permission as before and nothing leaves your Mac — but the old wording promised Melo never records, and that stopped being true.",
+                    target: nil
+                )
+            ]
+        ),
+        MeloReleaseNote(
             id: "3.0.0",
             version: "3.0.0",
             build: 300,

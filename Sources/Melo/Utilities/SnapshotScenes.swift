@@ -45,7 +45,23 @@ enum SnapshotScenes {
         // `applyAppearance` below and that calls it.
 
         /// Puts the app's own appearance preference where the scene says the
-        /// frame should be.
+        /// frame should be, and resets the sticky globals a previous scene may
+        /// have left leaning.
+        ///
+        /// It is the shared per-scene reset hook rather than only an appearance
+        /// setter — it has erased persistence since it was written — and the
+        /// reason everything of that kind belongs *here* is that `scene(...)`
+        /// below is not the only caller. `SnapshotHarness.transition(...)` and
+        /// `negativeControl(...)` do not go through that wrapper and each calls
+        /// this directly, so a reset added to the wrapper alone silently misses
+        /// the twenty-two frames that carry the assertions.
+        ///
+        /// `EditorTimeline.shared` outlives every scene and holds the window a
+        /// waveform is looking through. Measured: after
+        /// `cutting-room-waveform-handle` seeded zoom 0.4, the four
+        /// `cutting-room-transport-*` frames inherited it and printed `0:58.00`
+        /// where every window frame printed `0:58.0`. Same trap as
+        /// `MeloEasterEggClock`, cleared in the same breath.
         ///
         /// Without this a dark frame of the popup was unreadable, and had been
         /// for the whole of the previous run. `MenuBarPopupView` applies
@@ -63,6 +79,7 @@ enum SnapshotScenes {
             var appSettings = settings.appSettings
             appSettings.appearance = scheme == .dark ? .dark : .light
             settings.appSettings = appSettings
+            EditorTimeline.shared.resetForSnapshot()
         }
 
         @MainActor func scene(
@@ -1614,6 +1631,1439 @@ enum SnapshotScenes {
                 }
             ) { popup() }
         )
+
+        // MARK: - The Cutting Room
+        //
+        // These frames are the only look anyone gets at this window without
+        // running it, and they are deliberately unflattering: the empty stack,
+        // the move with no rationale, the format that needs a tool this Mac
+        // does not have.
+        //
+        // The seeding seam is `CuttingRoomStore.setForSnapshot(document:waveform:)`,
+        // which pins the fixture so the debounced re-render cannot reach a
+        // `RenderEngine` for a file that does not exist and blank the frame. Every
+        // editor view binds to `CuttingRoomStore.shared`, so without it every
+        // Cutting Room frame would be the empty state. A few views add their own
+        // seeding on top, for state the store does not hold: an expanded row, a
+        // drop target, a zoom, a playing transport, an in-flight job.
+        //
+        // **These frames appear last in the list on purpose.** `setForSnapshot`
+        // pins the store for the rest of the process, `CuttingRoomRecents.setForSnapshot`
+        // pins the recents list, and `JobStripTuning.seedSnapshotJobs` drops the
+        // strip's quiet delay to zero. None of that may reach a popup or Settings
+        // frame above this line.
+
+        let cuttingRoom = CuttingRoomStore.shared
+
+        // A fixed instant, so nothing in these frames is a function of when they
+        // were rendered. Nothing draws `measuredAt` or `openedAt` today; a frame
+        // that silently becomes nondeterministic when something does is a frame
+        // whose negative control starts flaking for no discoverable reason.
+        let editorInstant = Date(timeIntervalSince1970: 1_770_000_000)
+
+        let editorAudioURL = URL(fileURLWithPath: "/Users/you/Music/morning-show-ep41.wav")
+        let editorSource = EditorSource(
+            url: editorAudioURL,
+            displayName: "morning-show-ep41",
+            origin: .file(originalURL: editorAudioURL),
+            duration: 250,
+            sampleRate: 48_000,
+            channelCount: 2,
+            formatDescription: "WAV · 32-bit · 48 kHz stereo"
+        )
+
+        // Two measurements of the same kind of file, and the difference between
+        // them is the whole novice path. Every number here is one `MoveProposer`
+        // actually reads: the loudness gap, the true peak, the noise floor, the
+        // silence at each end, the interior gaps, the DC offset, dual-mono.
+        //
+        // `quietReport` is below every threshold in the proposer, so Podcast
+        // proposes the full stack. `compliantReport` is inside all of them, so
+        // Podcast proposes nothing at all and says so. A picker that stopped
+        // consulting the measurement would draw these two identically, which is
+        // what `scripts/verify-cutting-room.py` reads the frames for.
+        let quietReport = AnalysisReport(
+            integratedLUFS: -22.4,
+            truePeakDBTP: -0.4,
+            loudnessRangeLU: 7.4,
+            peakDBFS: -0.6,
+            noiseFloorDBFS: -48.5,
+            dcOffset: 0.0042,
+            clippedSampleCount: 0,
+            spectralTiltDBPerOctave: -2.1,
+            leadingSilence: 1.8,
+            trailingSilence: 2.4,
+            interiorSilences: [31.2...33.4, 88.0...90.4, 150.2...152.1],
+            isEffectivelyMono: true,
+            measuredAt: editorInstant
+        )
+        let compliantReport = AnalysisReport(
+            integratedLUFS: -16.2,
+            truePeakDBTP: -1.6,
+            loudnessRangeLU: 6.0,
+            peakDBFS: -2.0,
+            noiseFloorDBFS: -62.0,
+            dcOffset: 0.00008,
+            clippedSampleCount: 0,
+            spectralTiltDBPerOctave: -2.0,
+            leadingSilence: 0.1,
+            trailingSilence: 0.2,
+            interiorSilences: [],
+            isEffectivelyMono: false,
+            measuredAt: editorInstant
+        )
+
+        // The real proposal, from the shipped proposer, rather than a hand-written
+        // list of what a proposal is supposed to look like. That is the point: if
+        // `MoveProposer` stops producing rationales, or stops producing moves, the
+        // stack frames show it rather than showing a fixture that cannot change.
+        let proposedMoves = MoveProposer.propose(
+            for: quietReport,
+            destination: DestinationCatalogue.podcast,
+            source: editorSource
+        )
+
+        // A stack somebody has been working in: the proposal, one move they added
+        // by hand (so no rationale — the row has to survive that), and one they
+        // switched off rather than deleted, which is the whole reason a
+        // non-destructive stack is worth having.
+        var mixedMoves = proposedMoves
+        mixedMoves.insert(
+            Move(kind: .gain(dB: 1.5), rationale: nil),
+            at: min(2, mixedMoves.count)
+        )
+        // Index 1, not the last of nine. A 320×520 pane holds about four rows of
+        // this stack, so switching off the last one produced a frame whose
+        // provenance band promised a dimmed move the image physically could not
+        // contain — and it was read, correctly, as "nothing here is dim". A
+        // proposed move rather than the hand-added one, so the dimming is judged
+        // on a three-line row with a rationale on it.
+        if mixedMoves.count > 1 {
+            mixedMoves[1].isEnabled = false
+        }
+        /// The move the disable transition switches off. Same reasoning: it has
+        /// to be above the fold or the two frames differ only where nobody can
+        /// see, and the pixel assertion in `verify-cutting-room.py` reads them.
+        let moveToDisable = proposedMoves.count > 1 ? proposedMoves[1] : proposedMoves.first
+
+        // One move per inspector worth a frame. The proposal above contains no
+        // gain, no fade and no equalizer, so these are built here; `MoveInspector`
+        // is reached through the row's own disclosure rather than rendered
+        // directly, which is what makes the frame evidence that the row opens onto
+        // it.
+        let inspectorBands = EQSettings(
+            bandGains: [3, 2, 0, -2, -3, -1, 1, 2, 3, 2],
+            isEnabled: true
+        ).autoEQFilters
+        let inspectorMoves: [Move] = [
+            Move(
+                kind: .trim(start: 1.8, end: 247.6),
+                rationale: "There's 1.8s of room tone at the front and 2.4s at the end — "
+                    + "this starts you at the first sound and stops at the last."
+            ),
+            Move(kind: .gain(dB: 1.5), rationale: nil),
+            Move(
+                kind: .normalize(appliedGainDB: 6.4, measuredLUFS: -22.4, targetLUFS: -16),
+                rationale: "This measured −22.4 LUFS, 6.4 dB under what podcast wants — "
+                    + "this moves it to −16.0."
+            ),
+            Move(kind: .fadeOut(length: 2.5, curve: .equalPower), rationale: nil),
+            Move(kind: .equalizer(bands: inspectorBands, preampDB: -3), rationale: nil)
+        ]
+
+        // Named so the recents list is the same on every machine. Without this the
+        // empty state shows whatever the person running the harness opened that
+        // morning, and "does the first screen look right" becomes a question about
+        // their music library.
+        //
+        // One of each `Kind`, not three files. The field exists because the row's
+        // leading glyph tells a dropped file, a link extraction and a recording
+        // apart using the same three symbols as the entry cards below them, and a
+        // fixture of three `.file` rows would render a screen that cannot show the
+        // only thing the field is for.
+        let editorRecents: [CuttingRoomRecent] = [
+            CuttingRoomRecent(
+                url: editorAudioURL,
+                displayName: "morning-show-ep41",
+                formatDescription: "WAV · 48 kHz stereo",
+                duration: 250,
+                openedAt: editorInstant,
+                kind: .file
+            ),
+            CuttingRoomRecent(
+                url: URL(
+                    fileURLWithPath:
+                        "/Users/you/Library/Application Support/Melo/Extractions/interview-clip.m4a"
+                ),
+                displayName: "interview-clip",
+                formatDescription: "AAC · 256 kbps · 44.1 kHz stereo",
+                duration: 96.4,
+                openedAt: editorInstant.addingTimeInterval(-3_600),
+                kind: .link
+            ),
+            CuttingRoomRecent(
+                url: URL(
+                    fileURLWithPath:
+                        "/Users/you/Library/Application Support/Melo/Recordings/take-2.caf"
+                ),
+                displayName: "Recording, 9 Aug at 14:02",
+                formatDescription: "CAF · 32-bit float · 48 kHz stereo",
+                duration: 47.5,
+                openedAt: editorInstant.addingTimeInterval(-7_200),
+                kind: .recording
+            )
+        ]
+
+        /// The drawing fixture, and the only one. The store used to carry a
+        /// second, and it was deleted rather than repaired.
+        ///
+        /// `WaveformData.buckets` is `bucketCount * channelCount`,
+        /// channel-interleaved, because the render draws a lane per channel. The
+        /// store's fixture still emitted one lane per bucket, so a stereo frame
+        /// drawn from it read adjacent *time* samples as left and right: two lanes
+        /// that differed slightly, looked like a working stereo drawing, and were
+        /// not one. Two fixture generators that both have to keep agreeing with
+        /// the bucket layout is the defect class `CLAUDE.md:138` already records,
+        /// so there is one, here, next to the scenes that read it.
+        ///
+        /// The channels get a different tremor rate and a different level on
+        /// purpose: two identical lanes in a frame then read as a defect rather
+        /// than as an artefact of the fixture.
+        @MainActor func editorWaveform(
+            duration: TimeInterval,
+            channels: Int,
+            buckets: Int = 900
+        ) -> WaveformData {
+            let lanes = max(channels, 1)
+            var data: [WaveformData.Bucket] = []
+            data.reserveCapacity(buckets * lanes)
+            for index in 0..<buckets {
+                let position = Double(index) / Double(max(buckets - 1, 1))
+                let envelope = sin(position * .pi) * 0.85
+                for lane in 0..<lanes {
+                    let tremorRate = 37.0 + Double(lane) * 11.0
+                    let tremor = 0.55 + 0.45 * sin(position * tremorRate + Double(lane) * 1.7)
+                    let level = lane == 0 ? 1.0 : 0.72
+                    let peak = Float(envelope * tremor * level)
+                    data.append(
+                        WaveformData.Bucket(minimum: -peak, maximum: peak, rms: peak * 0.62)
+                    )
+                }
+            }
+            return WaveformData(buckets: data, duration: duration)
+        }
+
+        /// Jobs and the finished-export card are shared state that outlives a
+        /// scene, so every seed clears them. Without this the first frame after
+        /// the job strip would carry a progress strip nobody asked for, and the
+        /// window's negative control would move as a job's clock ticked.
+        @MainActor func clearEditorJobs() {
+            JobStripTuning.clearSnapshotSeeding(in: cuttingRoom)
+            // `clearSnapshotSeeding` leaves the two timings where a seeded strip
+            // needs them — no quiet delay, no automatic retirement. Every scene
+            // that is not about the strip wants the shipping numbers back, so a
+            // frame of the window is a frame of the window the app really draws.
+            JobStripTuning.quietDelay = 0.25
+            JobStripTuning.settledLinger = 3
+        }
+
+        @MainActor func seedCuttingRoom(
+            moves: [Move] = [],
+            destination: Destination? = nil,
+            analysis: AnalysisReport? = nil,
+            selection: ClosedRange<TimeInterval>? = nil,
+            playhead: TimeInterval = 0,
+            selectedMove: Move.ID? = nil,
+            source: EditorSource? = nil
+        ) {
+            clearEditorJobs()
+            CuttingRoomRecents.shared.setForSnapshot(editorRecents)
+            let resolved = source ?? editorSource
+            var document = EditorDocument(source: resolved)
+            document.moves = moves
+            document.destination = destination
+            document.analysis = analysis
+            cuttingRoom.setForSnapshot(
+                document: document,
+                waveform: editorWaveform(
+                    duration: resolved.duration,
+                    channels: resolved.channelCount
+                )
+            )
+            // After `setForSnapshot`, which resets both of these.
+            cuttingRoom.selection = selection
+            cuttingRoom.playhead = playhead
+            cuttingRoom.selectedMoveID = selectedMove
+            // `setForSnapshot` clears `lastError` today, and the two error frames
+            // below rely on it not leaking into the thirty scenes after them.
+            // Said here as well, so the two scenes do not depend on a line in
+            // someone else's file staying where it is.
+            cuttingRoom.setErrorForSnapshot(nil)
+        }
+
+        /// The window with nothing open. Pinned first and closed second: `close()`
+        /// alone would leave the store unpinned, and an unpinned store is one a
+        /// later debounced re-render can reach.
+        @MainActor func emptyCuttingRoom() {
+            seedCuttingRoom()
+            cuttingRoom.close()
+        }
+
+        let cuttingRoomSize = CGSize(width: 1000, height: 640)
+        let stackPaneSize = CGSize(width: 320, height: 520)
+        let sidebarPaneSize = CGSize(width: 320, height: 420)
+        let waveformSize = CGSize(width: 660, height: 320)
+        let eqCurveSize = CGSize(width: 480, height: 150)
+
+        @MainActor func cuttingRoomWindow(dropTargeted: Bool = false) -> AnyView {
+            AnyView(
+                CuttingRoomRootView(
+                    store: cuttingRoom,
+                    settings: settings,
+                    dropTargeted: dropTargeted,
+                    recents: CuttingRoomRecents.shared
+                )
+            )
+        }
+
+        /// A sidebar pane in the chrome the window gives it, so the frame is
+        /// judged at the width and inset it really has.
+        @MainActor func sidebarPane<Content: View>(
+            _ title: String,
+            @ViewBuilder _ content: () -> Content
+        ) -> AnyView {
+            AnyView(
+                VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
+                    SectionHeader(title: title)
+                        .padding(.horizontal, DesignTokens.Spacing.lg)
+                    content()
+                        .padding(.horizontal, DesignTokens.Spacing.md)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, DesignTokens.Spacing.md)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color(nsColor: .windowBackgroundColor))
+            )
+        }
+
+        @MainActor func stackPane(expanded: Move.ID? = nil, dropTarget: Int? = nil) -> AnyView {
+            sidebarPane("The stack") {
+                // `settings` because that is what the window passes it; the
+                // equalizer inspector's preset list is absent without one, and a
+                // frame of a pane composed differently from the window is a frame
+                // of something the app never draws.
+                MoveStackView(
+                    store: cuttingRoom,
+                    expandedMoveID: expanded,
+                    settings: settings,
+                    dropTargetIndex: dropTarget
+                )
+            }
+        }
+
+        @MainActor func destinationPane() -> AnyView {
+            sidebarPane("Where’s it going?") { DestinationPicker(store: cuttingRoom) }
+        }
+
+        @MainActor func analysisPane() -> AnyView {
+            sidebarPane("What I found") { AnalysisSummaryView(store: cuttingRoom) }
+        }
+
+        let glassNote = "The theme card puts its glass in a `.background`, not around its "
+            + "content, so the words survive a layer capture and only the finish is missing. "
+            + "Judge the finish from the -render frame; judge everything else here."
+
+        // Two frames of the response canvas alone, and they are the only pair in
+        // this set that exists for a machine rather than for a person.
+        //
+        // `scripts/verify-cutting-room.py` subtracts them. Everything that is the
+        // same in both — the grid, the decade labels, the recessed ground —
+        // cancels, and what is left is the drawn response of a single +9 dB
+        // peaking band at 1 kHz. The script then asserts the topmost surviving
+        // pixel sits where 1 kHz and +9 dB land on a log frequency axis and a
+        // ±15 dB vertical one, which it works out itself. A curve drawn from
+        // anything other than `BiquadMath`'s coefficients does not land there.
+        //
+        // The canvas is pinned to the top of the scene so the script knows where
+        // the plot is without measuring it: `EQCurveView` is a fixed 108pt tall,
+        // so it occupies exactly the first 108 points of a 150pt frame.
+        @MainActor func eqCurveOnly(_ bands: [AutoEQFilter]) -> AnyView {
+            AnyView(
+                VStack(spacing: 0) {
+                    EQCurveView(
+                        bands: bands,
+                        preampDB: 0,
+                        showsHandles: false,
+                        highlighted: nil,
+                        onDragBand: nil
+                    )
+                    Spacer(minLength: 0)
+                }
+                .frame(width: eqCurveSize.width, height: eqCurveSize.height, alignment: .top)
+                .background(Color(nsColor: .windowBackgroundColor))
+            )
+        }
+        let probeBand = AutoEQFilter(type: .peaking, frequency: 1000, gainDB: 9, q: 1.4)
+
+        let jobStripSize = CGSize(width: 700, height: 380)
+
+        // MARK: - The frames that carry an assertion
+        //
+        // Twenty-two frames, ordered ahead of the fifty-eight that are only
+        // there to be looked at. A deliberate hedge, not a preference.
+        //
+        // Three runs in a row have died part-way through this block, and all of
+        // this sat at the end of it — so every truncated run threw away exactly
+        // the frames that assert something and kept the ones that merely show
+        // something. The four transitions carry `mustDiffer`, which is the
+        // dead-control check; the seven negative controls are what makes those
+        // four mean anything; and six frames here are read as pixels by
+        // `scripts/verify-cutting-room.py`, which cannot run its rendered tier
+        // at all without them. As of this ordering they are the first seven
+        // entries in the block.
+        //
+        // A judgeable frame that is missing is a gap someone notices. A missing
+        // assertion is a gap that reports itself as nothing being wrong.
+
+        // MARK: Cutting Room transitions
+        //
+        // Four wires, each of which would compile, render and look plausible if
+        // it were cut. All four act through the store rather than by pressing the
+        // control, so `bindingCaveat` applies to every one of them: what the
+        // button is bound to stays unverified, what the store's method produces
+        // does not.
+
+        // The pair the verify script reads. Same source, same destination, same
+        // layout — only the measurement differs. If the picker stops asking
+        // `MoveProposer` what to do, these two frames become identical.
+        scenes.append(
+            scene(
+                "cutting-room-destination-quiet", sidebarPaneSize, .dark,
+                note: "Podcast, on a file measured at −22.4 LUFS. The caption under the button "
+                    + "is a count of moves the proposer produced from THIS measurement.",
+                prepare: {
+                    seedCuttingRoom(
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                }
+            ) { destinationPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-destination-compliant", sidebarPaneSize, .dark,
+                note: "The same pane, the same destination, on a file already inside every one "
+                    + "of Podcast's published tolerances. It must say so and disable the button. "
+                    + "Compared against cutting-room-destination-quiet by "
+                    + "scripts/verify-cutting-room.py: identical frames mean the button stopped "
+                    + "reading the measurement.",
+                prepare: {
+                    seedCuttingRoom(
+                        destination: DestinationCatalogue.podcast,
+                        analysis: compliantReport
+                    )
+                }
+            ) { destinationPane() }
+        )
+
+        scenes.append(
+            scene("cutting-room-eqcurve-flat", eqCurveSize, .light,
+                  note: "Flat reference for the probe below. The canvas is the first 108pt.",
+                  prepare: { seedCuttingRoom() }) {
+                eqCurveOnly(EQResponseCurve.flatGraphicBands)
+            }
+        )
+        scenes.append(
+            scene("cutting-room-eqcurve-probe", eqCurveSize, .light,
+                  note: "One peaking band: 1 kHz, +9 dB, Q 1.4, no preamp. Subtracted from "
+                      + "cutting-room-eqcurve-flat, the highest remaining pixel is the peak of "
+                      + "the drawn response and must land at 1 kHz and +9 dB.",
+                  prepare: { seedCuttingRoom() }) {
+                eqCurveOnly([probeBand])
+            }
+        )
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-destination-reacts",
+            size: sidebarPaneSize,
+            colorScheme: .dark,
+            note: "BEFORE is Podcast on a file measured at −22.4 LUFS; AFTER is the same pane, "
+                + "same destination, after the measurement is replaced with one already inside "
+                + "every Podcast tolerance. The button and its caption are the only things that "
+                + "may move, and they must. A destination that had quietly become a preset "
+                + "would render these two identically. " + SnapshotHarness.bindingCaveat,
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            },
+            act: {
+                seedCuttingRoom(
+                    destination: DestinationCatalogue.podcast,
+                    analysis: compliantReport
+                )
+            }
+        ) { destinationPane() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-stack-fills",
+            size: stackPaneSize,
+            colorScheme: .dark,
+            note: "The proposal landing on the stack as one edit. BEFORE is the empty state, "
+                + "AFTER is \(proposedMoves.count) rows. " + SnapshotHarness.bindingCaveat,
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            },
+            act: { cuttingRoom.replaceMoves(proposedMoves) }
+        ) { stackPane() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-stack-disables",
+            size: stackPaneSize,
+            colorScheme: .dark,
+            note: "The second row switched off — above the fold on purpose, since this pane "
+                + "holds about four of nine rows. It must stay on the list and dim: a move that "
+                + "vanished when it was switched off would make A/B listening impossible, which "
+                + "is the whole reason the stack is non-destructive. Its switch and chevron stay "
+                + "full strength, because the switch is what you press to bring it back. "
+                + SnapshotHarness.bindingCaveat,
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            },
+            act: {
+                if let moveToDisable {
+                    cuttingRoom.setEnabled(false, for: moveToDisable.id)
+                }
+            }
+        ) { stackPane() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-waveform-selects",
+            size: waveformSize,
+            colorScheme: .dark,
+            note: "The drawing following `store.selection`. Identical frames would mean the "
+                + "canvas is drawing a selection it is not reading — and the first run of this "
+                + "pair measured exactly 0.0000%, which turned out not to be the canvas at all: "
+                + "`EditorTimeline.duration` was still its default of 1, so the window was one "
+                + "second wide, the ruler read 0:00.0–0:00.9, and a selection at 42–96s was off "
+                + "screen in both frames. A shipping bug — a 4:10 file opened showing one second "
+                + "of itself. " + SnapshotHarness.bindingCaveat,
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(playhead: 58)
+            },
+            act: { cuttingRoom.selection = 42...96 }
+        ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+
+        // MARK: Cutting Room negative controls
+        //
+        // One per new family, all on the harness's default 1% ceiling.
+        //
+        // That number was reasoned before it was measured — nothing in the
+        // Cutting Room animates at rest, the themed backdrop draws nothing into
+        // a layer capture, the `.systemAccent` visitor is pinned out of frame for
+        // the one ImageRenderer control, and the job strip's indeterminate sweep
+        // is a 3pt capsule over 28% of a 668pt row and so bounded at 0.8% of a
+        // 700×380 frame.
+        //
+        // **Measured on the first complete run: every one of these read
+        // 0.0000%.** Not "under the ceiling" — zero. So the whole 1% is margin,
+        // including for the job strip, whose sweep evidently lands on the same
+        // phase in both captures because both frames are seeded the same way in
+        // the same code path.
+        //
+        // The transitions these calibrate, from the same run: destination-reacts
+        // 7.9055%, stack-fills 11.5889%, stack-disables 1.8813%, all against the
+        // 1% floor. `stack-disables` is the thin one and it is thin for a correct
+        // reason: dimming one row of nine changes only the *inked* pixels inside
+        // it, and text is mostly background. It is also the pair
+        // `verify-cutting-room.py` reads for the dimming assertion, so anything
+        // that changes how much of a row moves shows up there first — which is
+        // the behaviour wanted, not a margin to pad.
+        //
+        // If one of these ever goes red the number in `_transitions.log` is the
+        // measurement and the ceiling is set from it. It is not raised to make a
+        // run green.
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-cutting-room",
+            size: cuttingRoomSize,
+            colorScheme: .dark,
+            note: "Cutting Room window family, layer capture.",
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            }
+        ) { cuttingRoomWindow() }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-cutting-room-render",
+            size: cuttingRoomSize,
+            colorScheme: .dark,
+            capture: .imageRenderer,
+            note: "Cutting Room window family, ImageRenderer. The clock is forced to t=40, "
+                + "which is outside the `.systemAccent` visitor's 4…10.2s appearance window, so "
+                + "the one animated element in this capture path is off screen by construction.",
+            prepare: {
+                applyAppearance(.dark)
+                MeloEasterEggClock.forcedTime = 40
+                seedCuttingRoom(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            }
+        ) { cuttingRoomWindow() }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-move-stack",
+            size: stackPaneSize,
+            colorScheme: .dark,
+            note: "Move stack family.",
+            prepare: {
+                applyAppearance(.dark)
+                MeloEasterEggClock.forcedTime = nil
+                seedCuttingRoom(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            }
+        ) { stackPane() }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-destination",
+            size: sidebarPaneSize,
+            colorScheme: .dark,
+            note: "Destination picker family. This is the control for the assertion that "
+                + "cutting-room-destination-quiet and -compliant must differ.",
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+            }
+        ) { destinationPane() }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-waveform",
+            size: waveformSize,
+            colorScheme: .dark,
+            note: "Waveform family.",
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(selection: 42...96, playhead: 58)
+            }
+        ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-eq-curve",
+            size: eqCurveSize,
+            colorScheme: .light,
+            note: "EQ response family. The pixel assertion in verify-cutting-room.py subtracts "
+                + "two frames from this family, so a family that moved on its own would make "
+                + "that subtraction meaningless.",
+            prepare: {
+                applyAppearance(.light)
+                seedCuttingRoom()
+            }
+        ) { eqCurveOnly([probeBand]) }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-editor-jobs",
+            size: jobStripSize,
+            colorScheme: .dark,
+            note: "Job strip family, including the indeterminate sweep — the noisiest surface "
+                + "in the Cutting Room. Seeded identically in both frames, so the elapsed "
+                + "readouts are anchored to each frame's own prepare rather than drifting apart.",
+            prepare: {
+                applyAppearance(.dark)
+                seedCuttingRoom(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                )
+                JobStripTuning.seedSnapshotJobs(in: cuttingRoom)
+            }
+        ) { AnyView(JobProgressStrip(store: cuttingRoom)) }
+
+        // MARK: The whole window
+
+        let windowNote = "The real 1000×640 the window opens at. The themed backdrop behind it "
+            + "is an NSVisualEffectView plus a Canvas and draws nothing into a layer capture — "
+            + "the flat ground is the harness, not the design."
+
+        scenes.append(
+            scene(
+                "cutting-room-empty-dark", cuttingRoomSize, .dark,
+                note: windowNote + " Recents are a fixture, not this Mac's history: one file, "
+                    + "one link extraction and one recording, so the three leading glyphs can "
+                    + "be told apart against the three entry cards below them.",
+                prepare: { emptyCuttingRoom() }
+            ) { cuttingRoomWindow() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-empty-light", cuttingRoomSize, .light,
+                note: windowNote,
+                prepare: { emptyCuttingRoom() }
+            ) { cuttingRoomWindow() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-loaded-dark", cuttingRoomSize, .dark,
+                note: windowNote + " Podcast chosen, the file measured, the full proposal on "
+                    + "the stack — the state the feature exists to produce.",
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport,
+                        selection: 42...96,
+                        playhead: 58
+                    )
+                }
+            ) { cuttingRoomWindow() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-loaded-light", cuttingRoomSize, .light,
+                note: windowNote,
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport,
+                        selection: 42...96,
+                        playhead: 58
+                    )
+                }
+            ) { cuttingRoomWindow() }
+        )
+        // The drop affordance exists only while a drag is over the window and the
+        // harness cannot drag, so `dropTargeted:` is the only way this is ever
+        // seen. It is also the one piece of feedback that decides whether dropping
+        // a file feels invited or merely tolerated.
+        scenes.append(
+            scene(
+                "cutting-room-drop-target", cuttingRoomSize, .dark,
+                note: windowNote + " Seeded drop state.",
+                prepare: { emptyCuttingRoom() }
+            ) { cuttingRoomWindow(dropTargeted: true) }
+        )
+        // The sentence a user reads at the worst moment they will have with this
+        // feature: they dropped something in and it did not open.
+        //
+        // The copy is `AudioFileIO.Failure`'s own, read out of the shipped enum
+        // rather than transcribed, so a change to what Melo says shows up in the
+        // frame instead of in a stale fixture. Two widths, because the banner is
+        // the one surface here whose whole job is a sentence, and a sentence that
+        // is fine at 1000pt and clipped at the 820pt minimum is a sentence nobody
+        // has read at the size that matters.
+        //
+        // `setErrorForSnapshot` deliberately does not pin, so it goes after the
+        // seed rather than instead of it.
+        let unreadableFailure = AudioFileIO.Failure
+            .unreadable(URL(fileURLWithPath: "/Users/you/Downloads/piano-loop.aif"))
+        let tooLongFailure = AudioFileIO.Failure.tooLong(9_678)
+
+        scenes.append(
+            scene(
+                "cutting-room-error-empty", cuttingRoomSize, .dark,
+                note: windowNote + " A file that would not open, over the empty state — the "
+                    + "state a bad drop actually lands in. The banner shows `errorDescription` "
+                    + "only; `AudioFileIO.Failure` also writes a `recoverySuggestion` and "
+                    + "nothing on this surface reads it.",
+                prepare: {
+                    emptyCuttingRoom()
+                    cuttingRoom.setErrorForSnapshot(
+                        unreadableFailure.errorDescription ?? "Melo couldn’t read that."
+                    )
+                }
+            ) { cuttingRoomWindow() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-error-narrow", CGSize(width: 820, height: 520), .light,
+                note: "The window at its 820×520 minimum, carrying the longest failure sentence "
+                    + "in the feature over a loaded document. This is where the banner, the "
+                    + "header's name and format chip, and the sidebar's three sections are all "
+                    + "competing for the same room.",
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                    cuttingRoom.setErrorForSnapshot(
+                        tooLongFailure.errorDescription ?? "That file is too long."
+                    )
+                }
+            ) { cuttingRoomWindow() }
+        )
+
+        // The one path that draws the themed backdrop and the glass. It also
+        // cannot draw `NSViewRepresentable`, and the backdrop contains one, so the
+        // material behind everything comes back as a placeholder.
+        scenes.append(
+            scene(
+                "cutting-room-loaded-render", cuttingRoomSize, .dark,
+                capture: .imageRenderer,
+                note: "ImageRenderer. The themed gradient and any easter-egg visitor are real "
+                    + "here and invisible in every layer capture; the `.popover` material inside "
+                    + "MeloThemeBackdrop is an NSViewRepresentable and cannot be drawn on this "
+                    + "path at all. Judge the theme, not the material.",
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                }
+            ) { cuttingRoomWindow() }
+        )
+
+        // MARK: The move stack
+
+        scenes.append(
+            scene(
+                "cutting-room-stack-empty-dark", stackPaneSize, .dark,
+                note: "No destination chosen, so the empty state points at the picker.",
+                prepare: { seedCuttingRoom() }
+            ) { stackPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-stack-empty-light", stackPaneSize, .light,
+                prepare: { seedCuttingRoom() }
+            ) { stackPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-stack-proposed-dark", stackPaneSize, .dark,
+                note: "The stack `MoveProposer` really produced for this measurement. Every row "
+                    + "must carry a sentence naming the number that caused it; a row with no "
+                    + "third line is a move nothing measured.",
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                }
+            ) { stackPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-stack-proposed-light", stackPaneSize, .light,
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                }
+            ) { stackPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-stack-mixed", stackPaneSize, .dark,
+                note: "The proposal plus one hand-added Gain at row 3, which has no rationale, "
+                    + "and row 2 switched off rather than deleted. Both are inside the four rows "
+                    + "this pane can hold. The count of disabled moves sits in the control strip.",
+                prepare: {
+                    seedCuttingRoom(
+                        moves: mixedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport,
+                        selectedMove: mixedMoves.count > 2 ? mixedMoves[2].id : nil
+                    )
+                }
+            ) { stackPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-stack-drop", stackPaneSize, .dark,
+                note: "Mid-reorder, with the insertion line at index 3. Reachable only by "
+                    + "dragging, which the harness cannot do.",
+                prepare: {
+                    seedCuttingRoom(
+                        moves: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                }
+            ) { stackPane(dropTarget: 3) }
+        )
+
+        // One frame per inspector. A disclosure that discloses the wrong numbers
+        // is invisible from outside, and until now nothing had opened one.
+        let inspectorNames = ["trim", "gain", "normalize", "fade", "equalizer"]
+        for (offset, name) in inspectorNames.enumerated() where offset < inspectorMoves.count {
+            let move = inspectorMoves[offset]
+            scenes.append(
+                scene(
+                    "cutting-room-inspector-\(name)", stackPaneSize, .dark,
+                    note: "Row \(offset + 1) disclosed. The inspector is reached through the "
+                        + "row's own chevron, so this frame is evidence the row opens onto it "
+                        + "rather than evidence that MoveInspector renders.",
+                    prepare: {
+                        seedCuttingRoom(
+                            moves: inspectorMoves,
+                            destination: DestinationCatalogue.podcast,
+                            analysis: quietReport,
+                            selectedMove: move.id
+                        )
+                    }
+                ) { stackPane(expanded: move.id) }
+            )
+        }
+
+        // MARK: The sidebar panes on their own
+
+        scenes.append(
+            scene(
+                "cutting-room-destination-unchosen", sidebarPaneSize, .dark,
+                note: "Nothing picked. The button must say what it needs rather than being "
+                    + "enabled and doing nothing.",
+                prepare: { seedCuttingRoom(analysis: quietReport) }
+            ) { destinationPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-destination-ringtone", sidebarPaneSize, .light,
+                note: "A chosen row opens to show the published numbers behind it. Ringtone's "
+                    + "−12 LUFS is Melo's own choice and the catalogue says so in a comment; the "
+                    + "row says the number either way.",
+                prepare: {
+                    seedCuttingRoom(
+                        destination: DestinationCatalogue.ringtone,
+                        analysis: quietReport
+                    )
+                }
+            ) { destinationPane() }
+        )
+
+        scenes.append(
+            scene(
+                "cutting-room-analysis-quiet", sidebarPaneSize, .dark,
+                note: "Every measured fact with the sentence that says what it is.",
+                prepare: {
+                    seedCuttingRoom(
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    )
+                }
+            ) { analysisPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-analysis-compliant", sidebarPaneSize, .light,
+                note: "Already at the target. The verdict line has to say that in fewer words "
+                    + "than it takes to say it is not.",
+                prepare: {
+                    seedCuttingRoom(
+                        destination: DestinationCatalogue.podcast,
+                        analysis: compliantReport
+                    )
+                }
+            ) { analysisPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-analysis-nodestination", sidebarPaneSize, .dark,
+                note: "Measured, but nowhere to compare it against.",
+                prepare: { seedCuttingRoom(analysis: quietReport) }
+            ) { analysisPane() }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-analysis-measuring", sidebarPaneSize, .dark,
+                note: "Before the measurement lands. One line, not a skeleton.",
+                prepare: { seedCuttingRoom(destination: DestinationCatalogue.podcast) }
+            ) { analysisPane() }
+        )
+
+        // MARK: The waveform and the transport
+
+        let waveformNote = "A synthetic two-lane fixture, not a decoded file — judge the "
+            + "drawing, the ruler, the selection chrome and the playhead, not the shape of the "
+            + "sound. The two lanes carry deliberately different content, so two identical "
+            + "lanes here would mean a channel is not being read from its own bucket."
+
+        scenes.append(
+            scene(
+                "cutting-room-waveform-fit", waveformSize, .dark, note: waveformNote,
+                prepare: { seedCuttingRoom(playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-waveform-selection", waveformSize, .dark,
+                note: waveformNote + " A selection with both handles in view.",
+                prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-waveform-zoomed", waveformSize, .light,
+                note: waveformNote + " Zoomed in with the scroll bar showing, which only appears "
+                    + "once the view is no longer fit to the window.",
+                prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }
+            ) {
+                AnyView(EditorWaveformView(store: cuttingRoom, zoom: 0.62, windowStart: 38))
+            }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-waveform-handle", waveformSize, .dark,
+                note: waveformNote + " The upper selection handle in its grabbed state, which is "
+                    + "otherwise reachable only by putting a pointer on it. No `windowStart`: "
+                    + "with one, the seeded window did not contain the seeded selection and the "
+                    + "frame had no chrome in it at all. `applySeeds` centres the seeded edge "
+                    + "when the window is left to it, so the handle frames itself.",
+                prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }
+            ) {
+                AnyView(
+                    EditorWaveformView(
+                        store: cuttingRoom,
+                        zoom: 0.4,
+                        hoveredEdge: .upper
+                    )
+                )
+            }
+        )
+
+        let transportSize = CGSize(width: 700, height: 72)
+        @MainActor func transportStrip(
+            playing: Bool? = nil,
+            looping: Bool? = nil,
+            bypassed: Bool? = nil,
+            preparing: Bool? = nil
+        ) -> AnyView {
+            AnyView(
+                VStack(spacing: 0) {
+                    Divider()
+                    EditorTransportBar(
+                        store: cuttingRoom,
+                        playing: playing,
+                        looping: looping,
+                        bypassed: bypassed,
+                        preparing: preparing
+                    )
+                    Divider()
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(nsColor: .windowBackgroundColor))
+            )
+        }
+
+        let transportNote = "Playback lives behind an AVAudioEngine the harness has no device "
+            + "for, so the active states are seeded. What the buttons are wired to is UNVERIFIED "
+            + "from this frame; what they look like when they are on is not."
+        scenes.append(
+            scene("cutting-room-transport-idle", transportSize, .dark, note: transportNote,
+                  prepare: { seedCuttingRoom(playhead: 58) }) { transportStrip() }
+        )
+        scenes.append(
+            scene("cutting-room-transport-playing", transportSize, .dark, note: transportNote,
+                  prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }) {
+                transportStrip(playing: true, looping: true)
+            }
+        )
+        scenes.append(
+            scene("cutting-room-transport-bypassed", transportSize, .light, note: transportNote,
+                  prepare: { seedCuttingRoom(playhead: 58) }) {
+                transportStrip(playing: true, bypassed: true)
+            }
+        )
+        scenes.append(
+            scene("cutting-room-transport-preparing", transportSize, .dark, note: transportNote,
+                  prepare: { seedCuttingRoom(playhead: 58) }) {
+                transportStrip(preparing: true)
+            }
+        )
+
+        // MARK: The equalizer, at both depths
+
+        @MainActor func eqPanel(depth: EditorEQPanel.Depth) -> AnyView {
+            AnyView(
+                EditorEQPanel(
+                    bands: inspectorBands,
+                    preampDB: -3,
+                    settings: settings,
+                    depth: depth,
+                    onChange: { _, _ in }
+                )
+                .padding(DesignTokens.Spacing.md)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(nsColor: .windowBackgroundColor))
+            )
+        }
+        let eqPanelSize = CGSize(width: 420, height: 580)
+        scenes.append(
+            scene("cutting-room-eq-graphic", eqPanelSize, .dark,
+                  note: "Ten bands — the panel that already ships in the popup, writing "
+                      + "AutoEQFilters at Melo's own frequencies. The preamp readout is derived "
+                      + "from the curve, not typed.",
+                  prepare: { seedCuttingRoom() }) { eqPanel(depth: .graphic) }
+        )
+        scenes.append(
+            scene("cutting-room-eq-parametric", eqPanelSize, .dark,
+                  note: "The same array with frequency and Q unlocked, and grabbable handles on "
+                      + "the curve. Switching depth must not change the sound.",
+                  prepare: { seedCuttingRoom() }) { eqPanel(depth: .parametric) }
+        )
+        scenes.append(
+            scene("cutting-room-eq-graphic-light", eqPanelSize, .light,
+                  prepare: { seedCuttingRoom() }) { eqPanel(depth: .graphic) }
+        )
+
+
+        // MARK: The theme, the sheets and the strip
+
+        scenes.append(
+            scene("cutting-room-theme-welcome-dark", CGSize(width: 700, height: 340), .dark,
+                  note: glassNote,
+                  prepare: { seedCuttingRoom() }) {
+                AnyView(
+                    MeloThemeWelcomeCard(
+                        themeDuration: MeloThemeRemix.measuredDuration,
+                        onStart: { _ in },
+                        onDismiss: {}
+                    )
+                    .padding(DesignTokens.Spacing.xl)
+                    .frame(width: 700, alignment: .top)
+                )
+            }
+        )
+        scenes.append(
+            scene("cutting-room-theme-welcome-light", CGSize(width: 700, height: 340), .light,
+                  note: glassNote,
+                  prepare: { seedCuttingRoom() }) {
+                AnyView(
+                    MeloThemeWelcomeCard(
+                        themeDuration: MeloThemeRemix.measuredDuration,
+                        onStart: { _ in },
+                        onDismiss: {}
+                    )
+                    .padding(DesignTokens.Spacing.xl)
+                    .frame(width: 700, alignment: .top)
+                )
+            }
+        )
+        scenes.append(
+            scene("cutting-room-theme-welcome-render", CGSize(width: 700, height: 340), .dark,
+                  capture: .imageRenderer,
+                  note: "ImageRenderer, so the glass surface behind the card has a chance of "
+                      + "appearing at all. This is the only frame in which the card's finish is "
+                      + "judgeable; every other one shows its content on a flat ground.",
+                  prepare: { seedCuttingRoom() }) {
+                AnyView(
+                    MeloThemeWelcomeCard(
+                        themeDuration: MeloThemeRemix.measuredDuration,
+                        onStart: { _ in },
+                        onDismiss: {}
+                    )
+                    .padding(DesignTokens.Spacing.xl)
+                    .frame(width: 700, alignment: .top)
+                )
+            }
+        )
+
+        scenes.append(
+            scene("cutting-room-export-aac", CGSize(width: 560, height: 660), .dark,
+                  note: "Six formats macOS writes natively. Bit depth is fixed per format and "
+                      + "is not offered as a choice.",
+                  prepare: {
+                      seedCuttingRoom(
+                          moves: proposedMoves,
+                          destination: DestinationCatalogue.podcast,
+                          analysis: quietReport
+                      )
+                  }) {
+                AnyView(
+                    ExportSheet(
+                        store: cuttingRoom,
+                        isPresented: .constant(true),
+                        format: AudioFormatKind.m4aAAC
+                    )
+                )
+            }
+        )
+        scenes.append(
+            scene("cutting-room-export-mp3-no-ffmpeg", CGSize(width: 560, height: 660), .dark,
+                  note: "MP3 on a machine with no ffmpeg — which this one genuinely is, so this "
+                      + "state is real rather than staged. The two tool-backed formats stay in "
+                      + "the list on purpose: a user who cannot find MP3 concludes Melo cannot "
+                      + "do it.",
+                  prepare: {
+                      seedCuttingRoom(
+                          moves: proposedMoves,
+                          destination: DestinationCatalogue.podcast,
+                          analysis: quietReport
+                      )
+                  }) {
+                AnyView(
+                    ExportSheet(
+                        store: cuttingRoom,
+                        isPresented: .constant(true),
+                        format: AudioFormatKind.mp3
+                    )
+                )
+            }
+        )
+
+        // MARK: The two sheets that used to be one frame each
+        //
+        // Both sheets now take a seed, and it is deliberately **not**
+        // `#if MELO_DEV`: a state only reachable in a dev build is a state the
+        // release build's layout was never checked against, which is the whole
+        // point of looking. Seeded means inert — no clipboard read, no tool
+        // lookup, no process spawn, no tap, nothing published into the store —
+        // so these frames are a picture of a state rather than a working sheet.
+        //
+        // Before the seams, one branch of each was renderable and it was
+        // whichever branch this Mac happened to produce. `cutting-room-link-no-ytdlp`
+        // kept its name because the state it shows has not changed; what changed
+        // is that it no longer depends on the render machine not having yt-dlp.
+        //
+        // Layer captures throughout, and that is a choice. Neither sheet contains
+        // a `glassEffect` island, so nothing here is composited away and an
+        // ImageRenderer frame would buy no content — while costing the text field
+        // and the progress bar, which that path draws as solid no-entry bars
+        // because it cannot draw the controls at all.
+        let linkSheetSize = CGSize(width: 500, height: 460)
+        let samplePageURL = URL(string: "https://example.com/watch?v=melo-snapshot")
+            ?? URL(fileURLWithPath: "/")
+        let foundPreview = LinkPreview(
+            title: LinkImportSeed.longTitle,
+            siteName: "Example",
+            uploader: "The Morning Show",
+            duration: 4_218,
+            thumbnailFileURL: nil,
+            isLive: false
+        )
+
+        @MainActor func linkSheet(_ seed: LinkImportSeed) -> AnyView {
+            AnyView(
+                LinkImportSheet(store: cuttingRoom, isPresented: .constant(true), seed: seed)
+                    .frame(width: linkSheetSize.width, alignment: .top)
+            )
+        }
+
+        scenes.append(
+            scene("cutting-room-link-no-ytdlp", linkSheetSize, .dark,
+                  note: "yt-dlp is not installed. Seeded rather than inherited from the render "
+                      + "machine, so this frame says the same thing on a Mac that has it.",
+                  prepare: { emptyCuttingRoom() }) {
+                linkSheet(LinkImportSeed(phase: .needsTool, toolVersion: nil))
+            }
+        )
+        scenes.append(
+            scene("cutting-room-link-idle", linkSheetSize, .light,
+                  note: "The sheet as it opens with nothing pasted. The footer names the "
+                      + "yt-dlp it found, which is the only place the second network surface "
+                      + "this feature adds is visible.",
+                  prepare: { emptyCuttingRoom() }) {
+                linkSheet(LinkImportSeed(phase: .idle))
+            }
+        )
+        // The state the whole sheet exists for, carrying the most variable content
+        // in the piece: a 150-character page title. Real titles run this long
+        // routinely, and the question is whether it wraps or pushes the card open.
+        scenes.append(
+            scene("cutting-room-link-found", linkSheetSize, .dark,
+                  note: "A found page with a 150-character title and no thumbnail — the "
+                      + "placeholder is correct, not a missing image. What to read: whether the "
+                      + "title wraps inside the card or forces it wider, and whether the "
+                      + "uploader · length · site line survives underneath it.",
+                  prepare: { emptyCuttingRoom() }) {
+                linkSheet(
+                    LinkImportSeed(
+                        phase: .found(foundPreview),
+                        linkText: samplePageURL.absoluteString
+                    )
+                )
+            }
+        )
+        scenes.append(
+            scene("cutting-room-link-working", linkSheetSize, .dark,
+                  note: "Mid-extraction. The bar is determinate because yt-dlp reports a "
+                      + "percentage; the stage line is what it is doing and the detail line is "
+                      + "how far in.",
+                  prepare: { emptyCuttingRoom() }) {
+                linkSheet(
+                    LinkImportSeed(
+                        phase: .working(
+                            fraction: 0.42,
+                            stage: "Getting the audio",
+                            detail: "3.1 MB of 7.4 MB · 1.2 MB/s"
+                        ),
+                        linkText: samplePageURL.absoluteString
+                    )
+                )
+            }
+        )
+        // The longest sentence the extractor can produce, so it is the one that
+        // decides whether the failure row wraps or clips. Read out of the shipped
+        // enum rather than transcribed.
+        scenes.append(
+            scene("cutting-room-link-failed", linkSheetSize, .light,
+                  note: "The longest failure sentence in the extractor: the download arrived "
+                      + "in a container macOS cannot open and the fix needs ffmpeg. This is "
+                      + "the copy, from LinkExtractionFailure itself.",
+                  prepare: { emptyCuttingRoom() }) {
+                linkSheet(
+                    LinkImportSeed(
+                        phase: .failed(
+                            LinkExtractionFailure.needsFFmpeg(fileExtension: "webm")
+                                .errorDescription ?? "That format needs ffmpeg."
+                        ),
+                        linkText: samplePageURL.absoluteString
+                    )
+                )
+            }
+        )
+
+        // Four apps, never more. `ImageRenderer` returns blank for `ScrollView`
+        // content once the list scrolls, measured by the piece's own builder, and
+        // a fifth row is what starts the scroll.
+        let recordApps = Array(MockData.sampleApps.prefix(4))
+        let recordSheetSize = CGSize(width: 500, height: 520)
+
+        @MainActor func recordSheet(_ seed: SystemRecordSeed) -> AnyView {
+            AnyView(
+                SystemRecordSheet(store: cuttingRoom, isPresented: .constant(true), seed: seed)
+                    .frame(width: recordSheetSize.width, alignment: .top)
+            )
+        }
+
+        scenes.append(
+            scene("cutting-room-record-arm", recordSheetSize, .dark,
+                  note: "Arming. Recording one app rather than the whole Mac is the headline "
+                      + "here and is impossible in every other audio editor on this machine, so "
+                      + "the question is whether the list reads as the offer it is.",
+                  prepare: { emptyCuttingRoom() }) {
+                recordSheet(SystemRecordSeed(apps: recordApps))
+            }
+        )
+        scenes.append(
+            scene("cutting-room-record-nothing-playing", recordSheetSize, .light,
+                  note: "Nothing is making sound. The honest empty case, and a state a first "
+                      + "run lands in constantly — seeded, so it is not a function of what the "
+                      + "render machine had open.",
+                  prepare: { emptyCuttingRoom() }) {
+                recordSheet(SystemRecordSeed(apps: []))
+            }
+        )
+        scenes.append(
+            scene("cutting-room-record-permission", recordSheetSize, .dark,
+                  note: "Before macOS has granted audio capture. Config/Info.plist's "
+                      + "NSAudioCaptureUsageDescription is the sentence the system dialog will "
+                      + "carry; this is the one Melo writes itself.",
+                  prepare: { emptyCuttingRoom() }) {
+                recordSheet(SystemRecordSeed(needsPermission: true, apps: recordApps))
+            }
+        )
+        scenes.append(
+            scene("cutting-room-record-running", recordSheetSize, .dark,
+                  note: "Recording one app, 1:18 in, meter at 0.62. The level and the clock are "
+                      + "handed in; nothing is being captured.",
+                  prepare: { emptyCuttingRoom() }) {
+                recordSheet(
+                    SystemRecordSeed(
+                        state: .recording,
+                        level: 0.62,
+                        elapsed: 78,
+                        source: recordApps.first.map { .app(pid: $0.id, name: $0.name) }
+                            ?? .everything,
+                        apps: recordApps
+                    )
+                )
+            }
+        )
+        scenes.append(
+            scene("cutting-room-record-dropping", recordSheetSize, .dark,
+                  note: "The same recording, losing frames. A recorder that quietly drops audio "
+                      + "and says nothing is the worst outcome this sheet has, so whether the "
+                      + "count is visible at a glance is the whole of this frame.",
+                  prepare: { emptyCuttingRoom() }) {
+                recordSheet(
+                    SystemRecordSeed(
+                        state: .recording,
+                        level: 0.44,
+                        elapsed: 214,
+                        droppedFrameCount: 1_284,
+                        apps: recordApps
+                    )
+                )
+            }
+        )
+        scenes.append(
+            scene("cutting-room-record-failed", recordSheetSize, .light,
+                  note: "The tap could not be set up. The sentence is the only thing the user "
+                      + "gets, so it has to say what to do next.",
+                  prepare: { emptyCuttingRoom() }) {
+                recordSheet(
+                    SystemRecordSeed(
+                        state: .failed(
+                            "Melo couldn’t start recording. Another app has exclusive use of "
+                            + "the output device."
+                        ),
+                        apps: recordApps
+                    )
+                )
+            }
+        )
+
+        scenes.append(
+            scene("cutting-room-jobs", jobStripSize, .dark,
+                  note: "Five rows: a render 38 seconds in with an estimate, a write nearly "
+                      + "done, an indeterminate measurement, a failure that will not leave on "
+                      + "its own, and a cancellation. Start times are backdated, so the elapsed "
+                      + "and remaining readouts have something to say.",
+                  prepare: {
+                      seedCuttingRoom(
+                          moves: proposedMoves,
+                          destination: DestinationCatalogue.podcast,
+                          analysis: quietReport
+                      )
+                      JobStripTuning.seedSnapshotJobs(in: cuttingRoom)
+                  }) { AnyView(JobProgressStrip(store: cuttingRoom)) }
+        )
+        scenes.append(
+            scene("cutting-room-jobs-finished", CGSize(width: 700, height: 260), .dark,
+                  note: "The finished-export card, with the before-and-after it measured. No "
+                      + "click can reach this state in a rendered frame.",
+                  prepare: {
+                      seedCuttingRoom(
+                          moves: proposedMoves,
+                          destination: DestinationCatalogue.podcast,
+                          analysis: quietReport
+                      )
+                      JobStripTuning.seedSnapshotOutcome(in: cuttingRoom)
+                  }) { AnyView(JobProgressStrip(store: cuttingRoom)) }
+        )
+
 
         return scenes
     }

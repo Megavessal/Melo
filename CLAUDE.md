@@ -35,6 +35,15 @@ Treat this as a map of where defects hide, not as a disclaimer.
   Settings gear are. **Blank is not absent.** Judge the header from a
   `capture: .imageRenderer` frame (`popup-header-*`, `tour-header-*`); its glass
   finish stays unverified.
+- **`ImageRenderer` cannot draw `ScrollView` content, `TextField` or
+  `ProgressView`.** Measured with a control probe 2026-08-09, not inferred: a
+  plain `VStack` renders in the same frame while a scrolled one comes back
+  blank, and the other two come out as solid yellow bars with a no-entry glyph —
+  that is the renderer's placeholder for a control it cannot draw, not a styling
+  bug. So on the `.imageRenderer` path a text field is always a yellow bar, a
+  determinate progress bar is always a yellow bar, and a list longer than its
+  visible rows is blank. Seed fewer rows than the scroll threshold, or capture
+  that scene with `cacheDisplay` instead.
 - **Reduce Motion** — read-only system value; read motion behaviour from source.
 - **Accent tint** — the harness window is never key, so macOS desaturates
   tinted controls and a prominent button looks like an ordinary one.
@@ -49,6 +58,15 @@ Treat this as a map of where defects hide, not as a disclaimer.
   because an animation phase can differ. Still open the frames.
 - Every frame carries a provenance band naming the scene, the capture path, and
   any uniform region that may be uncaptured content. Read it before judging.
+- **The band's `CLIPPED?` warning is unconditional for any themed window and is
+  not evidence.** `featurelessRows` samples 32 points across the last row and
+  calls it featureless at three or fewer distinct colours; `meloThemeBackground`
+  paints a diagonal gradient to every edge, so the last row always has more.
+  Measured 2026-08-09: the Cutting Room's frames scored 6 distinct colours,
+  while Melo's own `settings-audio-guide-*` frames scored 11 and 15 — the
+  reference bar fails the same test harder. No layout change can clear it. The
+  lead cited it as evidence of a real overflow; the overflow was real and the
+  citation was wrong, which is the more dangerous half.
 
 **A correction worth keeping, because it was believed for two runs.** "Dark
 frames render nearly text-free" was blamed on materials in every brief and in an
@@ -148,6 +166,52 @@ Dated 2026-08-07.
   the rule; only a check that observes the call, or reads the rendered result,
   proves the product uses it.
 
+- **Search vocabulary: an alias beats a synonym group whenever one topic owns
+  the word.** Measured 2026-08-09 while indexing the Cutting Room. An alias is
+  worth 200–350 points on the one entry that should win; a synonym group is
+  worth 24 on *every* entry that happens to contain the Melo-side word, so it
+  lifts siblings as much as the target. Five groups were written and four were
+  measured out: `["trim","crop","cut","shorten","chop"]` pushed *Trim a Sound*
+  out of the top five for "crop the start", because "cut" runs through half the
+  Cutting Room's own copy; `["clip","snippet","excerpt"]` was actively wrong,
+  since "clip" prefix-matches "clipping" and "snippet" then returned *Prevent
+  Profile Clipping*. Groups only earn their precision cost when a word must
+  span topics. `groupLookup` also splits multi-word phrases into single tokens
+  and unions them, which is why "fade out" in the sleep-timer group already
+  makes "out" expand to "fade" app-wide — every phrase added should be one
+  distinctive word.
+
+- **`scripts/add-source-file.py` quotes paths, and it has to.** An unquoted
+  OpenStep plist string may hold only `[A-Za-z0-9_./-]`. Registering
+  `EditorFormat+Precision.swift` unquoted made `xcodebuild` report *"The project
+  'Melo' is damaged"* — which reads like an unresolved merge conflict and sends
+  you looking for one. The bug was latent from the day the script was written;
+  Xcode itself quotes these, which is why `AudioDeviceID+Volume.swift` was fine.
+
+- **A pre-check only covers the configuration you ran it in.** Three separate
+  instances in one run, 2026-08-09, each caught by the next tool up rather than
+  by the one before it: `swiftc -parse` was green for hours on a missing
+  `import SwiftUI` that `-typecheck` caught immediately; `-typecheck` is blind
+  to Swift 6 isolation errors inside a `deinit`, which only the full Xcode build
+  reported; and `-typecheck` without `-D MELO_DEV` never parses the
+  `#if MELO_DEV` blocks at all, so harness fixtures went unchecked by every
+  pre-check run that session. The lesson is not "use a stronger tool" — it is
+  that a check has to run in the configuration the code ships in. Fixture code
+  behind a compilation condition is the worst case, because its only consumer is
+  the render harness and its characteristic failure is producing output that
+  looks right.
+
+- **A `Codable` fingerprint that mixes `.iso8601` with a filesystem timestamp
+  is always unequal to itself.** Measured 2026-08-09. `EditorSession.Fingerprint`
+  is byte count plus modification date; `.iso8601` formats whole seconds and
+  APFS reports `…147.1700807`, so the saved value never matched the file it
+  described, every sidecar was discarded on the next open, and **session restore
+  would have shipped dead and silent** — no crash, no error, just a move stack
+  that never came back and a user assuming they misremembered. Floor the date to
+  whole seconds so both sides agree. Invisible to the compiler, to a rendered
+  frame, and to any check that a symbol exists; only an executed round trip
+  finds it. Same shape as the four-severed-wiring-points entry below.
+
 ## What this project deliberately does not do
 
 - Ship developer-update machinery. It is `#if MELO_DEV` and not compiled into
@@ -156,3 +220,14 @@ Dated 2026-08-07.
   mechanism, not a promise.
 - Install an update without being asked.
 - Add a menu bar item the user did not ask for.
+- **Delete the user's own audio, ever.** The Cutting Room moves recordings and
+  link extractions out of `temporaryDirectory` into
+  `Application Support/Melo/CuttingRoom/Sources/` so a temp sweep cannot take
+  audio that exists nowhere else, and it never removes them. The folder is
+  reachable from the UI instead. Rejected 2026-08-09: pruning anything untouched
+  for thirty days, which was well-argued — age is predictable where a byte
+  ceiling is not — and still wrong. `verify-unasked-actions.py` guards three
+  things Melo used to do unasked, the mildest of which is fetching a URL at
+  launch; deleting a forty-minute recording is orders past that, and the failure
+  is silent until the month is up and the file is gone. Unbounded growth of the
+  user's own files in their own folder is the correct behaviour.

@@ -510,6 +510,7 @@ struct MenuBarPopupView: View {
 
             Spacer(minLength: 4)
             commandPaletteButton
+            cuttingRoomButton
             editPriorityButton
             settingsButton
         }
@@ -556,6 +557,27 @@ struct MenuBarPopupView: View {
         .contentShape(Rectangle())
         .help("Find an action (⌘K)")
         .guidedTourTarget(.search)
+    }
+
+    /// Opens the Cutting Room. No explicit dismiss: the popup closes itself
+    /// when it resigns key, which the new window taking focus does.
+    private var cuttingRoomButton: some View {
+        Button("Cutting Room", systemImage: "scissors") {
+            exitEditModeSaving()
+            CuttingRoomWindowController.shared.show()
+        }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.meloHover)
+        .font(DesignTokens.Typography.Scale.body(.regular))
+        .symbolRenderingMode(.hierarchical)
+        .foregroundStyle(DesignTokens.Colors.interactiveDefault)
+        .frame(
+            minWidth: DesignTokens.Dimensions.minTouchTarget,
+            minHeight: DesignTokens.Dimensions.minTouchTarget
+        )
+        .contentShape(Rectangle())
+        .help("Open the Cutting Room")
+        .accessibilityLabel("Open the Cutting Room")
     }
 
     private var editPriorityButton: some View {

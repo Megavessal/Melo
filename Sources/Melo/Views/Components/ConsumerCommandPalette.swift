@@ -338,6 +338,7 @@ struct ConsumerCommandPalette: View {
             + inputDeviceCommands
             + appCommands
             + hiddenAppCommands
+            + cuttingRoomCommands
             + generalCommands
     }
 
@@ -554,28 +555,160 @@ struct ConsumerCommandPalette: View {
                     id: "guide-\(entry.id)",
                     title: entry.title,
                     // The location line is the useful half: it names where the
-                    // control is, which is the thing the searcher lacked.
-                    subtitle: entry.location ?? entry.summary,
-                    symbol: "book.fill",
+                    // control is, which is the thing the searcher lacked. The
+                    // exception is the row whose location and whose action
+                    // disagree — "The Cutting Room" lives at a Settings address
+                    // and this row opens the window instead — and a subtitle
+                    // that is not true about pressing the row is worse than a
+                    // less informative one.
+                    subtitle: entry.category == .cuttingRoom && entry.destination != nil
+                        ? "Opens the \(SettingsGuideEntry.cuttingRoomTitle)"
+                        : (entry.location ?? entry.summary),
+                    symbol: entry.category == .cuttingRoom ? "scissors" : "book.fill",
                     category: .help,
                     aliases: entry.keywords,
-                    action: {
-                        onOpenSettings()
-                        Task { @MainActor in
-                            await Task.yield()
-                            // The Guide's search box takes an `initialQuery`;
-                            // `SettingsRootView`'s observer currently discards
-                            // this object and opens the Guide unsearched, so
-                            // until it reads it the row lands the reader on the
-                            // Guide rather than on the entry.
-                            NotificationCenter.default.post(
-                                name: .meloOpenGuide,
-                                object: entry.title
-                            )
+                    // A Cutting Room topic reached from ⌘K opens the Cutting
+                    // Room. Every other entry describes a control this palette
+                    // cannot operate, so the Guide is the right landing place
+                    // for those; these describe a window it can open outright,
+                    // and routing through Settings to read a page about a window
+                    // is two presses for something that should be none.
+                    //
+                    // Keyed on the category rather than on `opensCuttingRoom` so
+                    // it covers the whole section — including "The Cutting Room"
+                    // itself, which takes the Settings route in the Guide because
+                    // that is where the window has a permanent address, and which
+                    // would otherwise be the one ⌘K row about the editor that
+                    // does not open it.
+                    action: entry.category == .cuttingRoom
+                        ? { CuttingRoomWindowController.shared.show() }
+                        : {
+                            onOpenSettings()
+                            Task { @MainActor in
+                                await Task.yield()
+                                // The Guide's search box takes an `initialQuery`;
+                                // `SettingsRootView`'s observer currently discards
+                                // this object and opens the Guide unsearched, so
+                                // until it reads it the row lands the reader on the
+                                // Guide rather than on the entry.
+                                NotificationCenter.default.post(
+                                    name: .meloOpenGuide,
+                                    object: entry.title
+                                )
+                            }
                         }
-                    }
                 )
             }
+    }
+
+    // MARK: - The Cutting Room
+
+    /// Every way into Melo's editor that has words of its own.
+    ///
+    /// Search-only, for the reason `inputDeviceCommands` is: six more rows in
+    /// the pre-typing list would push the scenes and the devices off the first
+    /// screen, and only one of the six — opening the window — is something
+    /// anybody opens ⌘K having already decided to do. That one is in
+    /// `generalCommands` below, beside Settings and the Guide, because the
+    /// Cutting Room is a surface of Melo rather than a control inside one.
+    ///
+    /// They all open the same window. That is the honest thing they can do and
+    /// the subtitles say so: `CuttingRoomWindowController` exposes `show()` and
+    /// nothing finer, and the window opens on an empty state whose four buttons
+    /// are Open a File, Paste a Link, Record, and Remix the Theme — so a row
+    /// named for one of those lands one click away from it. Rejected: a command
+    /// carrying an intent for the window to act on, which would be a second
+    /// contract for one call and would read as a feature while doing nothing
+    /// until the window honoured it.
+    ///
+    /// `.controls` rather than a `Cutting Room` group of its own: adding a case
+    /// to `ConsumerCommandCategory` means editing a file this piece does not
+    /// own, and "Help" — where Settings and the Guide sit — is the wrong word
+    /// for editing a sound.
+    private var cuttingRoomCommands: [Command] {
+        [
+            Command(
+                id: "cutting-room-open-file",
+                title: "Edit an Audio File",
+                subtitle: "Opens the Cutting Room. WAV, MP3, M4A, FLAC and more",
+                symbol: "waveform",
+                category: .controls,
+                aliases: [
+                    "edit audio", "edit a sound", "open a file", "import audio",
+                    "edit an mp3", "edit a wav", "audio editor", "editing"
+                ],
+                action: { CuttingRoomWindowController.shared.show() }
+            ),
+            Command(
+                id: "cutting-room-trim",
+                title: "Trim a Sound",
+                subtitle: "Cut the ends off a recording, in the Cutting Room",
+                symbol: "timeline.selection",
+                category: .controls,
+                aliases: [
+                    "trim audio", "crop audio", "cut audio", "cut the beginning",
+                    "cut the end", "shorten a clip", "remove silence"
+                ],
+                action: { CuttingRoomWindowController.shared.show() }
+            ),
+            Command(
+                id: "cutting-room-export",
+                title: "Export a Sound",
+                subtitle: "Save an edit as WAV, MP3, M4A, FLAC or Opus",
+                symbol: "square.and.arrow.up",
+                category: .controls,
+                // "mp3" and "convert" as bare aliases, not only inside the
+                // longer phrases. A keyword the query matches *exactly* is 350
+                // points and one it is merely contained by is 200, and these
+                // two are where someone with a file problem gives up: neither
+                // word appeared anywhere in Melo before this feature.
+                aliases: [
+                    "mp3", "convert", "export", "export mp3", "convert to mp3",
+                    "save as wav", "convert audio", "change the format",
+                    "export audio", "render", "bounce", "opus", "flac"
+                ],
+                action: { CuttingRoomWindowController.shared.show() }
+            ),
+            Command(
+                id: "cutting-room-link",
+                title: "Take Audio from a Link",
+                subtitle: "Paste a YouTube address into the Cutting Room",
+                symbol: "link",
+                category: .controls,
+                aliases: [
+                    "youtube", "download audio from youtube", "rip audio",
+                    "get audio from a video", "paste a link", "soundcloud"
+                ],
+                action: { CuttingRoomWindowController.shared.show() }
+            ),
+            Command(
+                id: "cutting-room-record",
+                title: "Record What Your Mac Is Playing",
+                subtitle: "Capture system audio into the Cutting Room",
+                symbol: "record.circle",
+                category: .controls,
+                aliases: [
+                    "record system audio", "record what is playing",
+                    "capture audio", "record my computer", "internal recording"
+                ],
+                action: { CuttingRoomWindowController.shared.show() }
+            ),
+            Command(
+                id: "cutting-room-theme",
+                title: "Remix the Melo Theme",
+                subtitle: "Opens Melo’s own theme, ready to cut about",
+                symbol: "music.note",
+                category: .controls,
+                aliases: [
+                    "edit the melo theme", "the startup sound",
+                    "remix the theme", "theme song"
+                ],
+                // The one row here that does more than open the window, because
+                // `MeloThemeRemix` gives it a door of its own. Everything else
+                // would need a second `show()` overload to be honest about.
+                action: { MeloThemeRemix.openInCuttingRoom() }
+            ),
+        ]
     }
 
     private var generalCommands: [Command] {
@@ -635,6 +768,30 @@ struct ConsumerCommandPalette: View {
                 category: .help,
                 aliases: ["upgrade", "new version", "download update"],
                 action: { sparkleUpdateController.checkNow() }
+            ),
+            Command(
+                id: "cutting-room",
+                title: "Open the Cutting Room",
+                subtitle: "Trim, clean up and export a sound",
+                symbol: "scissors",
+                // `.controls` rather than `.help`, which is where the other
+                // three window-openers in this list sit. The category is a
+                // header the user reads, and "Help" is the wrong word for
+                // editing a sound. Its own header would mean a case in
+                // `ConsumerCommandCategory`, which lives in a file this piece
+                // does not own.
+                category: .controls,
+                aliases: [
+                    "audio editor", "edit audio", "edit a sound", "open the editor",
+                    "cut audio", "editing", "editor", "trim", "cut", "cutting room",
+                    "export audio", "convert", "mp3", "youtube", "record audio",
+                    "remix the theme"
+                ],
+                // No `onClose()` here: `commandButton` and `runSelectedCommand`
+                // both call it immediately after the action, and every other
+                // command in this file relies on that. Closing twice would
+                // dismiss whatever the popup had reopened onto.
+                action: { CuttingRoomWindowController.shared.show() }
             ),
             Command(
                 id: "settings",

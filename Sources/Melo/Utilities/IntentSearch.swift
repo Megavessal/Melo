@@ -54,6 +54,17 @@ nonisolated enum IntentSearch {
         ["battery", "power", "energy", "unplugged"],
         ["theme", "appearance", "look", "color", "colour"],
         ["menu bar", "status bar", "top bar"],
+        // The Cutting Room brought a whole vocabulary — trim, fade, export,
+        // loudness, record, download — and exactly one word of it earns a
+        // group; the rest are aliases on the topic that owns them. Five
+        // candidate groups were measured and four dropped — see CLAUDE.md,
+        // "Search vocabulary: an alias beats a synonym group".
+        //
+        // This one stays because it is the only one that turned a bad result
+        // into a right one: "grab the audio" ranked Fix Audio first and now
+        // ranks "Take Audio from a Link" first, and none of the three words
+        // appears anywhere else in the catalog.
+        ["extract", "rip", "grab"],
     ]
 
     /// Filler words carry no intent but do carry synonym expansions, so leaving them

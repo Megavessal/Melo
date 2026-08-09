@@ -37,6 +37,16 @@ if [ -z "$OUT" ]; then
 fi
 
 mkdir -p "$OUT"
+# Absolute, always. `mkdir -p` above resolves a relative path against this
+# script's working directory, but the harness is started by LaunchServices via
+# `open`, whose working directory is `/` — so a relative MELO_SNAPSHOT_DIR sent
+# every frame to a path that does not exist and the run produced zero PNGs.
+# Measured 2026-08-09 against `outputs/baseline-editor`: build ok, render
+# started, nothing written, and the only complaint was on stderr, which is easy
+# to lose behind a pipe. Absolutizing here rather than documenting the
+# convention, because the convention was already "use /tmp/melo-<topic>" and it
+# is one character of difference to get wrong.
+OUT="$(cd "$OUT" && pwd)"
 # _failures.log too: a stale one from a previous run reads as this run's.
 rm -f "$OUT"/*.png "$OUT/_failures.log" 2>/dev/null || true
 

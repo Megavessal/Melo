@@ -56,6 +56,8 @@ final class URLHandler {
             handleSetDevice(queryItems: queryItems)
         case "reset":
             handleReset(queryItems: queryItems)
+        case "cutting-room":
+            handleCuttingRoom(queryItems: queryItems)
         default:
             logger.warning("Unknown URL action: \(host ?? "nil")")
         }
@@ -260,6 +262,28 @@ final class URLHandler {
 
     /// Reset apps to 100% volume and unmute
     /// URL format: melo://reset?app=com.a&app=com.b or melo://reset (all apps)
+    /// `melo://cutting-room` opens the window. `melo://cutting-room?url=…`
+    /// also prefills the link sheet.
+    ///
+    /// Three deliberate limits, because a `melo://` URL can be handed over by
+    /// any web page and this is the only route into Melo that something other
+    /// than the user can trigger.
+    ///
+    /// There is no `file=` parameter: turning a web-triggerable URL into "open
+    /// an arbitrary absolute path" is a capability this feature does not need.
+    /// The link is validated by `LinkExtractor.webLink(fromPastedText:)`, which
+    /// rejects anything that is not http or https with a host — the same guard
+    /// the paste path uses, rather than a second one that could drift from it.
+    /// And it only ever *prefills*: a page handing Melo a link is not the user
+    /// pressing "Get the audio", so the download still needs a deliberate press.
+    private func handleCuttingRoom(queryItems: [URLQueryItem]) {
+        if let raw = queryItems.first(where: { $0.name == "url" })?.value,
+           let link = LinkExtractor.webLink(fromPastedText: raw) {
+            LinkImportModel.pendingLink = link
+        }
+        CuttingRoomWindowController.shared.show()
+    }
+
     private func handleReset(queryItems: [URLQueryItem]) {
         let identifiers = queryItems
             .filter { $0.name.lowercased() == "app" }

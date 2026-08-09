@@ -535,7 +535,15 @@ enum SnapshotHarness {
         scene.prepare()
         settle(seconds: 0.35)
         let (window, host, _) = stage(scene)
-        defer { window.close() }
+        // Same teardown as `render`, for the same reason. Only a handful of
+        // scenes are ever dwelled, so this leaks a handful of graphs rather than
+        // a hundred and fifty — but it is the identical bug in the identical
+        // shape, and leaving one instance of it in this file would invite the
+        // next reader to conclude the pattern is fine.
+        defer {
+            window.close()
+            window.contentView = nil
+        }
 
         // A name for the checker to aim at. Rendering a scene can leave other
         // windows of this app standing — `What's New in Melo` was in the first
@@ -766,7 +774,37 @@ enum SnapshotHarness {
             settle(seconds: 0.35)
         }
 
-        defer { window.close() }
+        // `contentView = nil` as well as `close()`, and the second half is the
+        // load-bearing one.
+        //
+        // `isReleasedWhenClosed` is false — the accessibility dwell needs a
+        // window something else may have ordered out to still exist — so closing
+        // one keeps its `contentView`, and the `NSHostingView` in it stays alive
+        // with its whole SwiftUI graph. Those graphs are still subscribed:
+        // `CuttingRoomStore.shared`, `EditorTimeline.shared`, `SettingsManager`,
+        // every coordinator a scene touches. By the hundred and fiftieth frame a
+        // single `prepare()` was invalidating around a hundred and fifty stale
+        // view graphs at once.
+        //
+        // Measured: three runs of the same binary died at scenes 149, 150 and
+        // 152 — a monotonically advancing death point is the signature of a race
+        // whose odds rise with each leaked graph rather than of a bad scene, and
+        // this is where the graphs came from.
+        //
+        // **This is not the crash and fixing it does not fix the crash.** The
+        // cause is a `@Published` write dispatched inside `NSHostingView.layout()`
+        // and it belongs to the view that does it. Said plainly because a harness
+        // change that makes a real bug stop reproducing is the worst outcome
+        // available here. It is done anyway for a reason that stands on its own:
+        // a hundred and fifty live view graphs all observing the same two
+        // singletons is not a condition any user's machine will ever be in, so
+        // every frame after the first hundred was being rendered under conditions
+        // the product does not have. That is a measurement problem whether or not
+        // anything ever crashes.
+        defer {
+            window.close()
+            window.contentView = nil
+        }
 
         let rep: NSBitmapImageRep
         switch scene.capture {

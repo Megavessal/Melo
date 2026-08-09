@@ -20,12 +20,16 @@ struct EverydayTab: View {
     @State private var statusMessage: String?
     @State private var compareA: UUID?
     @State private var compareB: UUID?
+    /// Whether Melo is holding any recordings or link audio. Read on appear —
+    /// see `cuttingRoomSection`.
+    @State private var hasKeptSources = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 intro
                 scenesSection
+                cuttingRoomSection
                 compareSection
                 automationsSection
                 focusAndShortcutsSection
@@ -123,6 +127,54 @@ struct EverydayTab: View {
             .padding(12)
         }
         .settingsSectionAnchor("Scenes", target: sectionTarget)
+    }
+
+    /// In Everyday rather than Sound: this tab is the things you *do*, and the
+    /// Cutting Room is a tool rather than a preference. The anchor string has
+    /// to match what the Guide registers as its location, or a search result
+    /// opens the tab and highlights nothing.
+    private var cuttingRoomSection: some View {
+        SettingsSection("Cutting Room") {
+            SettingsRow(
+                "Edit a sound",
+                description: "Trim it, clean it up, and save it in another format. "
+                    + "Melo can also pull audio off a link or record what this Mac is playing."
+            ) {
+                Button("Open") {
+                    CuttingRoomWindowController.shared.show()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+            // A recording is the one thing the Cutting Room holds that exists
+            // nowhere else, and the empty state — which also offers this — is
+            // only on screen when no sound is open. Someone hunting for audio
+            // they made is not reliably there; Settings always is.
+            //
+            // Hidden rather than disabled when the folder is empty: a button
+            // that reveals nothing is worse than no button, and anyone who has
+            // never recorded has nothing to be told about.
+            if hasKeptSources {
+                SettingsRowDivider()
+
+                SettingsRow(
+                    "Recordings and link audio",
+                    description: "Melo keeps these files for you. Nothing here is deleted automatically."
+                ) {
+                    Button("Show in Finder") {
+                        CuttingRoomRecents.shared.revealKeptSources()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        }
+        // Read once when the tab appears rather than observed: a Settings tab
+        // has no reason to hold a recents list, and the folder does not change
+        // while someone is looking at this page.
+        .onAppear { hasKeptSources = CuttingRoomRecents.keptSourcesExist }
+        .settingsSectionAnchor("Cutting Room", target: sectionTarget)
     }
 
     private func sceneCard(_ scene: ConsumerScene) -> some View {

@@ -99,7 +99,15 @@ final class OnboardingVolumeDemo {
         // The full theme, not a clip: 90 seconds is long enough to play with the
         // volume and the EQ without the track restarting under you, which a
         // two-second loop did on roughly every third drag.
-        guard let url = Bundle.main.url(forResource: "MeloTheme", withExtension: "m4a"),
+        // `MeloThemePlayback.currentURL` rather than the bundle directly: someone
+        // who remixed the theme in the Cutting Room and adopted their version
+        // hears theirs here, and everyone else falls back to the bundled
+        // `MeloTheme.m4a`. This is the only sound that indirection covers —
+        // `FirstRunAudioPrimer` keeps the bundled `MeloJingle.m4a`, because that
+        // clip plays while macOS is showing the system-audio permission sheet
+        // and a user-supplied recording at that moment is a bad surprise at the
+        // worst possible time.
+        guard let url = MeloThemePlayback.currentURL,
               let file = try? AVAudioFile(forReading: url) else { return false }
         let format = file.processingFormat
         // Decoded once into a looping buffer rather than re-scheduled at the end
