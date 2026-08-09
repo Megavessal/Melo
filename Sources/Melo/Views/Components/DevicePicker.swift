@@ -43,10 +43,65 @@ struct DevicePicker: View {
     // Configuration
     let triggerWidth: CGFloat
     var triggerStyle: TriggerStyle = .full
-    private let popoverWidth: CGFloat = 210
     private let itemHeight: CGFloat = 26
     private let itemSpacing: CGFloat = 2
     private let cornerRadius: CGFloat = 8
+
+    // MARK: - Popover Width
+
+    /// The two subtitles the System Audio row can carry, held here so the
+    /// string that is *measured* and the string that is *drawn* are the same
+    /// object. A fit computed against copy that has since been reworded is a
+    /// fit that clips, and nothing in a rendered frame could ever show it —
+    /// the popover is an `NSPanel` and the harness never captures one.
+    fileprivate static let followsDefaultSubtitle = "Follows macOS default"
+    fileprivate static let multiModeSubtitle = "Not available in multi mode"
+
+    /// Everything in a device row that is not the device's name.
+    ///
+    /// Itemised rather than rolled into one number, because the number is the
+    /// thing that was wrong before: `popoverWidth` was a flat 210 with no
+    /// record of what it was 210 *of*, so no one could tell whether a new
+    /// column had eaten the margin. Left to right, and both sides where a
+    /// padding is symmetric.
+    private static let rowChrome: CGFloat =
+        (5 * 2)                              // LazyVStack .padding(.horizontal, 5)
+        + (8 * 2)                            // row .padding(.horizontal, 8)
+        + 16                                 // selection indicator column
+        + 16                                 // device icon column
+        + 12                                 // default-device star: "star.fill" at 9pt
+                                             // measures 12pt, and it is reserved on
+                                             // every row so the width does not depend
+                                             // on which output macOS currently prefers
+        + (DesignTokens.Spacing.xs * 4)      // the four gaps between five children
+        + DesignTokens.Spacing.xs            // the Spacer's own minimum
+
+    /// Fits the popover to the names it is about to draw.
+    ///
+    /// 210 stays as the floor, so a Mac whose device names are short gets
+    /// exactly the menu it had before; the ceiling is `DropdownWidth.ceiling`,
+    /// and past it names truncate rather than the panel growing off-screen.
+    ///
+    /// Static, parameterised on the names, and not `private`, so
+    /// `scripts/verify-app-search.py` can splice and execute *this* function
+    /// rather than a restatement of it. A check that calls `DropdownWidth.fit`
+    /// with its own arguments proves the policy and proves nothing about the
+    /// picker — measured, by pinning this call to a 210 ceiling and watching
+    /// every executed assertion stay green.
+    static func popoverWidth(forDeviceNames names: [String]) -> CGFloat {
+        DropdownWidth.fit(
+            titles: names,
+            titlePointSize: 11,
+            subtitles: [followsDefaultSubtitle, multiModeSubtitle],
+            subtitlePointSize: 10,
+            chrome: rowChrome,
+            minimum: 210
+        )
+    }
+
+    private var popoverWidth: CGFloat {
+        Self.popoverWidth(forDeviceNames: menuItems.map(\.name))
+    }
 
     /// Menu item representation for unified dropdown
     enum MenuItem: Identifiable, Equatable {
@@ -538,7 +593,11 @@ private struct DevicePickerRow: View {
                 // Text content
                 itemText
 
-                Spacer()
+                // Explicit minimum. A bare `Spacer()` takes the platform's
+                // default spacing when it is not given one, which is a number
+                // the width arithmetic above cannot see and therefore cannot
+                // reserve — the class of hidden constant that made 210 wrong.
+                Spacer(minLength: DesignTokens.Spacing.xs)
 
                 // Default device star
                 if isDefaultDevice {
@@ -641,21 +700,32 @@ private struct DevicePickerRow: View {
     private var itemText: some View {
         switch item {
         case .systemAudio:
+            // Both lines are held to one line and truncate at the tail. The
+            // row is a fixed 26pt tall, so an unlimited `Text` that wraps is
+            // not gentler than an ellipsis — it is a second line clipped by
+            // the frame, with no ellipsis to say so.
             VStack(alignment: .leading, spacing: 1) {
                 Text("System Audio")
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 if isDisabled {
-                    Text("Not available in multi mode")
+                    Text(DevicePicker.multiModeSubtitle)
                         .font(DesignTokens.Typography.caption)
                         .foregroundStyle(DesignTokens.Colors.textQuaternary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 } else {
-                    Text("Follows macOS default")
+                    Text(DevicePicker.followsDefaultSubtitle)
                         .font(DesignTokens.Typography.caption)
                         .foregroundStyle(DesignTokens.Colors.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
         case .device(let device):
             Text(device.name)
                 .lineLimit(1)
+                .truncationMode(.tail)
         }
     }
 }

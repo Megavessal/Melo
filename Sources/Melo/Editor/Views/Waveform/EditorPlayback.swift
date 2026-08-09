@@ -245,9 +245,11 @@ final class EditorPlayback: ObservableObject {
         if isPlaying { restart(at: 0) }
     }
 
-    /// Hold-to-bypass. The stack goes off, the sound keeps playing from the same
-    /// place, and letting go puts it back. This is the only way someone can
-    /// judge a change Melo proposed for them rather than taking it on faith.
+    /// Hold-to-bypass. Melo's processing goes off, the arrangement and the
+    /// playback position stay exactly where they are, and letting go puts it
+    /// back. This is the only way someone can judge a change Melo proposed for
+    /// them rather than taking it on faith. What comes out and what stays is
+    /// `arrangementOnly`, which is where that decision is written down.
     ///
     /// While playing this re-splices immediately rather than waiting for the
     /// scheduling horizon: 600 ms of latency between pressing and hearing is
@@ -343,7 +345,7 @@ final class EditorPlayback: ObservableObject {
         isRenderingBypass = true
         defer { isRenderingBypass = false }
 
-        let block = try? await engine.render(Self.timelineOnly(document), range: nil, progress: { _ in })
+        let block = try? await engine.render(Self.arrangementOnly(document), range: nil, progress: { _ in })
         // Nothing to adopt if the stack moved on while this was rendering.
         guard let buffer = block?.makeBuffer(), document == renderedDocument else { return }
         dry = buffer
@@ -352,18 +354,66 @@ final class EditorPlayback: ObservableObject {
         if isBypassed && isPlaying { restart(at: nil) }
     }
 
-    /// The document with everything that shapes the *sound* removed and
-    /// everything that shapes the *timeline* kept.
-    private static func timelineOnly(_ document: EditorDocument) -> EditorDocument {
+    /// The document with **Melo's processing** removed and the user's
+    /// arrangement left exactly as they built it.
+    ///
+    /// Three rules, in the order they bind.
+    ///
+    /// 1. **Anything that changes where a sample sits in time stays.** This is
+    ///    not a preference, it is what makes the control work: `restart(at:)`
+    ///    splices the two renders at the same sample position, so a bypass
+    ///    buffer of a different length would jump rather than compare. That is
+    ///    why `trim`, `removeSilence`, `speed` and `reverse` survive — at clip,
+    ///    track and master level alike, now that all three carry stacks.
+    ///
+    /// 2. **Tone and level moves come out, at every level.** A move is what
+    ///    Melo proposed; the whole point of the control is judging those rather
+    ///    than taking them on faith. Before tracks existed there was one list
+    ///    and this filtered it; the multitrack render put the same kinds of move
+    ///    on clips and tracks, and a bypass that stripped only the master would
+    ///    quietly stop being a bypass.
+    ///
+    /// 3. **The user's own mixer is not touched.** Clip gain, track gain, pan,
+    ///    mute and solo stay put, and so do the fades.
+    ///
+    /// Rule 3 is a deliberate departure from "strip level at every level", and
+    /// the reason is what the control is *for*. Melo does not propose a track
+    /// fader — the user dragged it. Flattening the faders makes bypass an A/B
+    /// against a mix they never made, and on a four-track document the
+    /// unity-gain sum of every track can be louder than anything they have
+    /// heard so far, which is the worst possible surprise from a key you hold
+    /// down to listen. Neutralising them is one line if that call is wrong;
+    /// clamp the three gains and pan to zero here.
+    ///
+    /// Fades stay for a different reason and it is the stronger one: taking
+    /// them out puts a click at every clip boundary, and a click is an artefact
+    /// of the comparison rather than part of what is being compared. Two or
+    /// three milliseconds of ramp is a cheaper lie than a transient that is not
+    /// in either version of the audio.
+    private static func arrangementOnly(_ document: EditorDocument) -> EditorDocument {
         var copy = document
-        copy.moves = document.moves.filter { move in
-            switch move.kind {
-            case .trim, .removeSilence, .speed, .reverse: return true
-            case .gain, .normalize, .limiter, .fadeIn, .fadeOut,
-                 .equalizer, .highPass, .noiseGate, .channels, .fixDCOffset: return false
+        copy.master = document.master.filter(Self.shapesTime)
+        for index in copy.tracks.indices {
+            copy.tracks[index].moves = copy.tracks[index].moves.filter(Self.shapesTime)
+            for clipIndex in copy.tracks[index].clips.indices {
+                copy.tracks[index].clips[clipIndex].moves =
+                    copy.tracks[index].clips[clipIndex].moves.filter(Self.shapesTime)
             }
         }
         return copy
+    }
+
+    /// Whether a move changes *where* audio is rather than *what it sounds
+    /// like*. Exhaustive over `MoveKind` on purpose: a new kind should fail to
+    /// compile here rather than silently pick a side.
+    private static func shapesTime(_ move: Move) -> Bool {
+        switch move.kind {
+        case .trim, .removeSilence, .speed, .reverse:
+            return true
+        case .gain, .normalize, .limiter, .fadeIn, .fadeOut,
+             .equalizer, .highPass, .noiseGate, .channels, .fixDCOffset:
+            return false
+        }
     }
 
     /// Takes a fresh render. If the sound is playing, nothing stops: the chunks
@@ -426,6 +476,11 @@ final class EditorPlayback: ObservableObject {
         node.stop()
         clearSchedule()
         cursorTime = start
+        // Following comes back on with every play from a control, and only
+        // here — `restart(at:)` re-splices a schedule that is already running,
+        // which is not the user asking to be followed again. Scrolling or
+        // dragging turns it off; see `EditorTimeline.isFollowing`.
+        EditorTimeline.shared.beginFollowing()
         isPlaying = true
         topUp()
         // Queue first, then play: starting an empty node and racing the top-up

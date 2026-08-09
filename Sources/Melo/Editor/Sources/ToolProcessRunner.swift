@@ -50,9 +50,10 @@ enum ToolProcessFailure: LocalizedError, Equatable {
 /// The one place this piece starts a child process.
 ///
 /// Everything in the editor that shells out goes through this, for two reasons. `yt-dlp`
-/// and `ffmpeg` are not installed on the build machine, so the only way to exercise
-/// argument construction, progress parsing, cancellation and each error path is to
-/// substitute a runner that speaks the same command line. And keeping `Process` in
+/// is not on the build machine and never will be, and the bundled `ffmpeg` only exists
+/// inside a built app — so the only way to exercise argument construction, progress
+/// parsing, cancellation and each error path from a source tree is to substitute a
+/// runner that speaks the same command line. And keeping `Process` in
 /// exactly one file means the "never build a shell string, never interpolate a URL"
 /// rule has one place to hold rather than four.
 protocol ToolProcessRunning: Sendable {

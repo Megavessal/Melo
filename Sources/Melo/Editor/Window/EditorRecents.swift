@@ -86,6 +86,20 @@ struct EditorRecent: Codable, Equatable, Identifiable, Sendable {
 /// Filtered out of `visible` rather than deleted from the stored list. A file on
 /// an external drive is not gone, it is unplugged, and pruning it on the one
 /// launch where the drive was detached would lose it for good.
+///
+/// ## Nothing here touches the disk on the main thread
+///
+/// This type is `@MainActor` and every disk call it makes is `Task.detached`.
+/// That is not tidiness. `FileManager.fileExists(atPath:)` against a sleeping
+/// external drive or a vanished network share blocks for **seconds** while the
+/// volume spins up or the mount times out, and this ran once per remembered
+/// entry, synchronously, from the window's `onAppear` and from Settings ›
+/// Everyday. Melo beachballed. The thread that answers "is that drive awake" is
+/// not allowed to be the thread that draws.
+///
+/// The visible cost is that the list arrives a moment after the window does. It
+/// shows exactly what it showed before — the remembered entries whose files are
+/// on disk — it just does not make the user wait for the answer.
 @MainActor
 final class EditorRecents: ObservableObject {
     static let shared = EditorRecents()
@@ -99,7 +113,11 @@ final class EditorRecents: ObservableObject {
     @Published private(set) var all: [EditorRecent] = []
 
     /// What the empty state draws: the remembered entries whose files were on
-    /// disk the last time `refreshAvailability()` ran.
+    /// disk the last time `refreshAvailability()` answered.
+    ///
+    /// Derived, never assigned from outside: `all` filtered by `reachable`.
+    /// Two published arrays that have to agree is the defect class this
+    /// project's anchor records, so only `republish()` writes it.
     @Published private(set) var visible: [EditorRecent] = []
 
     /// Whether `EditorSourceStore.directory` holds anything.
@@ -115,6 +133,13 @@ final class EditorRecents: ObservableObject {
         subsystem: Bundle.main.bundleIdentifier ?? "Melo",
         category: "EditorRecents"
     )
+
+    /// The URLs the last completed availability pass found on disk. Empty until
+    /// that pass answers, which is why `visible` starts empty and fills in.
+    private var reachable: Set<URL> = []
+    /// One pass at a time. Opening the window and opening Settings in the same
+    /// second must not queue two sweeps of the same unplugged drive.
+    private var availabilityWork: Task<Void, Never>?
 
     /// - Parameter directory: overridable so the snapshot harness and tests can
     ///   point at a scratch location instead of the user's real list.
@@ -170,6 +195,10 @@ final class EditorRecents: ObservableObject {
         var updated = all.filter { $0.url != url }
         updated.insert(entry, at: 0)
         all = Array(updated.prefix(Self.limit))
+        // This file was just opened, so it is reachable — say so now rather
+        // than letting the row blink out and back while the sweep runs.
+        reachable.insert(url)
+        republish()
         refreshAvailability()
         save()
     }
@@ -180,6 +209,9 @@ final class EditorRecents: ObservableObject {
     /// `EditorSourceStore`.
     func forget(_ recent: EditorRecent) {
         all.removeAll { $0.url == recent.url }
+        // Immediately, not after a disk round trip: the row the user just
+        // dismissed has to leave the list under their hand.
+        republish()
         refreshAvailability()
         save()
     }
@@ -195,16 +227,22 @@ final class EditorRecents: ObservableObject {
     /// `static`, because two screens ask and only one of them has a reason to
     /// hold this object. The empty state reads it through `hasKeptSources`,
     /// which is published and refreshed on the same batched disk pass as the
-    /// recents filter; Settings › Everyday reads it directly on appear, because
-    /// a Settings tab has no business observing a recents list to find out
-    /// whether a folder is empty.
-    static var keptSourcesExist: Bool {
-        let contents = (try? FileManager.default.contentsOfDirectory(
-            at: EditorSourceStore.directory,
-            includingPropertiesForKeys: nil,
-            options: [.skipsHiddenFiles]
-        )) ?? []
-        return !contents.isEmpty
+    /// recents filter; Settings › Everyday awaits this directly on appear,
+    /// because a Settings tab has no business observing a recents list to find
+    /// out whether a folder is empty.
+    ///
+    /// `async` and off the actor. It was a synchronous `contentsOfDirectory`
+    /// read from a view's `onAppear`, which is a directory enumeration on the
+    /// thread that draws — see the type comment.
+    nonisolated static func keptSourcesExist() async -> Bool {
+        await Task.detached(priority: .userInitiated) {
+            let contents = (try? FileManager().contentsOfDirectory(
+                at: EditorSourceStore.directory,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )) ?? []
+            return !contents.isEmpty
+        }.value
     }
 
     /// Opens the folder Melo keeps recordings and link audio in.
@@ -218,9 +256,16 @@ final class EditorRecents: ObservableObject {
         NSWorkspace.shared.open(directory)
     }
 
-    /// Re-reads which remembered files are actually reachable. Called when the
-    /// window is about to show rather than from a view body, because it is disk
-    /// work and a view body can run many times a second.
+    /// Starts a fresh check of which remembered files are actually reachable,
+    /// and returns immediately. Called when the window is about to show rather
+    /// than from a view body, because it is disk work and a view body can run
+    /// many times a second.
+    ///
+    /// **Returns before the answer arrives, on purpose.** Each entry costs a
+    /// `fileExists`, and one of those against a sleeping external drive or a
+    /// dead network share blocks for seconds. `visible` and `hasKeptSources`
+    /// update when the disk answers; until then the list shows what the last
+    /// pass found, which on a cold start is nothing.
     func refreshAvailability() {
         #if MELO_DEV
         // A pinned fixture outranks everything. The root view calls this on
@@ -229,33 +274,80 @@ final class EditorRecents: ObservableObject {
         // failure `EditorStore.setForSnapshot` guards against.
         if snapshotPinned { return }
         #endif
-        let manager = FileManager.default
-        visible = all.filter { manager.fileExists(atPath: $0.url.path) }
+        let entries = all
+        availabilityWork?.cancel()
+        availabilityWork = Task { [weak self] in
+            let found = await Self.reachableURLs(among: entries)
+            // Independent of the list above. The folder can hold more than five
+            // recordings, or hold one after the list has been forgotten, and the
+            // person looking for audio they made is exactly the person for whom
+            // those two cases are the same case.
+            let kept = await Self.keptSourcesExist()
+            guard !Task.isCancelled, let self else { return }
+            #if MELO_DEV
+            if self.snapshotPinned { return }
+            #endif
+            self.reachable = found
+            self.hasKeptSources = kept
+            self.republish()
+        }
+    }
 
-        // Independent of the list above. The folder can hold more than five
-        // recordings, or hold one after the list has been forgotten, and the
-        // person looking for audio they made is exactly the person for whom
-        // those two cases are the same case.
-        hasKeptSources = Self.keptSourcesExist
+    /// The one place `visible` is written. `all` is what is remembered,
+    /// `reachable` is what the last disk pass found, and `visible` is the
+    /// intersection in `all`'s order.
+    private func republish() {
+        visible = all.filter { reachable.contains($0.url) }
+    }
+
+    /// The blocking part, off the actor and off the main thread.
+    ///
+    /// A fresh `FileManager` rather than `.default`: `.default` is documented
+    /// thread-safe for these calls, but the shared instance is reached from the
+    /// main actor all over this app and a private one costs nothing.
+    private nonisolated static func reachableURLs(among entries: [EditorRecent]) async -> Set<URL> {
+        await Task.detached(priority: .userInitiated) {
+            let manager = FileManager()
+            return Set(
+                entries.lazy
+                    .filter { manager.fileExists(atPath: $0.url.path) }
+                    .map(\.url)
+            )
+        }.value
     }
 
     // MARK: - Persistence
 
+    /// Reads the stored list without blocking the caller.
+    ///
+    /// This is reached from `init`, and `init` is reached the first time a
+    /// window or a Settings tab touches `EditorRecents.shared` — which is
+    /// during a window show. `Data(contentsOf:)` there is a synchronous read on
+    /// the thread that draws, for a list that is a cache. The list appears a
+    /// moment later instead.
     private func load() {
-        guard let data = try? Data(contentsOf: storeURL) else {
-            refreshAvailability()
-            return
+        let location = storeURL
+        Task { [weak self] in
+            let decoded = await Task.detached(priority: .userInitiated) { () -> [EditorRecent]? in
+                guard let data = try? Data(contentsOf: location) else { return [] }
+                return try? JSONDecoder().decode([EditorRecent].self, from: data)
+            }.value
+
+            guard let self else { return }
+            #if MELO_DEV
+            // A scene may have seeded the list while this was in flight.
+            if self.snapshotPinned { return }
+            #endif
+            if let decoded {
+                self.all = Array(decoded.prefix(Self.limit))
+            } else {
+                // A list that will not decode is a list worth throwing away. It
+                // is a cache; the alternative is refusing to remember anything
+                // again until someone deletes a file by hand.
+                self.logger.warning("Recents list could not be read; starting a new one")
+            }
+            self.refreshAvailability()
         }
-        guard let decoded = try? JSONDecoder().decode([EditorRecent].self, from: data) else {
-            // A list that will not decode is a list worth throwing away. It is a
-            // cache; the alternative is refusing to remember anything again
-            // until someone deletes a file by hand.
-            logger.warning("Recents list could not be read; starting a new one")
-            refreshAvailability()
-            return
-        }
-        all = Array(decoded.prefix(Self.limit))
-        refreshAvailability()
     }
 
     #if MELO_DEV
@@ -273,8 +365,12 @@ final class EditorRecents: ObservableObject {
     ///   was being kept, so the line did not draw at all.
     func setForSnapshot(_ entries: [EditorRecent], hasKeptSources: Bool? = nil) {
         snapshotPinned = true
+        availabilityWork?.cancel()
         all = Array(entries.prefix(Self.limit))
-        visible = all
+        // Through `reachable` rather than assigning `visible`, so the one
+        // invariant — visible is all ∩ reachable — holds in the harness too.
+        reachable = Set(all.map(\.url))
+        republish()
         self.hasKeptSources = hasKeptSources ?? all.contains { $0.kind.isKeptByMelo }
     }
     #endif

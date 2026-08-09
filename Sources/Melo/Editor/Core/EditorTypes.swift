@@ -9,29 +9,268 @@ import Foundation
 
 // MARK: - The document
 
-/// One sound and everything we are doing to it.
+/// A timeline and everything we are doing to it.
 ///
 /// A value type on purpose: the undo stack in `EditorStore` is an array of
 /// these, which is the whole reason the simple thing works here. There is no
 /// command pattern and there should not be one.
+///
+/// **One track by default, and it grows.** Opening a file makes exactly one
+/// track holding exactly one clip covering the whole source, which is why the
+/// window looks the same as it did before there were tracks at all. The mixer
+/// is not drawn before there is anything to mix; nothing is hidden behind a
+/// mode. See `.run-notes/TIMELINE-FRAME.md`.
 struct EditorDocument: Codable, Equatable, Sendable {
-    var source: EditorSource
-    /// Ordered. The render walks it front to back; reordering is a real edit.
-    var moves: [Move]
+    /// The decoded-file pool. A clip refers to one of these by id, so two clips
+    /// cut from the same file cost one decode and one copy in memory. **Nothing
+    /// removes a source because a clip stopped pointing at it** — dragging a
+    /// clip's edge back out has to restore audio, and undo has to be able to
+    /// bring the clip back.
+    var sources: [EditorSource]
+    /// Top to bottom, the way they are drawn.
+    var tracks: [Track]
+    /// What the destination path proposes, applied to the mix. Ordered: the
+    /// render walks it front to back and reordering is a real edit.
+    ///
+    /// This is where a 3.1.x session's flat move list lands on migration, which
+    /// is the only reading of the old stack that stays true — those moves were
+    /// applied to the whole sound.
+    var master: [Move]
     /// `nil` until the user picks one.
     var destination: Destination?
-    /// `nil` until the file has been measured. Describes the *source*, not the
-    /// rendered result, so it survives every change to `moves`.
+    /// `nil` until the file has been measured. Describes the *first source*,
+    /// not the rendered mix, so it survives every edit.
     var analysis: AnalysisReport?
 
+    init(sources: [EditorSource] = [],
+         tracks: [Track] = [],
+         master: [Move] = [],
+         destination: Destination? = nil,
+         analysis: AnalysisReport? = nil) {
+        self.sources = sources
+        self.tracks = tracks
+        self.master = master
+        self.destination = destination
+        self.analysis = analysis
+    }
+
+    /// One file, one track, one clip covering the whole of it.
+    ///
+    /// **The default state of the feature**, and the shape a migrated 3.1.x
+    /// session takes. `moves` goes on the master because that is what the old
+    /// flat list meant.
     init(source: EditorSource,
          moves: [Move] = [],
          destination: Destination? = nil,
          analysis: AnalysisReport? = nil) {
-        self.source = source
+        self.init(
+            sources: [source],
+            tracks: [Track(name: Track.defaultName(at: 0), clips: [Clip(wholeOf: source)])],
+            master: moves,
+            destination: destination,
+            analysis: analysis
+        )
+    }
+
+    /// End of the last clip on any track. Zero for a document with no clips —
+    /// which is a real state, because removing the last clip is allowed and is
+    /// not the same thing as closing the file.
+    var duration: TimeInterval {
+        tracks.flatMap(\.clips).map(\.end).max() ?? 0
+    }
+
+    // MARK: Lookup
+
+    func source(_ id: EditorSource.ID) -> EditorSource? {
+        sources.first { $0.id == id }
+    }
+
+    func track(_ id: Track.ID) -> Track? {
+        tracks.first { $0.id == id }
+    }
+
+    func clip(_ id: Clip.ID) -> Clip? {
+        for track in tracks {
+            if let found = track.clips.first(where: { $0.id == id }) { return found }
+        }
+        return nil
+    }
+
+    /// Which track a clip is on. There is exactly one; a clip id is unique
+    /// across the document.
+    func trackID(containing clipID: Clip.ID) -> Track.ID? {
+        tracks.first { $0.clips.contains { $0.id == clipID } }?.id
+    }
+
+    /// Whether the mixer has anything to mix. The track headers and the
+    /// timeline both ask, and they have to agree.
+    var isMultitrack: Bool { tracks.count > 1 }
+
+    /// The tracks that are actually heard, with solo resolved.
+    ///
+    /// **Solo is a filter, not a state change on other tracks.** Un-soloing
+    /// restores exactly what was there, because nothing was ever written to the
+    /// tracks that went quiet. The render and the headers read this one
+    /// function rather than each deciding what solo means.
+    var audibleTrackIDs: Set<Track.ID> {
+        let soloed = tracks.filter(\.isSoloed)
+        let heard = soloed.isEmpty ? tracks.filter { !$0.isMuted } : soloed.filter { !$0.isMuted }
+        return Set(heard.map(\.id))
+    }
+}
+
+// MARK: - The single-track view of a document
+
+// **Transitional, and deliberately narrow.** Every surface written before
+// tracks existed says `document.source` and `document.moves`, and every one of
+// them is true of the default document: one source, and a master list that is
+// what the old flat list became. Keeping these two spellings alive is what lets
+// the render engine, export, playback and the waveform keep compiling while
+// they are moved over one at a time, instead of the whole tree going red at
+// once. They are not the model; the model is above. Delete them when the last
+// caller is gone.
+extension EditorDocument {
+
+    /// The first source in the pool — for a document opened from one file, the
+    /// only one.
+    var source: EditorSource {
+        get { sources.first ?? .unavailable }
+        set {
+            if sources.isEmpty { sources = [newValue] } else { sources[0] = newValue }
+        }
+    }
+
+    /// The master list under its 3.1.x name.
+    var moves: [Move] {
+        get { master }
+        set { master = newValue }
+    }
+}
+
+// MARK: - Tracks and clips
+
+/// One lane. Named, levelled, panned, muted, soloed — and holding clips.
+struct Track: Codable, Equatable, Sendable, Identifiable {
+    var id: UUID = UUID()
+    /// "Track 1". The user can rename it; an empty name is not stored, the
+    /// store puts the default back.
+    var name: String
+    var gainDB: Double = 0
+    /// −1 hard left … +1 hard right.
+    var pan: Double = 0
+    var isMuted: Bool = false
+    /// One track soloed silences the rest at render time. Nothing is written to
+    /// the other tracks — see `EditorDocument.audibleTrackIDs`.
+    var isSoloed: Bool = false
+    /// In start order. The store keeps them sorted so the view can draw them
+    /// without sorting in a `body`; overlaps are allowed and layer.
+    var clips: [Clip] = []
+    /// Applied to this track's mix, after the clips and before gain and pan.
+    var moves: [Move] = []
+
+    init(id: UUID = UUID(),
+         name: String,
+         gainDB: Double = 0,
+         pan: Double = 0,
+         isMuted: Bool = false,
+         isSoloed: Bool = false,
+         clips: [Clip] = [],
+         moves: [Move] = []) {
+        self.id = id
+        self.name = name
+        self.gainDB = gainDB
+        self.pan = pan
+        self.isMuted = isMuted
+        self.isSoloed = isSoloed
+        self.clips = clips
         self.moves = moves
-        self.destination = destination
-        self.analysis = analysis
+    }
+
+    /// "Track 1" for the first lane. Numbered from the position, not from a
+    /// running counter, so the name matches what the user is looking at.
+    static func defaultName(at index: Int) -> String { "Track \(index + 1)" }
+
+    /// The tightest sensible range for this track: −24 to +12 dB, which is what
+    /// the fader draws and what the store clamps to. A track fader is trim, not
+    /// an amplifier.
+    static let gainRange: ClosedRange<Double> = -24...12
+
+    var end: TimeInterval { clips.map(\.end).max() ?? 0 }
+}
+
+/// A window onto a source, placed on the timeline.
+///
+/// **Trim is `sourceIn`/`sourceOut` and is therefore always non-destructive and
+/// always reversible.** Dragging an edge back out restores audio that was never
+/// thrown away, because nothing was ever cut — the numbers moved. Split makes
+/// two clips sharing one source. Copy and paste move clips, not samples.
+struct Clip: Codable, Equatable, Sendable, Identifiable {
+    var id: UUID = UUID()
+    var sourceID: EditorSource.ID
+    /// Where the clip sits on the timeline.
+    var start: TimeInterval = 0
+    /// The window into the source, in the source's own time.
+    var sourceIn: TimeInterval = 0
+    var sourceOut: TimeInterval
+    var gainDB: Double = 0
+    /// Measured from the clip's own start and end. Both are draggable handles
+    /// on the clip, which is why they live here and not in the move stack.
+    var fadeIn: TimeInterval = 0
+    var fadeOut: TimeInterval = 0
+    var fadeCurve: FadeCurve = .equalPower
+    /// Applied to this clip alone, before the track sees it.
+    var moves: [Move] = []
+
+    init(id: UUID = UUID(),
+         sourceID: EditorSource.ID,
+         start: TimeInterval = 0,
+         sourceIn: TimeInterval = 0,
+         sourceOut: TimeInterval,
+         gainDB: Double = 0,
+         fadeIn: TimeInterval = 0,
+         fadeOut: TimeInterval = 0,
+         fadeCurve: FadeCurve = .equalPower,
+         moves: [Move] = []) {
+        self.id = id
+        self.sourceID = sourceID
+        self.start = start
+        self.sourceIn = sourceIn
+        self.sourceOut = sourceOut
+        self.gainDB = gainDB
+        self.fadeIn = fadeIn
+        self.fadeOut = fadeOut
+        self.fadeCurve = fadeCurve
+        self.moves = moves
+    }
+
+    /// The whole of a source, at the head of the timeline. What opening a file
+    /// makes.
+    init(wholeOf source: EditorSource, start: TimeInterval = 0) {
+        self.init(sourceID: source.id, start: start, sourceIn: 0, sourceOut: source.duration)
+    }
+
+    /// A millisecond. Small enough that zooming to sample-adjacent still leaves
+    /// something to grab, large enough that a trim cannot collapse a clip to
+    /// nothing and strand its id in the selection.
+    static let minimumDuration: TimeInterval = 0.001
+
+    /// **Clamped at zero**, unlike the plain subtraction in the frame. A clip
+    /// whose window inverted would otherwise report a negative length, and the
+    /// first thing that happens to `duration` is arithmetic on a frame count.
+    /// The store never produces an inverted window; this is about what a
+    /// decoded sidecar can hand us.
+    var duration: TimeInterval { max(0, sourceOut - sourceIn) }
+    var end: TimeInterval { start + duration }
+    var range: ClosedRange<TimeInterval> { start...(start + max(duration, .ulpOfOne)) }
+
+    /// Whether a point on the timeline falls inside this clip.
+    func contains(_ time: TimeInterval) -> Bool {
+        time >= start && time < end
+    }
+
+    /// The point in the *source* that a point on the timeline reads from.
+    func sourceTime(atTimelineTime time: TimeInterval) -> TimeInterval {
+        sourceIn + (time - start)
     }
 }
 
@@ -57,6 +296,24 @@ struct EditorSource: Codable, Equatable, Sendable, Identifiable {
         /// The bundled theme, opened for editing.
         case meloTheme
     }
+
+    /// What `EditorDocument.source` answers for a document with an empty pool.
+    ///
+    /// Only reachable through a decoded document that has no sources at all,
+    /// which nothing in the app produces — every open goes through
+    /// `EditorDocument(source:)`. It exists so the transitional accessor can be
+    /// non-optional without a force-unwrap: a zero-length source draws nothing
+    /// and measures nothing, where a crash on the way to the window is a defect
+    /// this project has already paid for once.
+    static let unavailable = EditorSource(
+        url: URL(fileURLWithPath: "/"),
+        displayName: "",
+        origin: .file(originalURL: URL(fileURLWithPath: "/")),
+        duration: 0,
+        sampleRate: 48_000,
+        channelCount: 2,
+        formatDescription: ""
+    )
 }
 
 // MARK: - Moves
@@ -387,9 +644,10 @@ enum AudioFormatKind: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// `nil` when macOS can write it. Non-nil names the tool that has to be on
-    /// the machine — there is no native MP3 or Opus encoder, and Melo says so
-    /// rather than pretending.
+    /// `nil` when macOS can write it. Non-nil names the tool that does the
+    /// encoding — there is no native MP3 or Opus encoder on macOS, so both go
+    /// out through the `ffmpeg` Melo ships in `Contents/Helpers`. It is not a
+    /// statement about what the user has to install.
     var requiresExternalTool: ExternalTool? {
         switch self {
         case .mp3, .opus: .ffmpeg
@@ -408,10 +666,46 @@ enum ExternalTool: String, Sendable, CaseIterable {
         }
     }
 
-    var installHint: String {
+    /// Whether Melo ships this one inside the app bundle.
+    ///
+    /// ffmpeg is built from upstream source by `scripts/build-ffmpeg.sh` and
+    /// copied to `Contents/Helpers/ffmpeg` — it is audio-only, arm64, and does
+    /// not move. yt-dlp is not bundled and will not be: it tracks sites that
+    /// change weekly, so a frozen copy is a broken feature that looks installed.
+    var isBundled: Bool {
         switch self {
-        case .ffmpeg: "brew install ffmpeg"
+        case .ffmpeg: true
+        case .ytdlp: false
+        }
+    }
+
+    /// The shell command that gets you the tool, or `nil` when there is nothing
+    /// for the user to install. Melo ships ffmpeg, so telling someone to
+    /// `brew install` it would be asking them to fix Melo's problem.
+    var installCommand: String? {
+        switch self {
+        case .ffmpeg: nil
         case .ytdlp: "brew install yt-dlp"
+        }
+    }
+
+    /// What went wrong when the tool is not there.
+    ///
+    /// For ffmpeg that is a damaged or incomplete copy of Melo, not a missing
+    /// dependency — every normal build carries one.
+    var missingDescription: String {
+        switch self {
+        case .ffmpeg: "Melo's own ffmpeg is missing from the app."
+        case .ytdlp: "That needs yt-dlp, which isn't on this Mac."
+        }
+    }
+
+    /// What to do about it. A sentence, not a command — `installCommand` is the
+    /// command, when there is one, so a view can offer it as copyable text.
+    var missingRecovery: String {
+        switch self {
+        case .ffmpeg: "Reinstalling Melo puts it back."
+        case .ytdlp: "Install it with brew install yt-dlp."
         }
     }
 }

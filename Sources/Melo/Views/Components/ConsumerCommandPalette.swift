@@ -15,6 +15,15 @@ struct ConsumerCommandPalette: View {
     @State private var selectedIndex = 0
     @FocusState private var searchFocused: Bool
 
+    /// Apps installed on this Mac, read once when the palette opens.
+    ///
+    /// Empty until the scan lands, which is a real state and a harmless one:
+    /// the palette shows everything else meanwhile and gains these rows on the
+    /// next keystroke. Held here rather than on `AudioEngine` because nothing
+    /// outside this search uses it and a list of three hundred bundles has no
+    /// business outliving the window that asked for it.
+    @State private var installedApps: [InstalledApp] = []
+
     /// `initialQuery` exists for the same reason `SettingsGuideView` has one:
     /// without it nothing outside this struct can put a query in the box, so no
     /// frame can show a single row this palette produces. `searchText` is
@@ -91,6 +100,11 @@ struct ConsumerCommandPalette: View {
         }
         .background(.regularMaterial)
         .onAppear { searchFocused = true }
+        .task {
+            // Detached inside `scanned()`. Reading the application folders on
+            // the main actor would stall the popup on a cold disk.
+            installedApps = await InstalledAppCatalog.scanned()
+        }
         .onExitCommand { onClose() }
         .onChange(of: searchText) { _, _ in
             // The best match for the new query is always the top row; leaving the
@@ -265,6 +279,7 @@ struct ConsumerCommandPalette: View {
 
         var result = commandsForSearch
         result.append(contentsOf: directIntentCommands(query: query))
+        result.append(contentsOf: installedAppCommands(query: query))
         result.append(contentsOf: guideCommands(query: query))
 
         var unique: [String: Command] = [:]
@@ -534,6 +549,118 @@ struct ConsumerCommandPalette: View {
                 action: { audioEngine.unignoreApp(info.persistenceIdentifier) }
             )
         }
+    }
+
+    // MARK: - An app that has never made a sound
+
+    /// Apps installed on this Mac that Melo has never listed.
+    ///
+    /// Until now the earliest Melo could be told about an app was the moment it
+    /// became audible — `displayableApps` is running-and-playing, plus
+    /// running-and-silent, plus what you already pinned. So the one case the
+    /// owner asked for, "quiet it *before* it opens", had no surface at all,
+    /// and for something being launched and killed over and over during testing
+    /// the only window in which you could reach it was the one where it was
+    /// already loud.
+    ///
+    /// **Here rather than in the popup's Apps section.** ⌘K is already where
+    /// Melo answers "I know the app, find me the control": every listed app has
+    /// rows here, and `hiddenAppCommands` already covers the *other* app you
+    /// cannot see. An app that has never played is the third case of one idea,
+    /// and splitting it into a different surface would put three versions of
+    /// the same question in two places. The alternative — a search field in the
+    /// popup's Apps section — also loses on two counts: that list is "what is
+    /// happening now", and an app that has never made a sound is not happening,
+    /// so putting it there makes the list say something untrue; and a
+    /// `TextField` inside a `ScrollView` is the one pairing this project's
+    /// render harness cannot draw at all, so it would ship unrenderable and
+    /// therefore unreviewable. What it costs: you have to roughly know the
+    /// name. By hypothesis you do — the request begins "if I know I want to".
+    ///
+    /// Every row pins the app as well as acting on it. A volume set on
+    /// something invisible is a setting with no way back, and pinning is what
+    /// puts the row — slider, mute, routing, EQ — in the popup so the change
+    /// can be seen and undone. It also hands the app over to the machinery that
+    /// already exists: once pinned it is in `displayableApps`, `appCommands`
+    /// names it like any other app, and nothing below is consulted for it
+    /// again. This is an on-ramp, not a parallel world.
+    private func installedAppCommands(query: String) -> [Command] {
+        guard !installedApps.isEmpty else { return [] }
+
+        // Apps Melo can already reach have their own rows. Hidden apps have
+        // "Show X again". Offering a third phrasing for either is noise.
+        var known = Set(audioEngine.displayableApps.map(\.id))
+        known.formUnion(
+            audioEngine.settingsManager.getIgnoredAppInfo().map(\.persistenceIdentifier)
+        )
+
+        guard let app = InstalledAppCatalog.bestMatch(
+            in: installedApps,
+            for: query,
+            excluding: known
+        ) else { return [] }
+
+        let identifier = app.persistenceIdentifier
+        let name = app.name
+        let muted = audioEngine.getMuteForInactive(identifier: identifier)
+
+        var result: [Command] = [
+            Command(
+                id: "installed-mute-\(identifier)",
+                title: muted ? "Unmute \(name)" : "Mute \(name)",
+                subtitle: muted
+                    ? "Lets it be heard the next time it opens"
+                    : "Silences it before it ever opens",
+                symbol: muted ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                category: .controls,
+                aliases: ["silence \(name)", "quiet \(name)", "\(name) is not open"],
+                action: {
+                    keepInMeloList(app)
+                    audioEngine.setMuteForInactive(identifier: identifier, to: !muted)
+                }
+            )
+        ]
+
+        // The same percent grammar the rest of the palette uses, so "godot to
+        // 20%" reaches an app that has never run exactly as it reaches Spotify.
+        if let percent = IntentSearch.percentage(in: query) {
+            result.append(Command(
+                id: "installed-volume-\(identifier)-\(percent)",
+                title: "Set \(name) to \(percent)%",
+                subtitle: "Applies the first time it plays",
+                symbol: "slider.horizontal.3",
+                category: .controls,
+                aliases: [query],
+                action: {
+                    keepInMeloList(app)
+                    setEffectivePercent(percent, for: identifier)
+                }
+            ))
+        }
+
+        result.append(Command(
+            id: "installed-pin-\(identifier)",
+            title: "Add \(name) to Melo",
+            subtitle: "Puts its controls in the list before it opens",
+            symbol: "plus.circle.fill",
+            category: .controls,
+            aliases: ["set up \(name)", "\(name) before it opens", "not running"],
+            action: { keepInMeloList(app) }
+        ))
+
+        return result
+    }
+
+    /// Pins a catalogue app so it has a row. Keyed on the identifier the app
+    /// will arrive under when it launches, which `InstalledApp` derives from
+    /// `AudioApp`'s own rule — bundle identifier first, never the process id,
+    /// which changes on every launch.
+    private func keepInMeloList(_ app: InstalledApp) {
+        audioEngine.pinApp(
+            identifier: app.persistenceIdentifier,
+            displayName: app.name,
+            bundleID: app.bundleID
+        )
     }
 
     /// Everything Melo can be *set to* that has no command of its own — roughly

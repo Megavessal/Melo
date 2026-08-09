@@ -284,6 +284,16 @@
 		2641458ECFF64334B7080F5A /* EditorTransportCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */; };
 		9E1E8FA2A16B4A8E89A67A88 /* EditorWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD5A8A2431544674BC371624 /* EditorWaveformView.swift */; };
 		8D8E8B8119154680930A0D0E /* EditorWaveformStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A656AB1C3BFF420BB44E56A1 /* EditorWaveformStyle.swift */; };
+		11D1C98141F74681BC4124AA /* EditorTrackMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F18EB12D92D24E7CA619416C /* EditorTrackMetrics.swift */; };
+		7BA8206DAF7F48168B3F8EB4 /* TrackHeaderColumn.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85394EDE31D4E03A5A26F00 /* TrackHeaderColumn.swift */; };
+		AA86C81E5FED4962BCB0B85F /* TrackHeaderControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB1775405CFF42D5A21402EB /* TrackHeaderControls.swift */; };
+		63823E4402594CAEA2F42091 /* TrackHeaderRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72930F6A7E534B1BB285E023 /* TrackHeaderRow.swift */; };
+		977E2A81416447EAB9CED118 /* EditorClipWaveforms.swift in Sources */ = {isa = PBXBuildFile; fileRef = C38B5DF42B5147639BED1940 /* EditorClipWaveforms.swift */; };
+		805DAB9EA97847B8954CA8F9 /* EditorTimelineLanes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9435AD3DECC54C41BDFA9B64 /* EditorTimelineLanes.swift */; };
+		1D49F6C38D53448DB89F1E80 /* EditorTimelineViewport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7507525FE28E489D8E61F8F1 /* EditorTimelineViewport.swift */; };
+		AFBC6B66BFBF4095A2171D2C /* EditorWaveformPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F08A945BEF44DBABB00B38D /* EditorWaveformPainter.swift */; };
+		59E361C2D0AD4517A2758184 /* DropdownWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */; };
+		69E38F3B0704461ABC4B09BD /* InstalledAppCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -566,6 +576,16 @@
 		E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTransportCommands.swift; sourceTree = SOURCE_ROOT; };
 		AD5A8A2431544674BC371624 /* EditorWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformView.swift; sourceTree = SOURCE_ROOT; };
 		A656AB1C3BFF420BB44E56A1 /* EditorWaveformStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformStyle.swift; sourceTree = SOURCE_ROOT; };
+		F18EB12D92D24E7CA619416C /* EditorTrackMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Tracks/EditorTrackMetrics.swift; sourceTree = SOURCE_ROOT; };
+		E85394EDE31D4E03A5A26F00 /* TrackHeaderColumn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Tracks/TrackHeaderColumn.swift; sourceTree = SOURCE_ROOT; };
+		BB1775405CFF42D5A21402EB /* TrackHeaderControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Tracks/TrackHeaderControls.swift; sourceTree = SOURCE_ROOT; };
+		72930F6A7E534B1BB285E023 /* TrackHeaderRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Tracks/TrackHeaderRow.swift; sourceTree = SOURCE_ROOT; };
+		C38B5DF42B5147639BED1940 /* EditorClipWaveforms.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorClipWaveforms.swift; sourceTree = SOURCE_ROOT; };
+		9435AD3DECC54C41BDFA9B64 /* EditorTimelineLanes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTimelineLanes.swift; sourceTree = SOURCE_ROOT; };
+		7507525FE28E489D8E61F8F1 /* EditorTimelineViewport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTimelineViewport.swift; sourceTree = SOURCE_ROOT; };
+		3F08A945BEF44DBABB00B38D /* EditorWaveformPainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformPainter.swift; sourceTree = SOURCE_ROOT; };
+		D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DropdownWidth.swift; sourceTree = SOURCE_ROOT; };
+		E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/InstalledAppCatalog.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -589,7 +609,15 @@
 			00C45FD35CB0F9C5F764F070 /* Products */,
 		); sourceTree = "<group>"; };
 		9642F1047C1002A1EE72F0DB /* Sources */ = {isa = PBXGroup; children = (
+			F18EB12D92D24E7CA619416C /* EditorTrackMetrics.swift */,
+			72930F6A7E534B1BB285E023 /* TrackHeaderRow.swift */,
+			BB1775405CFF42D5A21402EB /* TrackHeaderControls.swift */,
+			E85394EDE31D4E03A5A26F00 /* TrackHeaderColumn.swift */,
 			9C0B2EDC33BC496EA9B11B71 /* EditorPlayback.swift */,
+			3F08A945BEF44DBABB00B38D /* EditorWaveformPainter.swift */,
+			7507525FE28E489D8E61F8F1 /* EditorTimelineViewport.swift */,
+			9435AD3DECC54C41BDFA9B64 /* EditorTimelineLanes.swift */,
+			C38B5DF42B5147639BED1940 /* EditorClipWaveforms.swift */,
 			A656AB1C3BFF420BB44E56A1 /* EditorWaveformStyle.swift */,
 			AD5A8A2431544674BC371624 /* EditorWaveformView.swift */,
 			E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */,
@@ -763,6 +791,7 @@
 			EDEC4D1AF95BF62C5556252E /* ShortcutsRegistry.swift */,
 			7874A2FEACC9129601503D71 /* TargetAppResolver.swift */,
 			6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */,
+			E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */,
 			333B597EE66841B684A5859F /* SnapshotScenes.swift */,
 			602D160EEF954371824009D2 /* SnapshotHarness.swift */,
 			840A77BB3E1209B0C681D547 /* MoveToApplicationsView.swift */,
@@ -776,6 +805,7 @@
 			C7441087600AEDDF3F5D3E3E /* ProcessNameLookup.swift */,
 			FE78F282E1881791D0A9493A /* URLHandler.swift */,
 			013367D5043CD191185F4537 /* AutoEQPicker.swift */,
+			D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */,
 			B157EA690962D7B76D84C3C0 /* AutoEQSearchPanel.swift */,
 			51B776EA46FA82677D2439FB /* BoostChevrons.swift */,
 			D734BA16EAF53EE7BCC0C235 /* ClickOutsideCoordinator.swift */,
@@ -919,6 +949,16 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			69E38F3B0704461ABC4B09BD /* InstalledAppCatalog.swift in Sources */,
+			59E361C2D0AD4517A2758184 /* DropdownWidth.swift in Sources */,
+			AFBC6B66BFBF4095A2171D2C /* EditorWaveformPainter.swift in Sources */,
+			1D49F6C38D53448DB89F1E80 /* EditorTimelineViewport.swift in Sources */,
+			805DAB9EA97847B8954CA8F9 /* EditorTimelineLanes.swift in Sources */,
+			977E2A81416447EAB9CED118 /* EditorClipWaveforms.swift in Sources */,
+			63823E4402594CAEA2F42091 /* TrackHeaderRow.swift in Sources */,
+			AA86C81E5FED4962BCB0B85F /* TrackHeaderControls.swift in Sources */,
+			7BA8206DAF7F48168B3F8EB4 /* TrackHeaderColumn.swift in Sources */,
+			11D1C98141F74681BC4124AA /* EditorTrackMetrics.swift in Sources */,
 			8D8E8B8119154680930A0D0E /* EditorWaveformStyle.swift in Sources */,
 			9E1E8FA2A16B4A8E89A67A88 /* EditorWaveformView.swift in Sources */,
 			2641458ECFF64334B7080F5A /* EditorTransportCommands.swift in Sources */,
@@ -1222,7 +1262,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 311;
+			CURRENT_PROJECT_VERSION = 312;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1233,7 +1273,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 3.1.1;
+			MARKETING_VERSION = 3.1.2;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;
@@ -1252,7 +1292,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 311;
+			CURRENT_PROJECT_VERSION = 312;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1263,7 +1303,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 3.1.1;
+			MARKETING_VERSION = 3.1.2;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;

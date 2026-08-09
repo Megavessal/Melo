@@ -490,6 +490,18 @@ final class AudioEngine {
         appListCoordinator.pinApp(app)
     }
 
+    /// Pin an app Melo has never seen run, so its controls are in the popup
+    /// waiting for it. The identifier must be the one the app will arrive under
+    /// when it finally plays — `AudioApp.persistenceIdentifier(...)` is the only
+    /// rule that produces it, and `InstalledApp` uses that same rule.
+    func pinApp(identifier: String, displayName: String, bundleID: String?) {
+        appListCoordinator.pinApp(
+            identifier: identifier,
+            displayName: displayName,
+            bundleID: bundleID
+        )
+    }
+
     /// Unpin an app by its persistence identifier.
     func unpinApp(_ identifier: String) {
         appListCoordinator.unpinApp(identifier)

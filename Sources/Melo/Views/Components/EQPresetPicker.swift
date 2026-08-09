@@ -78,6 +78,36 @@ struct EQPresetPicker: View {
         }
     }
 
+    /// Everything in a preset row that is not the preset's name. Same shape as
+    /// `DevicePicker.rowChrome` and itemised for the same reason: the 170 this
+    /// replaces recorded no account of what it was 170 of.
+    ///
+    /// A user preset is the widest row — it carries the delete button as well
+    /// as the checkmark — and it is also the row whose text the user chose, so
+    /// its accessories are reserved on every row rather than only when one is
+    /// selected.
+    private static let rowChrome: CGFloat =
+        (5 * 2)                              // content VStack .padding(5)
+        + (DesignTokens.Spacing.sm * 2)      // DropdownMenuItem .padding(.horizontal, sm)
+        + 12                                 // selected checkmark
+        + 12                                 // user-preset delete button
+        + (DesignTokens.Spacing.xs * 3)      // gaps: text|spacer|checkmark|delete
+        + DesignTokens.Spacing.xs            // Spacer(minLength: xs)
+
+    /// Every string the open menu can draw: preset names at 11pt, section
+    /// headers at 10pt. Headers sit in less chrome than rows do, so measuring
+    /// them against the row chrome over-reserves slightly — the safe direction.
+    private var popoverWidth: CGFloat {
+        DropdownWidth.fit(
+            titles: sections.flatMap { items(for: $0) }.map(\.name),
+            titlePointSize: 11,
+            subtitles: sections.map(\.title),
+            subtitlePointSize: 10,
+            chrome: Self.rowChrome,
+            minimum: 170
+        )
+    }
+
     private func handleSelect(_ item: EQPickerItem) {
         if let preset = item.builtInPreset {
             onBuiltInSelected(preset)
@@ -95,7 +125,7 @@ struct EQPresetPicker: View {
             selectedItem: selectedItem,
             maxHeight: 320,
             width: 100,
-            popoverWidth: 170,
+            popoverWidth: popoverWidth,
             onSelect: handleSelect
         ) { selected in
             Text(selected?.name ?? "Custom")

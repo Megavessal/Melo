@@ -2,6 +2,11 @@
 .build-melo/
 outputs/
 
+# ffmpeg build tree: tarballs, unpacked sources and static deps for
+# scripts/build-ffmpeg.sh. ~190 MB and fully reproducible from the script, so
+# it is not committed. The built binary in Vendor/ffmpeg/ IS committed.
+.build-ffmpeg/
+
 # Locally downloaded command line tools (gh). Kept out of .build-melo because
 # build-app.sh wipes that folder at the start of every build.
 .tools/

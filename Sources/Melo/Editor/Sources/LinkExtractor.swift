@@ -58,7 +58,7 @@ enum LinkExtractionFailure: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .toolMissing(let tool):
-            return "Melo needs \(tool.executableName) for this. Install it with \(tool.installHint)."
+            return "\(tool.missingDescription) \(tool.missingRecovery)"
         case .notAWebLink:
             return "That isn't a web link. Paste the page address you'd open in a browser."
         case .unavailable:
@@ -78,7 +78,9 @@ enum LinkExtractionFailure: LocalizedError, Equatable {
         case .nothingDownloaded:
             return "yt-dlp finished but left no audio behind."
         case .needsFFmpeg(let fileExtension):
-            return "That came down as .\(fileExtension), which macOS can't open. Install ffmpeg with brew install ffmpeg and Melo will convert it."
+            // Melo ships ffmpeg, so reaching this means the app is missing the
+            // copy it was built with — not that the user is missing a tool.
+            return "That came down as .\(fileExtension), and Melo's own ffmpeg isn't there to convert it. Reinstalling Melo puts it back."
         case .cancelled:
             return "Stopped."
         case .failed(let message):
@@ -173,7 +175,7 @@ struct LinkExtractor: Sendable {
         guard Self.isWebLink(pageURL) else { throw LinkExtractionFailure.notAWebLink }
         guard let ytdlp = locate(.ytdlp) else { throw LinkExtractionFailure.toolMissing(.ytdlp) }
 
-        let hasFFmpeg = locate(.ffmpeg) != nil
+        let ffmpeg = locate(.ffmpeg)
         let scratch = try Self.makeScratchDirectory(prefix: "Link")
 
         progress(LinkExtractionUpdate(fraction: nil, stage: "Finding it", detail: nil))
@@ -182,7 +184,7 @@ struct LinkExtractor: Sendable {
         do {
             result = try await runner.run(
                 executable: ytdlp,
-                arguments: Self.downloadArguments(for: pageURL, hasFFmpeg: hasFFmpeg),
+                arguments: Self.downloadArguments(for: pageURL, ffmpeg: ffmpeg),
                 workingDirectory: scratch,
                 onLine: { line in
                     guard let update = Self.parseProgress(line.text) else { return }
@@ -273,7 +275,16 @@ extension LinkExtractor {
     /// container macOS can decode *first*, falling back to whatever exists. That
     /// fallback can still land on webm/opus, which is caught after the download and
     /// reported as `needsFFmpeg` rather than a decode failure three screens later.
-    static func downloadArguments(for pageURL: URL, hasFFmpeg: Bool) -> [String] {
+    ///
+    /// **`--ffmpeg-location` is not optional now that Melo bundles the binary.**
+    /// yt-dlp finds its post-processor on its own `PATH`, and
+    /// `Melo.app/Contents/Helpers` is on nobody's `PATH`. Passing the located
+    /// executable is the difference between "Melo has an ffmpeg" and "yt-dlp can use
+    /// it" — without the flag, a user with no Homebrew ffmpeg would take the
+    /// `--extract-audio` branch and get *ffprobe and ffmpeg not found* from a machine
+    /// that is carrying one. Only `ffmpeg` is bundled, not `ffprobe`; yt-dlp probes
+    /// the codec with `ffmpeg -i` when the prober is absent.
+    static func downloadArguments(for pageURL: URL, ffmpeg: URL?) -> [String] {
         var arguments = sharedArguments + [
             "--newline",
             "--progress",
@@ -281,8 +292,9 @@ extension LinkExtractor {
             "-o", "%(title)s.%(ext)s"
         ]
 
-        if hasFFmpeg {
+        if let ffmpeg {
             arguments += [
+                "--ffmpeg-location", ffmpeg.path,
                 "-f", "bestaudio/best",
                 "--extract-audio",
                 "--audio-format", "m4a",
@@ -530,7 +542,8 @@ extension LinkExtractor {
 
 extension LinkExtractor {
     /// Containers AVFoundation opens on macOS. Anything else — webm, ogg, opus, mkv —
-    /// needs ffmpeg, and saying so is more useful than a decode failure.
+    /// means the ffmpeg post-processor did not run, and saying so is more useful than
+    /// a decode failure.
     static let avFoundationExtensions: Set<String> = [
         "m4a", "mp4", "m4b", "mp3", "aac", "wav", "aiff", "aif", "aifc", "caf", "flac", "alac", "mov"
     ]

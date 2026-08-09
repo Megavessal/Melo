@@ -3,23 +3,67 @@ import Foundation
 import Synchronization
 import os
 
-/// Finds `yt-dlp` and `ffmpeg` on the user's machine.
+/// Finds `ffmpeg` and `yt-dlp`.
 ///
-/// Melo detects these and never bundles them: both need updating every few weeks,
-/// both carry their own licences, and a stale bundled copy is a broken feature that
-/// looks installed.
+/// Two different problems wearing one interface. **ffmpeg ships inside the app** —
+/// `Contents/Helpers/ffmpeg`, put there by `scripts/build-app.sh` — so for that tool
+/// this is a single `stat` of a path that cannot change while Melo is running.
+/// **yt-dlp is never bundled**: it tracks sites that change weekly, so a frozen copy
+/// is a broken feature that looks installed. It has to be found on the user's machine
+/// or reported as absent.
 ///
-/// The search order matters more than it looks. An app launched from Finder gets a
-/// minimal `PATH` — `/usr/bin:/bin:/usr/sbin:/sbin` — which contains neither Homebrew
-/// prefix, so a `PATH`-only lookup finds nothing for most people who have the tool.
-/// The explicit prefixes below are the actual hit list.
+/// The machine search order matters more than it looks. An app launched from Finder
+/// gets a minimal `PATH` — `/usr/bin:/bin:/usr/sbin:/sbin` — which contains neither
+/// Homebrew prefix, so a `PATH`-only lookup finds nothing for most people who have the
+/// tool. The explicit prefixes below are the actual hit list.
 enum ExternalToolLocator {
     private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "ExternalTools")
 
-    /// Positive results only. A miss is never cached, because the common case is
-    /// that someone reads the install hint, runs `brew install`, and comes straight
-    /// back to the same sheet — the next lookup has to see the new binary.
+    /// Positive results from the *machine* search only. A miss is never cached,
+    /// because the common case is that someone reads the install command, runs
+    /// `brew install`, and comes straight back to the same sheet — the next lookup
+    /// has to see the new binary.
+    ///
+    /// The bundled copy never reaches this cache. It is resolved once by
+    /// `bundledFFmpeg` below and then answered from a constant, so the "never cache a
+    /// miss" rule keeps applying to exactly the tool it was written for: the one the
+    /// user can still go and install.
     private static let cache = Mutex<[String: URL]>([:])
+
+    /// The copy Melo ships, resolved once.
+    ///
+    /// A `static let` and not a per-call check on purpose: a file inside the running
+    /// app bundle cannot appear or vanish mid-session, so unlike a user-installed tool
+    /// there is nothing to re-validate and no reason to pay for a second `stat`.
+    /// `nil` when the app was built without `Vendor/ffmpeg/ffmpeg` — `build-app.sh`
+    /// warns rather than fails in that case, so it is a state that can really exist.
+    private static let bundledFFmpeg: URL? = {
+        let candidate = Bundle.main.bundleURL
+            .appendingPathComponent("Contents/Helpers/ffmpeg", isDirectory: false)
+        guard isRunnable(candidate) else {
+            logger.error("Bundled ffmpeg is not at \(candidate.path, privacy: .public)")
+            return nil
+        }
+        return candidate
+    }()
+
+    /// The copy Melo ships, when the tool is one Melo ships.
+    static func bundled(_ tool: ExternalTool) -> URL? {
+        guard tool.isBundled else { return nil }
+        return bundledFFmpeg
+    }
+
+    /// Everything Melo ships, without touching the machine search.
+    ///
+    /// Lets a view start out knowing MP3 and Opus are available instead of flashing a
+    /// "needs ffmpeg" state until an async lookup has run.
+    static func bundledLocations() -> [ExternalTool: URL] {
+        var found: [ExternalTool: URL] = [:]
+        for tool in ExternalTool.allCases {
+            if let url = bundled(tool) { found[tool] = url }
+        }
+        return found
+    }
 
     /// Homebrew on Apple silicon, Homebrew on Intel, MacPorts, and the `~/.local/bin`
     /// that `pipx install yt-dlp` and `pip install --user` write to.
@@ -38,13 +82,21 @@ enum ExternalToolLocator {
 
     // MARK: - Locating
 
-    /// The absolute path to `tool`, or nil when it is not installed.
+    /// The absolute path to `tool`, or nil when there isn't one.
+    ///
+    /// The bundled copy wins. A user with their own ffmpeg on `PATH` still gets the
+    /// one Melo shipped, which is the point: it is the build the encode path was
+    /// proved against, and "works on my machine but not yours" is the failure mode
+    /// bundling exists to remove. The machine search is the fallback for a build
+    /// without it, and the only path yt-dlp ever takes.
     static func locate(_ tool: ExternalTool) -> URL? {
+        if let shipped = bundled(tool) { return shipped }
+
         let key = tool.rawValue
 
         if let cached = cache.withLock({ $0[key] }) {
             // Re-validate rather than trust: `brew uninstall` during a session is
-            // rarer than `brew install`, but a stale hit would spawn a dead path.
+            // rarer than an install, but a stale hit would spawn a dead path.
             if isRunnable(cached) { return cached }
             cache.withLock { $0[key] = nil }
         }

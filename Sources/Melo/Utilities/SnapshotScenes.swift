@@ -13,6 +13,28 @@ import SwiftUI
 /// completely.
 @MainActor
 enum SnapshotScenes {
+
+    /// How a seeded timeline lays its clips out.
+    ///
+    /// A nested type rather than a local one because `seedTimeline` below takes
+    /// it as a defaulted parameter, and the three cases are the three shapes the
+    /// document model can actually be in — not a menu of drawing options.
+    private enum TimelineLayout {
+        /// One source, one clip per lane, each later lane offset and trimmed.
+        /// What `EditorTrackFixtures.document` builds: one file, extra lanes the
+        /// user asked for and filled by hand.
+        case staggered
+        /// The same, with a fade in and a fade out on every clip and a different
+        /// `FadeCurve` per lane. Fades are per-clip and draggable, so they are
+        /// the one part of the stack that is drawn *into* the audio.
+        case fades
+        /// The same, with the first lane's clip split in two at 45% and a copy of
+        /// the left half pasted onto the second lane later on. Split and paste
+        /// both produce several clips sharing one source, which is the one
+        /// arrangement the other two layouts cannot show.
+        case split
+    }
+
     // swiftlint:disable:next function_parameter_count function_body_length
     static func all(
         audioEngine: AudioEngine,
@@ -63,6 +85,14 @@ enum SnapshotScenes {
         /// where every window frame printed `0:58.0`. Same trap as
         /// `MeloEasterEggClock`, cleared in the same breath.
         ///
+        /// `EditorClipWaveforms.shared` is the third of the same kind and the
+        /// worst of them, because what it leaks is a *picture*. It holds one
+        /// waveform per source id, seeded by hand for the multitrack scenes; a
+        /// scene that did not clear it would draw the previous scene's sources
+        /// in lanes cut from different files, and a frame of the wrong audio
+        /// drawn convincingly is not a frame anyone can catch by looking. Its
+        /// own `resetForSnapshot` asks to be called from exactly here.
+        ///
         /// Without this a dark frame of the popup was unreadable, and had been
         /// for the whole of the previous run. `MenuBarPopupView` applies
         /// `.preferredColorScheme(resolvedPopupColorScheme)`, which on a Mac
@@ -80,6 +110,7 @@ enum SnapshotScenes {
             appSettings.appearance = scheme == .dark ? .dark : .light
             settings.appSettings = appSettings
             EditorTimeline.shared.resetForSnapshot()
+            EditorClipWaveforms.shared.resetForSnapshot()
         }
 
         @MainActor func scene(
@@ -1869,10 +1900,30 @@ enum SnapshotScenes {
         /// `EditorWaveformView.isDense`'s threshold at Melo's window widths that
         /// a display scale of 3 would have silently dropped the RMS core out of
         /// every fit-zoom frame.
+        /// `variant` is what makes a multitrack frame worth rendering.
+        ///
+        /// A lane draws its clip from that clip's *source*, so a document built
+        /// from four files needs four different pictures. Without one, every
+        /// source at the same duration produces the same buckets, four lanes
+        /// draw the same waveform, and the frame looks exactly like a working
+        /// multitrack timeline while proving nothing at all — the same failure
+        /// the two-lanes-from-one-channel note above records, one level up.
+        ///
+        /// It rotates which passage of the programme lands in which section of
+        /// the file and salts the grain, so the takes differ in level, crest
+        /// and transient spacing rather than only in length. It does **not**
+        /// move the section boundaries: `programme` is searched by ascending
+        /// `until` and reordering those would break the search.
+        ///
+        /// **`variant: 0` is byte-identical to what this produced before the
+        /// parameter existed** — rotation zero, salt unchanged — so every scene
+        /// written against the single-source fixture renders the frame it
+        /// rendered yesterday.
         @MainActor func editorWaveform(
             duration: TimeInterval,
             channels: Int,
-            buckets: Int = 2_048
+            buckets: Int = 2_048,
+            variant: Int = 0
         ) -> WaveformData {
             let lanes = max(channels, 1)
             let span = max(duration, 0.001)
@@ -1903,14 +1954,19 @@ enum SnapshotScenes {
                 (2.000, 0.13, 0.80, 0.90),   // the tail. Past 1 so nothing falls off the end.
             ]
 
+            // Which passage plays in which section. Zero leaves the programme
+            // exactly as written.
+            let rotation = ((variant % programme.count) + programme.count) % programme.count
+
             var data: [WaveformData.Bucket] = []
             data.reserveCapacity(buckets * lanes)
             for index in 0..<buckets {
                 let position = Double(index) / Double(max(buckets - 1, 1))
-                let passage = programme.first { position < $0.until } ?? programme[programme.count - 1]
+                let section = programme.firstIndex { position < $0.until } ?? programme.count - 1
+                let passage = programme[(section + rotation) % programme.count]
 
                 for lane in 0..<lanes {
-                    let salt = 1 + lane * 7_919
+                    let salt = 1 + lane * 7_919 + variant * 104_729
                     // A transient every `hit` seconds, decaying over the two or
                     // three buckets after it, with every fourth one louder so
                     // the pattern reads as a bar rather than as a metronome.
@@ -2004,11 +2060,290 @@ enum SnapshotScenes {
             editor.close()
         }
 
+        // MARK: - Seeding a timeline
+        //
+        // `seedEditor` above is deliberately untouched. It builds
+        // `EditorDocument(source:)` — one track, one clip, the master list under
+        // its old name — and it does **not** seed per-source pictures, so every
+        // scene written before clips existed falls back to the store's mix
+        // overview exactly as it did. Multitrack seeding is separate rather than
+        // an extra argument on that call, because the two differ in what they
+        // pin, not only in how many lanes they ask for.
+
+        /// One drawing per source, so two lanes cut from different files cannot
+        /// come out looking the same.
+        ///
+        /// **This is the whole reason a multitrack frame is evidence.** Without
+        /// a seeded overview `EditorClipWaveforms` has nothing for the source
+        /// and the view falls back to the store's mix, which is one picture — so
+        /// four lanes of four different files draw four copies of the same
+        /// waveform, at the right lengths, in the right places. That renders as
+        /// a working multitrack timeline and is not one, and no amount of
+        /// looking at the frame finds it.
+        @MainActor func seedClipWaveforms(_ document: EditorDocument) {
+            var seeded: [UUID: WaveformData] = [:]
+            for (index, source) in document.sources.enumerated() {
+                seeded[source.id] = editorWaveform(
+                    duration: source.duration,
+                    channels: source.channelCount,
+                    variant: index
+                )
+            }
+            EditorClipWaveforms.shared.setForSnapshot(seeded)
+        }
+
+        /// Pins a multitrack document, its per-source pictures, and the four
+        /// published selections `setForSnapshot` resets on the way in.
+        ///
+        /// Returns every clip id in document order — track by track, clip by
+        /// clip — because `hoveredClip:` and `edit:` are addressed by id and a
+        /// scene has no other way to name one. The ids are fresh on every call,
+        /// which is fine and is why nothing captures them: a scene that needs
+        /// one reads it back off the store inside its `content` closure, which
+        /// the harness builds *after* `prepare` has run.
+        @discardableResult
+        @MainActor func installDocument(
+            _ document: EditorDocument,
+            selection: ClosedRange<TimeInterval>? = nil,
+            playhead: TimeInterval = 0,
+            selectedClips: [Int] = [],
+            selectedTrack: Int? = nil
+        ) -> [Clip.ID] {
+            clearEditorJobs()
+            EditorRecents.shared.setForSnapshot(editorRecents)
+            editor.setForSnapshot(
+                document: document,
+                // The mix, for the transport's readouts and for anything still
+                // reading `store.waveform`. The lanes do not draw from it.
+                waveform: editorWaveform(
+                    duration: max(document.duration, 0.001),
+                    channels: document.source.channelCount
+                )
+            )
+            seedClipWaveforms(document)
+
+            // After `setForSnapshot`, which resets all four of these.
+            editor.selection = selection
+            editor.playhead = playhead
+            editor.selectedMoveID = nil
+            editor.setErrorForSnapshot(nil)
+
+            let ids = document.tracks.flatMap { $0.clips.map(\.id) }
+            editor.selectedClipIDs = Set(
+                selectedClips.compactMap { ids.indices.contains($0) ? ids[$0] : nil }
+            )
+            if let selectedTrack, document.tracks.indices.contains(selectedTrack) {
+                editor.selectedTrackID = document.tracks[selectedTrack].id
+            }
+            return ids
+        }
+
+        /// A fade in and a fade out on every clip, one curve per lane.
+        ///
+        /// Long enough to see: at fit zoom on a 478pt pane, 22% of the first
+        /// lane's 250s clip is about 105 points of slope. A fade of a couple of
+        /// seconds is arithmetically present and visually absent, which makes
+        /// for a frame that cannot answer the question it was rendered for.
+        @MainActor func applyFades(_ document: inout EditorDocument) {
+            let curves: [FadeCurve] = [.linear, .equalPower, .exponential]
+            for track in document.tracks.indices {
+                let curve = curves[track % curves.count]
+                for clip in document.tracks[track].clips.indices {
+                    let span = document.tracks[track].clips[clip].duration
+                    document.tracks[track].clips[clip].fadeIn = span * 0.22
+                    document.tracks[track].clips[clip].fadeOut = span * 0.30
+                    document.tracks[track].clips[clip].fadeCurve = curve
+                }
+            }
+        }
+
+        /// The first lane's clip split in two, and the left half pasted onto the
+        /// second lane further along.
+        ///
+        /// Split makes two clips sharing one source and abutting exactly, which
+        /// is what makes the seam worth photographing: two name strips and one
+        /// hairline where there used to be an unbroken drawing. The paste lands
+        /// past the old end of the project on purpose — `EditorDocument.duration`
+        /// is the end of the last clip, so the ruler has to grow.
+        @MainActor func applySplit(_ document: inout EditorDocument) {
+            guard let original = document.tracks.first?.clips.first else { return }
+            let cut = original.sourceIn + original.duration * 0.45
+
+            var left = original
+            left.sourceOut = cut
+            var right = original
+            right.id = UUID()
+            right.sourceIn = cut
+            right.start = original.start + (cut - original.sourceIn)
+            document.tracks[0].clips = [left, right]
+
+            guard document.tracks.count > 1 else { return }
+            var pasted = left
+            pasted.id = UUID()
+            pasted.start = original.end - left.duration * 0.6
+            document.tracks[1].clips.append(pasted)
+        }
+
+        /// The timeline family's one seeding call.
+        ///
+        /// - Parameters:
+        ///   - selectedClips: Indices into the returned list, so a scene can say
+        ///     "the second clip" without holding an id it cannot know yet.
+        @discardableResult
+        @MainActor func seedTimeline(
+            trackCount: Int = 1,
+            layout: TimelineLayout = .staggered,
+            selection: ClosedRange<TimeInterval>? = nil,
+            playhead: TimeInterval = 0,
+            selectedClips: [Int] = []
+        ) -> [Clip.ID] {
+            var document = EditorTrackFixtures.document(
+                source: editorSource,
+                trackCount: trackCount
+            )
+            switch layout {
+            case .staggered: break
+            case .fades: applyFades(&document)
+            case .split: applySplit(&document)
+            }
+            return installDocument(
+                document,
+                selection: selection,
+                playhead: playhead,
+                selectedClips: selectedClips
+            )
+        }
+
+        /// The track-header family's seeding call: one file, several lanes, each
+        /// with its own name, level, pan and quieting.
+        ///
+        /// Carries the master stack, the destination and the measurement,
+        /// because these are frames of the whole window and a window with an
+        /// empty sidebar is a window nobody ships.
+        @discardableResult
+        @MainActor func seedTracks(
+            count: Int,
+            names: [Int: String] = [:],
+            gains: [Int: Double] = [:],
+            pans: [Int: Double] = [:],
+            muted: Set<Int> = [],
+            soloed: Set<Int> = []
+        ) -> [Clip.ID] {
+            installDocument(
+                EditorTrackFixtures.document(
+                    source: editorSource,
+                    trackCount: count,
+                    names: names,
+                    gains: gains,
+                    pans: pans,
+                    muted: muted,
+                    soloed: soloed,
+                    master: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                ),
+                playhead: 58
+            )
+        }
+
+        /// The shape the add-a-track rule actually produces: several *sources*,
+        /// one track each, all starting together and each named after the file
+        /// it came from.
+        ///
+        /// `openSource` adds a track rather than replacing the document, so this
+        /// — not `seedTracks` — is what a user gets by dropping a second file
+        /// in. Its durations are staggered by the fixture, so the lanes end at
+        /// different points and a document whose duration stopped being read
+        /// shows it.
+        @discardableResult
+        @MainActor func seedLayered(
+            _ names: [String],
+            gains: [Int: Double] = [:],
+            pans: [Int: Double] = [:],
+            muted: Set<Int> = [],
+            soloed: Set<Int> = []
+        ) -> [Clip.ID] {
+            installDocument(
+                EditorTrackFixtures.layered(
+                    from: editorSource,
+                    names: names,
+                    gains: gains,
+                    pans: pans,
+                    muted: muted,
+                    soloed: soloed,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport
+                ),
+                playhead: 58
+            )
+        }
+
+        /// Puts the shared timeline where the *view* would leave it, before the
+        /// view exists.
+        ///
+        /// **Only a transition needs this, and it needs it structurally.**
+        /// `EditorWaveformView` calls `EditorTimeline.adopt` from its `body`,
+        /// and `adopt` refits the window whenever the source id it is handed is
+        /// not the one it adopted last. The shared `prepare` clears that id, so
+        /// the frame rendered after an `act` would refit and throw away whatever
+        /// the act did to the window — which for a follow transition is the
+        /// entire thing being tested. Adopting here, in `prepare`, with the same
+        /// seed the view will pass, makes the view's own call a no-op and lets
+        /// the act survive into the picture.
+        @MainActor func primeTimeline(zoom: Double, width: CGFloat) {
+            guard let document = editor.document else { return }
+            EditorTimeline.shared.adopt(
+                sourceID: document.sources.first?.id,
+                duration: max(document.duration, 0.001),
+                sampleRate: document.source.sampleRate,
+                width: width,
+                seed: EditorTimeline.Seed(zoomFraction: zoom, windowStart: nil, centreOn: nil)
+            )
+        }
+
+        /// A clip id off the store, read at `content` time. See
+        /// `installDocument` for why it is not captured from the seed.
+        @MainActor func timelineClip(track: Int, index: Int = 0) -> Clip.ID? {
+            guard let tracks = editor.document?.tracks, tracks.indices.contains(track) else {
+                return nil
+            }
+            let clips = tracks[track].clips
+            return clips.indices.contains(index) ? clips[index].id : nil
+        }
+
         let editorSize = CGSize(width: 1000, height: 640)
         let stackPaneSize = CGSize(width: 320, height: 520)
         let sidebarPaneSize = CGSize(width: 320, height: 420)
         let waveformSize = CGSize(width: 660, height: 320)
         let eqCurveSize = CGSize(width: 480, height: 150)
+
+        /// The timeline pane as a **multitrack** 1000×640 window really gives it,
+        /// so lane heights in these frames are the lane heights a user gets.
+        ///
+        /// Width: 1000 less the 320pt sidebar, the 200pt header column and the
+        /// two dividers between them. Height: `EditorTrackMetrics`' own
+        /// arithmetic — the window less 130 for the title-bar inset, the header
+        /// and the transport.
+        ///
+        /// The number that matters is the height, because it decides how many
+        /// lanes fit. A lane never goes below `EditorTrackMetrics
+        /// .minimumLaneHeight`, which is **86**, and `n` lanes need `92n + 26`
+        /// points of pane. 510 holds five. Six is past it, on purpose, and the
+        /// scene that shows that says so.
+        let timelineSize = CGSize(width: 478, height: 510)
+
+        /// The header column at its own width, which is fixed at 200.
+        let headerColumnSize = CGSize(width: EditorTrackMetrics.columnWidth, height: 420)
+
+        /// The column alone, on a ground, because it has none of its own — in
+        /// the window it sits on the themed backdrop.
+        @MainActor func headerColumn() -> AnyView {
+            AnyView(
+                TrackHeaderColumn(store: editor)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(Color(nsColor: .windowBackgroundColor))
+            )
+        }
 
         @MainActor func editorWindow(dropTargeted: Bool = false) -> AnyView {
             AnyView(
@@ -2105,15 +2440,15 @@ enum SnapshotScenes {
 
         // MARK: - The frames that carry an assertion
         //
-        // Twenty-two frames, ordered ahead of the fifty-eight that are only
-        // there to be looked at. A deliberate hedge, not a preference.
+        // Thirty-six frames, ordered ahead of the ones that are only there to be
+        // looked at. A deliberate hedge, not a preference.
         //
         // Three runs in a row have died part-way through this block, and all of
         // this sat at the end of it — so every truncated run threw away exactly
         // the frames that assert something and kept the ones that merely show
-        // something. The four transitions carry `mustDiffer`, which is the
-        // dead-control check; the seven negative controls are what makes those
-        // four mean anything; and six frames here are read as pixels by
+        // something. The six transitions carry `mustDiffer`, which is the
+        // dead-control check; the ten negative controls are what makes those
+        // six mean anything; and six frames here are read as pixels by
         // `scripts/verify-cutting-room.py`, which cannot run its rendered tier
         // at all without them. As of this ordering they are the first seven
         // entries in the block.
@@ -2262,6 +2597,76 @@ enum SnapshotScenes {
             act: { editor.selection = 42...96 }
         ) { AnyView(EditorWaveformView(store: editor)) }
 
+        // The one wire in the multitrack build that cannot be seen in any still
+        // frame, and the only evidence that follow works at all.
+        //
+        // Both frames hold the playhead at the same 240s, off the right-hand
+        // edge of a window that starts at zero. The act does what playback does
+        // — turns following on and asks the timeline to reveal where the
+        // playhead now is — and nothing else. So the only thing that can differ
+        // is the window paging, and **identical frames mean `page(toReveal:)`
+        // never fired**. Every other transition in this file survives its
+        // subject being dead by moving something else; this one does not.
+        //
+        // `primeTimeline` is load-bearing here rather than decorative: without
+        // it the after frame's own `adopt` refits the window and erases the page.
+        scenes += SnapshotHarness.transition(
+            name: "timeline-follow-pages",
+            size: timelineSize,
+            colorScheme: .dark,
+            note: "Follow while playing. Three tracks, zoomed to 0.5 so the whole project is "
+                + "NOT on screen — at fit-to-window there is nothing to follow and `page` "
+                + "returns false by design. The playhead is at 4:00 in BOTH frames and is off "
+                + "the right edge in the before; the act calls `beginFollowing()` and "
+                + "`reveal(240)`, which is what `EditorWaveformView`'s `.onChange(of: "
+                + "store.playhead)` calls on every tick of playback. The window must jump "
+                + "forward and land the playhead a tenth in from the left. Identical frames "
+                + "mean follow is dead. What is UNVERIFIED: that `EditorPlayback` advances "
+                + "`store.playhead` at all, and that the `.onChange` is still attached — a "
+                + "scene cannot run the audio clock. " + SnapshotHarness.bindingCaveat,
+            prepare: {
+                applyAppearance(.dark)
+                seedTimeline(trackCount: 3, playhead: 240)
+                primeTimeline(zoom: 0.5, width: timelineSize.width)
+            },
+            act: {
+                EditorTimeline.shared.beginFollowing()
+                EditorTimeline.shared.reveal(editor.playhead)
+            }
+        ) { AnyView(EditorWaveformView(store: editor, zoom: 0.5)) }
+
+        // The governing decision, made falsifiable. One track and the window is
+        // the window this app shipped with: no header column, no mixer. Add a
+        // track and the column appears in place.
+        //
+        // The act is `editor.addTrack()` — the same call, on the same store,
+        // that both the column's "Add an Empty Track" strip and the menu item
+        // make. Identical frames mean `EditorDocument.isMultitrack` never
+        // flipped `timelineArea` over to `multitrackTimeline`, which is a
+        // one-line branch that compiles perfectly well pointing at the wrong
+        // arm.
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-adds-track",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "BEFORE is the single-track window — one lane, full width between two "
+                + "dividers, no header column, exactly what this app shipped with. AFTER is "
+                + "the same window one `addTrack()` later: a 200pt header column appears on "
+                + "the left, the lanes divide, and the new lane is empty because an added "
+                + "track has no audio in it yet. Identical frames mean the layout never "
+                + "noticed. " + SnapshotHarness.bindingCaveat,
+            prepare: {
+                applyAppearance(.dark)
+                seedEditor(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport,
+                    playhead: 58
+                )
+            },
+            act: { _ = editor.addTrack() }
+        ) { editorWindow() }
+
         // MARK: Melo Edit negative controls
         //
         // One per new family, all on the harness's default 1% ceiling.
@@ -2399,11 +2804,101 @@ enum SnapshotScenes {
             }
         ) { AnyView(JobProgressStrip(store: editor)) }
 
+        // Three more, one per family the multitrack build adds. Nothing in any
+        // of them animates at rest — the lanes are a `Canvas`, the headers are a
+        // fader, a pan slider and two buttons, and no scene here seeds a
+        // playing transport — so all three go on the harness's default 1%
+        // ceiling like the seven above.
+        //
+        // **These have never been measured.** The seven above read 0.0000% on
+        // their first complete run and the reasoning for these is the same
+        // reasoning, which is not the same thing as a number. If one comes back
+        // red, the figure in `_transitions.log` is the measurement and the
+        // ceiling is set from it. It is not raised to make a run green.
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-timeline",
+            size: timelineSize,
+            colorScheme: .dark,
+            note: "Multitrack timeline family. Seeded, primed and drawn EXACTLY as "
+                + "timeline-follow-pages is — three lanes, zoom 0.5, playhead off the right "
+                + "edge — with the act removed. That transition's whole assertion is that two "
+                + "frames of this pane are identical unless the window pages, so its control "
+                + "has to be the same pane in the same state and not merely the same family.",
+            prepare: {
+                applyAppearance(.dark)
+                seedTimeline(trackCount: 3, playhead: 240)
+                primeTimeline(zoom: 0.5, width: timelineSize.width)
+            }
+        ) { AnyView(EditorWaveformView(store: editor, zoom: 0.5)) }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-track-headers",
+            size: headerColumnSize,
+            colorScheme: .dark,
+            note: "Track header column family: four headers with names, gains, pans, one "
+                + "muted and one soloed.",
+            prepare: {
+                applyAppearance(.dark)
+                seedTracks(
+                    count: 4,
+                    names: [0: "Host", 1: "Guest", 2: "Intro bed", 3: "Room tone"],
+                    gains: [1: -3.5, 2: -9, 3: -18],
+                    pans: [1: 0.24, 2: -0.6],
+                    muted: [3],
+                    soloed: [1]
+                )
+            }
+        ) { headerColumn() }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-cutting-room-multitrack",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "The whole window with three tracks in it. Separate from control-cutting-room "
+                + "because that one is seeded single-track and therefore draws no header "
+                + "column at all — it is the control for cutting-room-adds-track's BEFORE "
+                + "frame, and this is the control for its AFTER.",
+            prepare: {
+                applyAppearance(.dark)
+                seedTracks(count: 3)
+            }
+        ) { editorWindow() }
+
         // MARK: The whole window
 
         let windowNote = "The real 1000×640 the window opens at. The themed backdrop behind it "
             + "is an NSVisualEffectView plus a Canvas and draws nothing into a layer capture — "
             + "the flat ground is the harness, not the design."
+
+        /// **`cutting-room-loaded-dark` and `-light` have moved, and it is
+        /// expected.** Written into their notes rather than left for the next
+        /// reader to litigate, because a diff against the previous run's frames
+        /// is the first thing anyone does and this one is not a regression.
+        ///
+        /// Four changes, all of them chrome around the drawing:
+        ///
+        /// 1. The horizontal scroll strip now costs **10pt unconditionally**,
+        ///    reserved whether or not it is drawn — a strip that appeared only
+        ///    when zoomed in changed every lane's height on a zoom and sheared
+        ///    the lanes against a header column that did not move.
+        /// 2. A clip reserves a **14pt name strip** across its top. That band is
+        ///    the move handle, which exists so that dragging the *body* can go on
+        ///    meaning "select a range of time".
+        /// 3. The clip body now has a **4.5%-alpha wash and a hairline border**,
+        ///    so a clip has an extent you can see. (Not the resting fill
+        ///    `CLAUDE.md` forbids: that rule is about popup rows blending with a
+        ///    material, and a clip with no body is not a clip.)
+        /// 4. The **master cut flags moved to the bottom of the lanes**. They
+        ///    used to sit under the ruler, which is now where a clip's name is.
+        ///
+        /// The waveform inside the clip is unchanged.
+        let loadedMovedNote = " EXPECTED MOVEMENT vs the previous run, all chrome: the scroll "
+            + "strip now costs 10pt unconditionally; a clip reserves a 14pt name strip for the "
+            + "move handle; the clip body gained a 4.5%-alpha wash and a hairline border; and "
+            + "the master cut flags moved from under the ruler to the bottom of the lanes, "
+            + "because the ruler's old spot is now where a clip's name is. Content INSIDE the "
+            + "waveform is unchanged — a diff here is not a regression."
 
         scenes.append(
             scene(
@@ -2425,7 +2920,7 @@ enum SnapshotScenes {
             scene(
                 "cutting-room-loaded-dark", editorSize, .dark,
                 note: windowNote + " Podcast chosen, the file measured, the full proposal on "
-                    + "the stack — the state the feature exists to produce.",
+                    + "the stack — the state the feature exists to produce." + loadedMovedNote,
                 prepare: {
                     seedEditor(
                         moves: proposedMoves,
@@ -2440,7 +2935,7 @@ enum SnapshotScenes {
         scenes.append(
             scene(
                 "cutting-room-loaded-light", editorSize, .light,
-                note: windowNote,
+                note: windowNote + loadedMovedNote,
                 prepare: {
                     seedEditor(
                         moves: proposedMoves,
@@ -2976,8 +3471,10 @@ enum SnapshotScenes {
 
         scenes.append(
             scene("cutting-room-export-aac", CGSize(width: 560, height: 660), .dark,
-                  note: "Six formats macOS writes natively. Bit depth is fixed per format and "
-                      + "is not offered as a choice.",
+                  note: "Eight formats, all of them writable: six macOS encodes itself and two "
+                      + "— MP3 and Opus — through the ffmpeg Melo ships. Nothing in this grid "
+                      + "should read as unavailable. Bit depth is fixed per format and is not "
+                      + "offered as a choice, so a format with no depth control is correct.",
                   prepare: {
                       seedEditor(
                           moves: proposedMoves,
@@ -2995,11 +3492,14 @@ enum SnapshotScenes {
             }
         )
         scenes.append(
-            scene("cutting-room-export-mp3-no-ffmpeg", CGSize(width: 560, height: 660), .dark,
-                  note: "MP3 on a machine with no ffmpeg — which this one genuinely is, so this "
-                      + "state is real rather than staged. The two tool-backed formats stay in "
-                      + "the list on purpose: a user who cannot find MP3 concludes Melo cannot "
-                      + "do it.",
+            scene("cutting-room-export-mp3", CGSize(width: 560, height: 660), .dark,
+                  note: "MP3, available. Melo ships its own ffmpeg at Contents/Helpers/ffmpeg "
+                      + "and the locator prefers it over anything on PATH, so this frame is the "
+                      + "visible end of a wire that runs through a shell script no Swift test "
+                      + "can reach: if build-app.sh stops copying the binary, or signing leaves "
+                      + "it non-executable, this tile flips to the needs-a-tool state and says "
+                      + "so. Read the bit-depth and rate line too — those are fixed per format "
+                      + "and are not offered as a choice.",
                   prepare: {
                       seedEditor(
                           moves: proposedMoves,
@@ -3113,15 +3613,20 @@ enum SnapshotScenes {
         // enum rather than transcribed.
         scenes.append(
             scene("cutting-room-link-failed", linkSheetSize, .light,
-                  note: "The longest failure sentence in the extractor: the download arrived "
-                      + "in a container macOS cannot open and the fix needs ffmpeg. This is "
-                      + "the copy, from LinkExtractionFailure itself.",
+                  note: "The longest failure sentence in the extractor: the download arrived in "
+                      + "a container macOS cannot open and Melo's own ffmpeg was not there to "
+                      + "convert it. Since Melo now ships that binary, reaching this means the "
+                      + "app is missing a copy it was built with — so the sentence sends them "
+                      + "to reinstalling rather than to Homebrew. Rendered live out of "
+                      + "LinkExtractionFailure, so the frame follows the copy rather than "
+                      + "quoting a version of it.",
                   prepare: { emptyEditor() }) {
                 linkSheet(
                     LinkImportSeed(
                         phase: .failed(
                             LinkExtractionFailure.needsFFmpeg(fileExtension: "webm")
-                                .errorDescription ?? "That format needs ffmpeg."
+                                .errorDescription
+                                ?? "Melo’s own ffmpeg isn’t there to convert it."
                         ),
                         linkText: samplePageURL.absoluteString
                     )
@@ -3249,6 +3754,345 @@ enum SnapshotScenes {
                   }) { AnyView(JobProgressStrip(store: editor)) }
         )
 
+        // MARK: The multitrack timeline
+        //
+        // **None of this had ever been rendered.** The document model, the
+        // lanes, the zoom, the clip gestures and the fades were all compiled and
+        // in places executed, and not one frame showed a second track. These
+        // eleven and the follow transition above are the first look.
+        //
+        // All of them are the timeline pane at `timelineSize`, which is the pane
+        // a multitrack 1000×640 window really gives — except `timeline-calm`,
+        // which is at `waveformSize` so it can be diffed directly against
+        // `cutting-room-waveform-fit`.
+        //
+        // Every one seeds a per-source picture through `seedClipWaveforms`. Two
+        // lanes that look the same here mean two lanes ARE the same, which is
+        // the only reading of these frames that is worth anything.
+
+        let timelineNote = "Synthetic fixtures, not decoded files — judge the lanes, the ruler "
+            + "alignment, the clip chrome and the selections, not the shape of the sound. Each "
+            + "source draws its own picture; two identical lanes would mean a lane is drawing "
+            + "the mix instead of its clip's source."
+
+        scenes.append(
+            scene(
+                "timeline-calm", waveformSize, .dark,
+                note: timelineNote + " ONE track, seeded the same way and rendered at the same "
+                    + "size as cutting-room-waveform-fit — the pair exists so the claim \"open a "
+                    + "file and the window looks like it did\" can be checked rather than "
+                    + "asserted. `EditorRootView` gives a single-track document the identical "
+                    + "view tree it always had, so the only differences allowed here are the "
+                    + "clip body's wash and hairline and the 10pt scroll strip. No name strip: "
+                    + "one clip on one lane does not draw one.",
+                prepare: { seedTimeline(trackCount: 1, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-three-tracks", timelineSize, .dark,
+                note: timelineNote + " Three lanes dividing one pane. What to check: every lane "
+                    + "is the same height, the gaps are equal, and a clip's left edge sits under "
+                    + "the ruler tick for its own start time — the ruler and the lanes are laid "
+                    + "out in the same coordinate space and read the same viewport, so a lane "
+                    + "that has drifted is a real defect and not a rounding artefact. Lanes 2 "
+                    + "and 3 are offset and trimmed windows onto the same source, which is what "
+                    + "the source pool is for.",
+                prepare: { seedTimeline(trackCount: 3, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-both-selections", timelineSize, .dark,
+                note: timelineNote + " The two selections that coexist and must not be confused: "
+                    + "a TIME SPAN of 0:42–1:36, drawn warm across every lane, and a SELECTED "
+                    + "CLIP — the second lane's — carrying an accent ring. They mean different "
+                    + "things and different keys act on them, so a frame in which they read as "
+                    + "one kind of highlight is a frame reporting a real problem.",
+                prepare: {
+                    seedTimeline(
+                        trackCount: 3,
+                        selection: 42...96,
+                        playhead: 58,
+                        selectedClips: [1]
+                    )
+                }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-clip-hovered", timelineSize, .dark,
+                note: timelineNote + " The hovered state, which is the ONLY state in which the "
+                    + "move handle and the two fade handles exist — Melo is flat at rest and the "
+                    + "hover is the interaction signal. A pointer is not something a snapshot "
+                    + "can hold, so `hoveredClip:` is the only route to this frame. Judge "
+                    + "whether the handles are findable without being loud, and whether the name "
+                    + "strip's wash makes the drag target obvious.",
+                prepare: { seedTimeline(trackCount: 3, playhead: 58) }
+            ) {
+                AnyView(
+                    EditorWaveformView(
+                        store: editor,
+                        hoveredClip: timelineClip(track: 1),
+                        hoveredPart: .move
+                    )
+                )
+            }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-drag-move", timelineSize, .dark,
+                note: timelineNote + " A drag in progress: the second lane's clip lifted 22s "
+                    + "later and one lane DOWN, drawn where the pointer would have it before "
+                    + "mouse-up commits it. Nothing else reaches this state — the harness "
+                    + "photographs states, not gestures. The clip is drawn live over the lane it "
+                    + "is landing on; what to check is that the preview is the clip itself and "
+                    + "not a ghost rectangle, because the preview clamps through the same "
+                    + "`EditorClipEdit` the store commits.",
+                prepare: { seedTimeline(trackCount: 3, playhead: 58) }
+            ) {
+                AnyView(
+                    EditorWaveformView(
+                        store: editor,
+                        edit: timelineClip(track: 1).map { .move(ids: [$0], by: 22, lanes: 1) }
+                    )
+                )
+            }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-fades", timelineSize, .light,
+                note: timelineNote + " Fades as real slopes in the audio, not wedges laid over "
+                    + "it: the drawn columns are scaled by the clip's own envelope, which is "
+                    + "what makes dragging a fade handle change the picture. A fade in of 22% "
+                    + "and out of 30% on every clip, one curve per lane — linear, equal-power, "
+                    + "exponential, top to bottom. The three must be distinguishable from each "
+                    + "other; if they are not, the curve is not reaching the drawing. Light, "
+                    + "because the clip wash is 34% white here against 4.5% in dark and this is "
+                    + "where the body and its hairline are loudest.",
+                prepare: { seedTimeline(trackCount: 3, layout: .fades, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-fade-handle", timelineSize, .dark,
+                note: timelineNote + " A fade handle grabbed mid-drag: the second lane's fade in "
+                    + "pulled out to 45s. Fit zoom on purpose, so the clip's leading edge and "
+                    + "the whole slope are both in frame. The handle lives in a 12pt band at the "
+                    + "clip's top corner and the trim edge is the same x below it — two "
+                    + "different drags that start life at the same point, which is the thing "
+                    + "worth looking hard at.",
+                prepare: { seedTimeline(trackCount: 3, layout: .fades, playhead: 58) }
+            ) {
+                AnyView(
+                    EditorWaveformView(
+                        store: editor,
+                        hoveredClip: timelineClip(track: 1),
+                        hoveredPart: .fadeIn,
+                        edit: timelineClip(track: 1).map { .fadeIn(id: $0, seconds: 45) }
+                    )
+                )
+            }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-trim-zoomed", timelineSize, .dark,
+                note: timelineNote + " A trim in progress, zoomed in. The second lane's clip has "
+                    + "its `sourceIn` dragged from 0:20 to 1:30 — and the point of the frame is "
+                    + "that the audio inside does NOT squash: a trim is a window onto the "
+                    + "source, so pulling the edge in reveals less of the same picture and "
+                    + "pulling it back out brings the audio back, because nothing was thrown "
+                    + "away. The new edge is dragged to roughly the clip's midpoint, which is "
+                    + "where the seeded window centres itself.",
+                prepare: { seedTimeline(trackCount: 3, playhead: 58) }
+            ) {
+                AnyView(
+                    EditorWaveformView(
+                        store: editor,
+                        zoom: 0.35,
+                        edit: timelineClip(track: 1).map { .trimStart(id: $0, sourceIn: 90) }
+                    )
+                )
+            }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-zoomed-clipped", timelineSize, .light,
+                note: timelineNote + " Zoomed to 0.78 with the window starting at 1:00, so every "
+                    + "clip body runs off one or both edges of the pane. What to check: a clip "
+                    + "whose start is off screen still draws its body to the edge rather than "
+                    + "stopping short or starting a fresh rounded corner in the middle of the "
+                    + "pane, the scroll strip's thumb reflects where in the project this window "
+                    + "sits, and the ruler is still legible at this density.",
+                prepare: { seedTimeline(trackCount: 3, playhead: 78) }
+            ) {
+                AnyView(EditorWaveformView(store: editor, zoom: 0.78, windowStart: 60))
+            }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-split-paste", timelineSize, .dark,
+                note: timelineNote + " Split and paste, which both make several clips out of one "
+                    + "source. Lane 1's clip is split at 45% into two abutting clips — look for "
+                    + "two name strips and one hairline seam where there was an unbroken "
+                    + "drawing, and for the audio continuing across the seam, because a split "
+                    + "moves numbers and copies no samples. Lane 2 carries a pasted copy of the "
+                    + "left half, landing past the old end of the project, so the ruler has had "
+                    + "to grow to the new last clip.",
+                prepare: { seedTimeline(trackCount: 3, layout: .split, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-six-tracks", timelineSize, .dark,
+                note: "SIX tracks in a pane that holds five, and it is in the list deliberately "
+                    + "— this is what being past the floor looks like, and it is worth seeing "
+                    + "rather than describing. A lane never shrinks below "
+                    + "`EditorTrackMetrics.minimumLaneHeight`, which is 86 because that is what "
+                    + "a header needs (`MuteButton` is built to the 28pt touch target and cannot "
+                    + "shrink), and `n` lanes need `92n + 26` points of pane. This pane is 510, "
+                    + "so five fit and the sixth CLIPS AT THE BOTTOM. The clipping is the "
+                    + "documented trade, not a bug in the lanes: neither the lanes nor the "
+                    + "header column scrolls vertically yet, and they clip together so they "
+                    + "cannot shear. Judge how bad it is, not whether it is wrong.",
+                prepare: { seedTimeline(trackCount: 6, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        // MARK: The track headers
+        //
+        // The other half of the multitrack window, and the half that decides
+        // whether the lanes are usable: a name, a level, a pan, and the two
+        // buttons that quiet a track.
+        //
+        // Row `n` has to sit level with lane `n`, and nobody measures anybody to
+        // make that happen — the column reserves the same ruler band above and
+        // scroll strip below and hands a `VStack` rows that are all equally
+        // flexible. **A shear between the two sides is the defect these frames
+        // exist to catch**, so read every one of them across the divider before
+        // reading anything else.
+
+        let trackHeaderNote = "The header column beside the lanes. Check the alignment FIRST: header "
+            + "row n must be level with lane n, top and bottom, across the divider. The two "
+            + "sides reach their heights by separate routes that are only guaranteed to agree "
+            + "while they reserve the same ruler band and scroll strip."
+
+        scenes.append(
+            scene(
+                "cutting-room-tracks-two", editorSize, .dark,
+                note: trackHeaderNote + " TWO sources, one track each, both starting at zero and each "
+                    + "named after the file it came from — which is what dropping a second file "
+                    + "into an open document actually produces, since bringing in audio adds a "
+                    + "track rather than replacing the document. The two lanes end at different "
+                    + "points because the sources are different lengths.",
+                prepare: { seedLayered(["morning-show-ep41", "interview-clip"]) }
+            ) { editorWindow() }
+        )
+
+        scenes.append(
+            scene(
+                "cutting-room-tracks-four", editorSize, .light,
+                note: trackHeaderNote + " FOUR sources, named, levelled and panned. Each lane draws "
+                    + "its own source, so four lanes that look alike would mean the per-source "
+                    + "pictures are not being read. The pans read C, 24R, 60L and 35R in the "
+                    + "30pt readouts; the gains are −3.5, −9 and −18 dB. Light, because the "
+                    + "fader track, the pan slider and the clip wash are all at their most "
+                    + "different from dark here.",
+                prepare: {
+                    seedLayered(
+                        [
+                            "morning-show-ep41",
+                            "interview-clip",
+                            "Recording, 9 Aug at 14:02",
+                            "room-tone"
+                        ],
+                        gains: [1: -3.5, 2: -9, 3: -18],
+                        pans: [1: 0.24, 2: -0.6, 3: 0.35]
+                    )
+                }
+            ) { editorWindow() }
+        )
+
+        scenes.append(
+            scene(
+                "cutting-room-tracks-soloed", editorSize, .dark,
+                note: trackHeaderNote + " One track soloed. **Solo is a render-time filter, not a "
+                    + "state change on the others** — nothing is written to tracks 1 and 3, and "
+                    + "un-soloing restores exactly what was there. So the question this frame "
+                    + "answers is whether the two tracks that have gone quiet LOOK quiet without "
+                    + "looking muted, since muted is a different state with a different button "
+                    + "and a different way back.",
+                prepare: { seedTracks(count: 3, soloed: [1]) }
+            ) { editorWindow() }
+        )
+
+        scenes.append(
+            scene(
+                "cutting-room-tracks-muted", editorSize, .dark,
+                note: trackHeaderNote + " Two of three muted. Compare against "
+                    + "cutting-room-tracks-soloed: a muted track and a track silenced BY someone "
+                    + "else's solo are different states and must not draw the same, because the "
+                    + "way out of each one is a different button.",
+                prepare: { seedTracks(count: 3, muted: [0, 2]) }
+            ) { editorWindow() }
+        )
+
+        scenes.append(
+            scene(
+                "cutting-room-tracks-column", headerColumnSize, .dark,
+                note: "The column alone at its real 200pt width, with four headers carrying "
+                    + "every state at once: named, gained, panned, one muted, one soloed. 200 is "
+                    + "narrow on purpose — this is enough to name a track and quiet it, not a "
+                    + "mixer channel strip, and at the 820pt minimum window it already leaves "
+                    + "the waveform under 300pt. What the fader costs is the thing to judge: "
+                    + "roughly 68pt of travel over 36 dB. The band at the top is the ruler's "
+                    + "height, reserved so the first header is level with the first lane, and "
+                    + "the \"Add an Empty Track\" strip is in it because the lanes divide the "
+                    + "whole pane and leave no spare strip at the foot.",
+                prepare: {
+                    seedTracks(
+                        count: 4,
+                        names: [0: "Host", 1: "Guest", 2: "Intro bed", 3: "Room tone"],
+                        gains: [1: -3.5, 2: -9, 3: -18],
+                        pans: [1: 0.24, 2: -0.6],
+                        muted: [3],
+                        soloed: [1]
+                    )
+                }
+            ) { headerColumn() }
+        )
+
+        scenes.append(
+            scene(
+                "cutting-room-tracks-narrow", CGSize(width: 820, height: 520), .light,
+                note: "The window at its 820×520 MINIMUM with three tracks — the tightest this "
+                    + "layout is ever asked to be. 320 of sidebar and 200 of header column leave "
+                    + "about 297pt of waveform, which is the thinnest the drawing ever gets. "
+                    + "Three lanes is also exactly what fits here: the pane is the window less "
+                    + "130, and `n` lanes need `92n + 26` points. A fourth track at this size "
+                    + "clips. Read the header row's name, fader and pan readout for truncation "
+                    + "before anything else.",
+                prepare: {
+                    seedTracks(
+                        count: 3,
+                        names: [0: "Host", 1: "Guest", 2: "Intro bed"],
+                        gains: [1: -3.5, 2: -9],
+                        pans: [1: 0.24, 2: -0.6],
+                        soloed: [1]
+                    )
+                }
+            ) { editorWindow() }
+        )
 
         return scenes
     }

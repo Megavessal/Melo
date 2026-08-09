@@ -5,8 +5,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 APP_NAME="Melo"
-VERSION="3.1.1"
-BUILD_NUMBER="311"
+VERSION="3.1.2"
+BUILD_NUMBER="312"
 BUILD_ROOT="$ROOT/.build-melo"
 DERIVED_DATA="$BUILD_ROOT/DerivedData"
 OUTPUT_ROOT="$ROOT/outputs"
@@ -93,6 +93,31 @@ BUILT_APP="$DERIVED_DATA/Build/Products/Release/$APP_NAME.app"
 xattr -cr "$APP_BUNDLE" 2>/dev/null || true
 find "$APP_BUNDLE" \( -name ".DS_Store" -o -name "._*" \) -delete
 
+
+# The bundled encoder. MP3 and Opus have no encoder on macOS, so Melo Edit
+# shells out for those two formats and only those two. Built from upstream
+# source by scripts/build-ffmpeg.sh — 1.7 MB, audio-only, statically linked,
+# LGPL-2.1 (no --enable-gpl, which would pull it to GPL-2 and conflict with
+# Melo's GPL-3).
+#
+# Contents/Helpers, not Contents/Resources: a Mach-O in Resources is signable
+# but is not where Apple puts helper executables, and the distinction matters
+# to `--deep` and to anyone auditing the bundle. It goes in before the thinning
+# loop on purpose, so a future universal build of it gets thinned like anything
+# else rather than smuggling an Intel slice past the check below.
+FFMPEG_SOURCE="$ROOT/Vendor/ffmpeg/ffmpeg"
+if [[ -x "$FFMPEG_SOURCE" ]]; then
+    mkdir -p "$APP_BUNDLE/Contents/Helpers"
+    /usr/bin/ditto "$FFMPEG_SOURCE" "$APP_BUNDLE/Contents/Helpers/ffmpeg"
+    chmod 755 "$APP_BUNDLE/Contents/Helpers/ffmpeg"
+    printf 'Bundled ffmpeg (%s bytes).\n' "$(stat -f '%z' "$APP_BUNDLE/Contents/Helpers/ffmpeg")"
+else
+    # Not fatal: the app runs without it and Melo Edit falls back to looking for
+    # a user-installed ffmpeg, which is exactly what it did before 3.1.2. But it
+    # is a silent loss of a shipped capability, so say so loudly here.
+    printf 'WARNING: %s missing — MP3 and Opus export will need a user-installed ffmpeg.\n' \
+        "$FFMPEG_SOURCE" >&2
+fi
 
 # Swift package binary frameworks can arrive as universal artifacts. Thin every
 # Mach-O payload before signing so the final bundle is genuinely Apple-silicon

@@ -180,11 +180,20 @@ struct EditorRootView: View {
         // find a particular rectangle to drop it on.
         .dropDestination(for: URL.self) { urls, _ in
             guard let url = urls.first else { return false }
-            // One sound, not a session: extra files in the drag are ignored
-            // rather than queued. The URL goes to the same `store.open` the file
-            // picker uses, so a dropped thing that is not audio fails exactly
-            // where a picked one does, instead of needing a second error path
-            // that says the same sentence.
+            // The first file in the drag, and only the first. It goes to the
+            // same `store.open` the file picker uses, so a dropped thing that
+            // is not audio fails exactly where a picked one does instead of
+            // needing a second error path that says the same sentence — and so
+            // a drop onto an open document adds a track, because that rule
+            // lives in `openSource`, which is the one funnel every file the
+            // user brings in goes through.
+            //
+            // Extra files are dropped rather than queued. That was "one sound,
+            // not a session" when it was written and it is no longer; it is now
+            // just an unbuilt case. Adding four tracks from one gesture is a
+            // real thing to want and it needs a loop and a decision about what
+            // happens when the third file fails to decode, which is more than a
+            // comment here can settle.
             Task { await store.open(url) }
             return true
         } isTargeted: { targeted in
@@ -212,9 +221,26 @@ struct EditorRootView: View {
             recents.refreshAvailability()
             syncSidebarSection()
         }
+        // Which pane opens is about the *document* changing, so it still keys
+        // on the first source: that id changes when a different sound is opened
+        // into an empty window and stays put when a lane is added, which is
+        // exactly when the accordion should and should not move.
         .onChange(of: store.document?.source.id) { _, _ in
             syncSidebarSection()
-            guard let source = store.document?.source else { return }
+        }
+        // Recents is about *every* file that arrives, which is not the same
+        // event and used to be folded into the one above.
+        //
+        // `document.source` is the transitional first-source accessor, so a
+        // file that arrived as a second lane never changed it and was never
+        // remembered — and a recording layered onto an open document is
+        // precisely the entry that exists nowhere else on disk. The store
+        // publishes `lastAddedSource` on both paths for this, rather than
+        // calling `EditorRecents` itself: `verify-editor-wiring.py` compiles
+        // Core without the UI layer, so Core reaching into Window breaks the
+        // check that proves the store is reached at all.
+        .onChange(of: store.lastAddedSource?.id) { _, _ in
+            guard let source = store.lastAddedSource else { return }
             recents.remember(source)
         }
         // The one automatic switch, and only on the empty-to-populated edge:
@@ -251,22 +277,7 @@ struct EditorRootView: View {
             VStack(spacing: 0) {
                 header
                 Divider()
-                // The waveform gets the room and no inset. It is a drawing of the
-                // whole sound, and a drawing of the whole sound that stops 16pt
-                // short of the edge is a drawing of most of it.
-                EditorWaveformView(store: store)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    // Top rather than centre, and over the waveform rather than
-                    // above it. The card is an offer, not a step: it has to be
-                    // impossible to miss and equally possible to ignore, and a
-                    // centred card sits on the part of the drawing someone is
-                    // about to click. It renders nothing unless the open sound is
-                    // the theme with an untouched stack, so this costs one
-                    // `nil` check in every other case.
-                    .overlay(alignment: .top) {
-                        MeloThemeWelcome(store: store)
-                            .padding(DesignTokens.Spacing.lg)
-                    }
+                timelineArea
                 Divider()
                 EditorTransportBar(store: store)
             }
@@ -278,21 +289,83 @@ struct EditorRootView: View {
         }
     }
 
+    // MARK: - The timeline
+
+    /// One track by default, and it grows.
+    ///
+    /// **This branch is the governing decision made structural.** A document
+    /// with one track takes the first arm and gets exactly the window this app
+    /// shipped with — the waveform pane, full width between two dividers, no
+    /// header column, no geometry reader, no scroller. Not "a multitrack layout
+    /// that happens to have one row in it": the same view tree as before, so
+    /// the frames of the single-track window cannot move because a feature
+    /// nobody has used yet exists.
+    ///
+    /// Add a second track and the column appears beside the lanes, in place.
+    /// Nothing switches mode and nothing is hidden — `EditorDocument
+    /// .isMultitrack` is the whole condition.
+    @ViewBuilder
+    private var timelineArea: some View {
+        if store.document?.isMultitrack == true {
+            multitrackTimeline
+        } else {
+            waveformPane
+        }
+    }
+
+    /// The waveform gets the room and no inset. It is a drawing of the whole
+    /// sound, and a drawing of the whole sound that stops 16pt short of the
+    /// edge is a drawing of most of it.
+    private var waveformPane: some View {
+        EditorWaveformView(store: store)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Top rather than centre, and over the waveform rather than above
+            // it. The card is an offer, not a step: it has to be impossible to
+            // miss and equally possible to ignore, and a centred card sits on
+            // the part of the drawing someone is about to click. It renders
+            // nothing unless the open sound is the theme with an untouched
+            // stack, so this costs one `nil` check in every other case.
+            .overlay(alignment: .top) {
+                MeloThemeWelcome(store: store)
+                    .padding(DesignTokens.Spacing.lg)
+            }
+    }
+
+    /// The header column, a rule, and the lanes — one row, one height, no
+    /// scrollers.
+    ///
+    /// **Neither side scrolls vertically, and that is the agreement rather
+    /// than an oversight.** The lanes divide the timeline pane between the
+    /// tracks and stop at a floor; the header column reserves the same ruler
+    /// band above and scroll strip below and divides what is left the same way,
+    /// so row *n* is level with lane *n* because both are one flexible share of
+    /// one height. Two scroll views that must agree about an offset would be
+    /// the same class of bug as two lane heights, wearing a delay — and a
+    /// single scroller around both is not available while the ruler is drawn
+    /// *inside* the timeline pane, because it would scroll away with the lanes.
+    ///
+    /// Past the floor — roughly four tracks at the 520pt minimum window, more
+    /// in a normal one — both sides clip at the bottom. Fixing that properly is
+    /// a shared scroller with the ruler hoisted out of `EditorWaveformView`,
+    /// which is a seam this piece does not own.
+    ///
+    /// It also costs nothing in the harness: no `ScrollView` means every
+    /// multitrack scene is renderable on the `ImageRenderer` path, which cannot
+    /// draw scrolled content at all.
+    private var multitrackTimeline: some View {
+        HStack(spacing: 0) {
+            TrackHeaderColumn(store: store)
+            Divider()
+            waveformPane
+        }
+    }
+
     private var header: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
             EditorMark(size: 30)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(store.document?.source.displayName ?? "Melo Edit")
-                    // Rounded, because that is the house display voice, and the
-                    // scale does not carry a design. Same call the popup header
-                    // makes for the word "Melo", one step up.
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-                    // A long name is most recognisable at both ends: podcast
-                    // exports are all prefix and episode number.
-                    .truncationMode(.middle)
-                    .accessibilityAddTraits(.isHeader)
+                titleLine
 
                 if let source = store.document?.source,
                    let origin = EditorOriginFormat.originLine(source.origin) {
@@ -303,14 +376,23 @@ struct EditorRootView: View {
                 }
             }
 
-            if let source = store.document?.source {
-                formatChip(source.formatDescription)
+            if let document = store.document {
+                formatChip(document.source.formatDescription)
 
-                Text(EditorFormat.timecode(source.duration))
+                // **`document.duration`, not `source.duration`.** The length
+                // beside the name is a claim about what is on the timeline, and
+                // the first source's length stopped being that the moment a
+                // second lane could exist — a four-minute file with a six-minute
+                // music bed under it would have read "4:00" while the ruler read
+                // six. `EditorDocument.duration` is the end of the last clip on
+                // any track, and for the one-file document it is bit-for-bit the
+                // source's length, so nothing about the single-track window
+                // moves.
+                Text(EditorFormat.timecode(document.duration))
                     .font(DesignTokens.Typography.Scale.footnote(.medium))
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
-                    .accessibilityLabel("Length \(EditorFormat.timecode(source.duration))")
+                    .accessibilityLabel("Length \(EditorFormat.timecode(document.duration))")
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
@@ -329,7 +411,74 @@ struct EditorRootView: View {
         .frame(minHeight: 56)
     }
 
-    /// The four ways in, still available once a sound is open.
+    /// "morning-show-ep41", and "+3" once there is more than one source.
+    ///
+    /// The name stays the name of the thing they opened, because that is what
+    /// they will recognise, and the count says plainly that it is no longer the
+    /// whole story. `document.source` is the transitional first-source
+    /// accessor and it was being presented as the document's name — four
+    /// differently-named lanes under one file's title.
+    ///
+    /// *Rejected:* a project name. Melo has no such concept, and inventing one
+    /// gives it somewhere to be typed, somewhere to be stored and something to
+    /// migrate. *Rejected:* showing nothing once there are several, which loses
+    /// the one label the window has.
+    ///
+    /// **`layoutPriority(1)` on the count is the whole trick.** Without it a
+    /// long first name eats the "+3" before it eats itself, and the one element
+    /// that says "there is more here than this" is the one that disappears
+    /// exactly when the name is long enough to need it. The name keeps middle
+    /// truncation — podcast exports are all shared prefix and episode number,
+    /// so both ends carry the information.
+    private var titleLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: DesignTokens.Spacing.xs) {
+            Text(store.document?.source.displayName ?? "Melo Edit")
+                // Rounded, because that is the house display voice, and the
+                // scale does not carry a design. Same call the popup header
+                // makes for the word "Melo", one step up.
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            if extraSourceCount > 0 {
+                Text("+\(extraSourceCount)")
+                    .font(DesignTokens.Typography.Scale.caption(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+                    .help(extraSourceDescription)
+            }
+        }
+        // One element, so VoiceOver says the sentence rather than reading a
+        // name and then the two characters "+3".
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spokenTitle)
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    /// How many sounds are on the timeline beyond the one the window is named
+    /// after. Counts *sources*, not tracks: two lanes cut from one file are one
+    /// sound in two places, and calling that "+1" would be telling the user
+    /// something arrived that never did.
+    private var extraSourceCount: Int {
+        max((store.document?.sources.count ?? 0) - 1, 0)
+    }
+
+    /// "3 more sounds", "one more sound".
+    private var extraSourceDescription: String {
+        extraSourceCount == 1 ? "one more sound" : "\(extraSourceCount) more sounds"
+    }
+
+    private var spokenTitle: String {
+        let name = store.document?.source.displayName ?? "Melo Edit"
+        guard extraSourceCount > 0 else { return name }
+        return "\(name), and \(extraSourceDescription)"
+    }
+
+    /// The four ways in, still available once a sound is open — and, now that
+    /// bringing audio in adds a track instead of replacing the document, the
+    /// place where the user is told that before it happens.
     ///
     /// This is a correction to a one-way door, and the door was closed on two
     /// clauses the owner asked for by name. `EditorEmptyState` draws the
@@ -346,19 +495,66 @@ struct EditorRootView: View {
     /// so the second time someone looks for "Record this Mac" it is where they
     /// already learned it, wearing what they already recognise.
     ///
+    /// ## Why only the first item was renamed
+    ///
+    /// `openSource` adds a track when a document is already open, so the first
+    /// three of these produce a lane rather than a replacement. Exactly one of
+    /// them said otherwise: **"Open"** is the verb macOS uses for "put
+    /// something else in this window", and a user who picks Open and gets a
+    /// second lane has been surprised. It is now "Add a File…".
+    ///
+    /// **"Remix the Melo Theme" is the exception and still replaces**, scoped
+    /// out of the add rule in `openSource` — layering the theme under someone's
+    /// podcast is not what anybody presses that button for, and the theme
+    /// welcome card's gate would stop meaning anything. Its label is unchanged:
+    /// "Remix" does not promise either behaviour, the divider above it already
+    /// separates it from the three that add, and nothing is lost when it
+    /// replaces because `replaceDocument` writes the outgoing sidecar first.
+    ///
+    /// "Paste a Link…" and "Record This Mac…" were left alone, and that is a
+    /// judgement rather than an oversight. Neither verb means replace — pasting
+    /// and recording both *make new audio*, which is what actually happens —
+    /// and both are the empty state's exact words, which is the recognition
+    /// this menu was built on. Renaming them to match a pattern would cost that
+    /// and buy nothing a user was going to get wrong. "Record a Recording of
+    /// This Mac" is also not a sentence in Melo's voice.
+    ///
+    /// The menu is only ever drawn with a document open — `header` renders only
+    /// inside `editor`, which is the non-empty arm — so this wording is not
+    /// conditional on `store.document`. A branch that can never be taken is
+    /// worse than none: nothing exercises it and nothing can prove it right.
+    ///
     /// No `keyboardShortcut` on these items on purpose. `editorKeyCommands`
     /// is the single owner of keys in this window, and a menu item carrying the
     /// same equivalent would either double-fire or be silently swallowed by the
     /// local monitor depending on dispatch order. The shortcuts are in `.help`.
     private var sourceMenu: some View {
         Menu {
-            Button("Open a File…", systemImage: "folder") { openFile() }
+            Button("Add a File…", systemImage: "folder") { openFile() }
             Button("Paste a Link…", systemImage: "link") { showLinkImport = true }
             Button("Record This Mac…", systemImage: "record.circle") { showSystemRecord = true }
             Divider()
             Button("Remix the Melo Theme", systemImage: "music.quarternote.3") {
                 MeloThemeRemix.openInEditor()
             }
+            Divider()
+            // The way to a lane with nothing in it, and the only one of these
+            // that does not bring audio — hence "Empty", which it did not need
+            // before the three items above started adding tracks too.
+            //
+            // A menu item on purpose. The governing decision is that a freshly
+            // opened file shows one lane and no add-track button competing for
+            // attention with the sound; a line in a menu the user opens is not
+            // competing for anything. Once there are two lanes the column
+            // carries the same control at the head of the header stack.
+            Button("Add an Empty Track", systemImage: "rectangle.stack.badge.plus") {
+                // `_ =` because `withAnimation` infers its result type from the
+                // closure, and `addTrack()` returns the new id.
+                withAnimation(DesignTokens.Animation.panel) {
+                    _ = store.addTrack()
+                }
+            }
+            .disabled(store.document == nil)
             Divider()
             // The same one-way door, one turn further out. `Recent` and the
             // "Melo keeps your recordings and link audio" line live on the empty
@@ -369,6 +565,11 @@ struct EditorRootView: View {
             // Nothing is lost by closing: `close()` writes the session sidecar
             // first, and reopening the same file restores its stack. So no
             // confirmation, for the same reason Revert has none.
+            //
+            // **The only thing here that empties the window.** The three doors
+            // at the top add a lane and the theme swaps the document; this is
+            // the one that leaves nothing behind, which is what "close" already
+            // means to everybody before they read it.
             Button("Close This Sound", systemImage: "xmark.circle") {
                 store.close()
             }
@@ -381,8 +582,8 @@ struct EditorRootView: View {
         .symbolRenderingMode(.hierarchical)
         .foregroundStyle(DesignTokens.Colors.interactiveDefault)
         .frame(minHeight: DesignTokens.Dimensions.minTouchTarget)
-        .help("Open another sound — file, link, recording, or the Melo theme (⌘O, ⌘L, ⌘R)")
-        .accessibilityLabel("Open another sound")
+        .help("Add a sound as a new track — file, link, recording (⌘O, ⌘L, ⌘R)")
+        .accessibilityLabel("Add a sound as a new track")
     }
 
     /// A badge, not a row, so it carries a resting fill. `glassFillStrong` is the

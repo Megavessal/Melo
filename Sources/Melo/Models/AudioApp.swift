@@ -32,7 +32,25 @@ struct AudioApp: Identifiable, Hashable {
         self.isHelperBacked = isHelperBacked
     }
 
-    var persistenceIdentifier: String {
+    /// The one rule that turns an app's identity into the key Melo saves under.
+    ///
+    /// Static and shared, because it is now applied to apps Melo has never seen
+    /// run: `InstalledApp` builds a key for an application bundle sitting on
+    /// disk, and `Melo` has to still be reading that same key when the thing
+    /// finally launches and arrives here as an `AudioApp`. Two copies of this
+    /// three-line rule is how a mute set before launch would silently apply to
+    /// nothing — no crash, no error, just an app that comes up loud.
+    ///
+    /// Deliberately not the process id. A relaunched app keeps its bundle
+    /// identifier and gets a new pid every time; something started and stopped
+    /// over and over during testing would otherwise lose its settings on every
+    /// run, which is the worst possible case for the one feature that exists to
+    /// quiet it.
+    static func persistenceIdentifier(
+        bundleID: String?,
+        executablePath: String?,
+        name: String
+    ) -> String {
         if let bundleID, !bundleID.isEmpty {
             return bundleID
         }
@@ -40,6 +58,14 @@ struct AudioApp: Identifiable, Hashable {
             return "executable:\(URL(fileURLWithPath: executablePath).standardizedFileURL.path)"
         }
         return "name:\(name)"
+    }
+
+    var persistenceIdentifier: String {
+        Self.persistenceIdentifier(
+            bundleID: bundleID,
+            executablePath: executablePath,
+            name: name
+        )
     }
 
     func hash(into hasher: inout Hasher) {

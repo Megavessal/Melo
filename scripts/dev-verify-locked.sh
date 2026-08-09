@@ -75,7 +75,23 @@ fi
 # file count stop changing cannot distinguish a finished run from a crashed one:
 # a render that died at 12 frames of 41 was reported as a success, and the
 # frames were used.
-for _ in $(seq 1 150); do
+#
+# The ceiling is a wait, not a quality threshold — the checks that decide
+# whether the frames are trustworthy are below, and they are untouched.
+#
+# Raised 300s -> 900s on 2026-08-09, with the measurement rather than by taste.
+# The scene list went 107 -> 195 during the Melo Edit work and a full render
+# now takes 10:52:23 to 10:57:20, about 297s of the old 300s ceiling. It timed
+# out with seconds to spare, wrote "RENDER DID NOT COMPLETE — 194 frame(s)
+# written", and `_complete` then landed a moment later reading 195/195. So the
+# run was green and reported red.
+#
+# That failure mode is worse than a slow script: it looks exactly like the
+# harness dying partway, which is a real thing that has happened here, and the
+# cheap response to a flaky-looking red is to re-run until it passes. 900s is
+# three times the current render with room for the list to keep growing; if a
+# render ever genuinely hangs, the sentinel is still what decides.
+for _ in $(seq 1 450); do
     [ -f "$OUT/_complete" ] && break
     /bin/sleep 2
 done

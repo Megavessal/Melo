@@ -17,7 +17,17 @@ enum EditorShortcut: String, CaseIterable, Sendable {
     case openFile
     case pasteLink
     case recordSystem
-    case deleteMove
+    /// Delete, which means the selected clips or the selected move depending on
+    /// which of the two the document has. See `EditorDeleteTarget`.
+    ///
+    /// Named for the key rather than for the move it used to be the only way to
+    /// remove. The old spelling was `deleteMove`, and a case name that says
+    /// which pane it belongs to is how a second pane's Delete ends up as a
+    /// second monitor.
+    case deleteSelection
+    case splitClip
+    case copyClips
+    case pasteClips
     case zoomToFit
     case zoomIn
     case zoomOut
@@ -95,7 +105,7 @@ enum EditorShortcut: String, CaseIterable, Sendable {
             // actually sends on a Mac keyboard, which is none of the two people
             // expect.
             case "\u{8}", "\u{7F}", "\u{F728}":
-                return .deleteMove
+                return .deleteSelection
             default:
                 return nil
             }
@@ -110,6 +120,23 @@ enum EditorShortcut: String, CaseIterable, Sendable {
         case "e": return shifted ? nil : .export
         case "z": return shifted ? .redo : .undo
         case "o": return shifted ? nil : .openFile
+        // ⌘C and ⌘V do the obvious thing to clips. They are safe to take here
+        // only because of the first-responder guard in `handle`: inside a text
+        // field the field editor gets them first and this never sees them, and
+        // with no clip selected they are handed back to the responder chain
+        // rather than swallowed.
+        case "c": return shifted ? nil : .copyClips
+        case "v": return shifted ? nil : .pasteClips
+        // **Split is ⌘T, not ⌘E.** ⌘E is the DAW spelling — Ableton and Pro
+        // Tools both use it — and it is not available: ⌘E has shipped as Export
+        // in this window and the header button says so in its tooltip. ⌘T is
+        // Logic's split, it collides with nothing here, and this app has no
+        // menu bar to lose it to.
+        //
+        // *Rejected:* ⌘⇧E, to keep split near the DAW mnemonic. One Shift apart
+        // from Export, and one of the two writes a file to disk — the cost of a
+        // slip is not symmetric, so the keys should not be adjacent.
+        case "t": return shifted ? nil : .splitClip
         // The other two ways a sound gets in. They sat behind the empty state,
         // which stops existing the moment a document opens, so before these they
         // were reachable once per launch. Neither collides: nothing in this
@@ -123,6 +150,48 @@ enum EditorShortcut: String, CaseIterable, Sendable {
         case "-", "_": return .zoomOut
         default: return nil
         }
+    }
+}
+
+/// What one press of Delete removes.
+///
+/// A pure value with a pure function to produce it, for the reason the file's
+/// other rules are: this is the decision a wrong answer destroys something
+/// over, and it should be assertable without a window, a document or a key
+/// event. `EditorKeyCommands` does no arithmetic of its own — it asks this and
+/// obeys.
+enum EditorDeleteTarget: Equatable, Sendable {
+    case clips([Clip.ID])
+    case move(Move.ID)
+    case nothing
+
+    /// **Clips win when there are any.**
+    ///
+    /// The two selections are not mutually exclusive — clicking a clip does not
+    /// clear the stack's selection and clicking a move does not clear the
+    /// timeline's — so with both showing, one key has to choose, and the choice
+    /// is visible to nobody before they press it. That is the real defect, and
+    /// the durable fix is not here: it is that selecting in one pane should
+    /// clear the other, in `MoveStackView` and `EditorWaveformView`. Until then
+    /// this is the least-bad rule, for two reasons rather than a preference.
+    ///
+    /// First, it self-corrects in one press. `EditorStore.mutate` prunes
+    /// `selectedClipIDs` against the document, so deleting the selected clips
+    /// empties the set — the *next* Delete therefore falls through to the move,
+    /// with no state cleared by hand and no trap where the same key keeps
+    /// removing the same wrong thing.
+    ///
+    /// Second, the timeline selection is the one the user almost always made
+    /// most recently: a move stays selected from whenever its inspector was
+    /// last open, while a clip is selected by clicking the clip.
+    ///
+    /// Both are recoverable — every path goes through `mutate`, so ⌘Z brings
+    /// back either one — which bounds how wrong this can be, and is not a
+    /// licence to guess.
+    static func resolve(clipIDs: Set<Clip.ID>, moveID: Move.ID?) -> EditorDeleteTarget {
+        if !clipIDs.isEmpty { return .clips(Array(clipIDs)) }
+        if let moveID { return .move(moveID) }
+        return .nothing
     }
 }
 
@@ -190,6 +259,8 @@ private struct EditorKeyCommands: NSViewRepresentable {
         EditorKeyCommandView()
     }
 
+    /// Returns whether the shortcut actually did something. `false` sends the
+    /// key back to the responder chain — see `EditorKeyCommandView.handle`.
     func updateNSView(_ nsView: EditorKeyCommandView, context: Context) {
         nsView.perform = { shortcut, phase in
             switch shortcut {
@@ -209,9 +280,36 @@ private struct EditorKeyCommands: NSViewRepresentable {
                 onPasteLink()
             case .recordSystem:
                 onRecord()
-            case .deleteMove:
-                guard let selected = store.selectedMoveID else { return }
-                store.remove(selected)
+            case .deleteSelection:
+                switch EditorDeleteTarget.resolve(
+                    clipIDs: store.selectedClipIDs,
+                    moveID: store.selectedMoveID
+                ) {
+                case .clips(let ids):
+                    for id in ids { store.removeClip(id) }
+                case .move(let id):
+                    store.remove(id)
+                case .nothing:
+                    return false
+                }
+            case .splitClip:
+                // The store's own guard is the authority on whether a point is
+                // splittable — `splitClip` returns `nil` when the playhead is
+                // not strictly inside — so this reads the result rather than
+                // predicting it. A third copy of that predicate (the clip menu
+                // has the second) is how the menu and the key end up
+                // disagreeing about the same clip.
+                var split = false
+                for id in store.selectedClipIDs {
+                    if store.splitClip(id, at: store.playhead) != nil { split = true }
+                }
+                return split
+            case .copyClips:
+                guard !store.selectedClipIDs.isEmpty else { return false }
+                store.copyClips(Array(store.selectedClipIDs))
+            case .pasteClips:
+                guard store.canPasteClips else { return false }
+                store.pasteClips(at: store.playhead, track: store.selectedTrackID)
             case .zoomToFit:
                 store.zoomToFit()
             case .zoomIn:
@@ -219,6 +317,7 @@ private struct EditorKeyCommands: NSViewRepresentable {
             case .zoomOut:
                 store.zoomOut()
             }
+            return true
         }
     }
 }
@@ -227,7 +326,8 @@ private struct EditorKeyCommands: NSViewRepresentable {
 /// shape `WindowAppearanceTrackerView` uses to hang behaviour off a window a
 /// SwiftUI view cannot otherwise see.
 final class EditorKeyCommandView: NSView {
-    var perform: ((EditorShortcut, EditorShortcut.Phase) -> Void)?
+    /// Returns whether the shortcut did anything.
+    var perform: ((EditorShortcut, EditorShortcut.Phase) -> Bool)?
 
     /// Tracked so the hold can be broken by something other than the key coming
     /// back up. See `releaseBypassIfHeld()`.
@@ -302,7 +402,7 @@ final class EditorKeyCommandView: NSView {
     private func releaseBypassIfHeld() {
         guard isBypassHeld else { return }
         isBypassHeld = false
-        perform?(.bypassHold, .up)
+        _ = perform?(.bypassHold, .up)
     }
 
     /// - Returns: `nil` to swallow the event, or the event to pass it along.
@@ -344,7 +444,16 @@ final class EditorKeyCommandView: NSView {
             return nil
         }
 
-        perform?(shortcut, phase)
-        return nil
+        // **A shortcut that did nothing gives the key back.** ⌘C with no clip
+        // selected, ⌘V with an empty clipboard, ⌘T with the playhead outside
+        // every selected clip, Delete with nothing selected at all: swallowing
+        // those makes a key that is silently dead, which is the failure this
+        // project's anchor records more than once. Returning the event lets the
+        // responder chain answer — which for an unbound key is the system beep,
+        // and a beep is feedback where silence is not.
+        //
+        // It also stops this window from taking ⌘C and ⌘V away from anything
+        // else that might want them, without needing to know what that is.
+        return perform?(shortcut, phase) == true ? nil : event
     }
 }

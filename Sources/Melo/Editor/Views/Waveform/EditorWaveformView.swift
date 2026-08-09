@@ -1,41 +1,47 @@
 // Melo/Editor/Views/Waveform/EditorWaveformView.swift
 //
-// The thing the user looks at for the whole session.
+// The timeline. The thing the user looks at for the whole session.
 //
-// Three decisions hold this file up.
+// Four decisions hold this file up.
 //
 // 1. **It draws in a SwiftUI `Canvas`, not an `NSView`.** `SnapshotHarness`
 //    cannot draw `NSViewRepresentable` content on the `.imageRenderer` path
 //    (`Utilities/SnapshotHarness.swift:165-172`), which is the path this
-//    project's anchor tells critics to judge from. A Metal or CALayer waveform
+//    project's anchor tells critics to judge from. A Metal or CALayer timeline
 //    would be blank in every frame anyone ever looked at.
 //
-// 2. **The timeline is output time — what the render engine produces, and what
-//    export will write.** `EditorStore.refreshWaveform` renders the whole
-//    document and `clampTimeline(to:)` clamps the playhead and the selection to
-//    *that* duration, so a view drawing source time would disagree with the
-//    store about where the end of the sound is the moment a trim was applied.
-//    The cost is named at `EditorCutMap`: an interior splice from
-//    `removeSilence` has no position in output time that this view can compute.
+// 2. **One viewport, one coordinate space.** The ruler, every lane and the
+//    chrome are laid out in the *pane's* coordinates and all read the same
+//    `EditorTimeline`. The lanes canvas is full-pane and offsets itself with
+//    `EditorTimelineGeometry.lanesRect`, rather than being a child view with a
+//    coordinate space of its own — so drawing and hit-testing call literally
+//    the same function with literally the same size, and a lane that drifts out
+//    of alignment with the ruler is not a bug that can be written here.
 //
-// 3. **Only the visible range is ever requested.** `EditorWaveformDetail` asks
-//    `RenderEngine.waveform` for the window on screen at the width on screen;
-//    the store's 2048-bucket overview is the fallback that keeps a picture up
-//    while that is in flight. Asking for the whole file at full resolution and
-//    clipping is how a "lightweight" editor becomes a fan-spinner.
+// 3. **Clips draw from their source, not from the mix.** See
+//    `EditorClipWaveforms` for what that buys and what it costs.
+//
+// 4. **Clip edits are previewed locally and committed on mouse-up.** One undo
+//    entry per gesture, and no debounced re-render per tick of a drag. The
+//    preview clamps through `EditorClipEdit`, which is executed and asserted,
+//    so the picture under the pointer is the picture the store commits.
 
 import AppKit
 import SwiftUI
 
 // MARK: - Viewport
 
-/// What part of the sound is on screen, shared between the waveform and the
-/// transport's zoom control because they are siblings in the window and neither
-/// owns the other.
+/// What part of the timeline is on screen, shared between the ruler, the lanes
+/// and the transport's zoom control because they are siblings in the window and
+/// none of them owns the others.
 ///
 /// A singleton for the same reason `EditorStore` is: there is one Melo Edit
-/// window, and `EditorWindowController.shared` is the only thing that
-/// opens it.
+/// window, and `EditorWindowController.shared` is the only thing that opens it.
+///
+/// The arithmetic lives in `EditorTimelineViewport`, which is a value with no
+/// SwiftUI in it and is asserted on its own. This class is the observable
+/// wrapper: it decides *when* to notify and *whether follow is on*, and nothing
+/// else.
 @MainActor
 final class EditorTimeline: ObservableObject {
 
@@ -43,8 +49,8 @@ final class EditorTimeline: ObservableObject {
 
     // MARK: - State
     //
-    // `start` and `visible` are **not** `@Published`, and that is the load-bearing
-    // decision in this file. Two separate defects came from their being so:
+    // `viewport` is **not** `@Published`, and that is the load-bearing decision
+    // in this file. Two separate defects came from its being so:
     //
     //  * A published write from a `GeometryProxy` `onChange` — which SwiftUI
     //    dispatches inside `NSHostingView.layout()` — re-entered AppKit's
@@ -59,77 +65,80 @@ final class EditorTimeline: ObservableObject {
     // not: the view that adopts is the view that is already rendering, and it
     // reads the result straight back out of `adopt`. Only a change the *user*
     // makes has to reach a sibling — the transport's zoom slider and the
-    // waveform are in different subtrees — and those all arrive from gestures,
+    // timeline are in different subtrees — and those all arrive from gestures,
     // buttons and the key monitor, never from layout. So user changes bump
     // `revision` and adoption stays silent.
+    //
+    // **Do not make `viewport` published, and do not write any published
+    // property from anything on the geometry path.** It reaches the shipped app.
 
     /// Bumped by user-driven changes only, so `@ObservedObject` observers redraw.
     /// Never bumped by `adopt`.
     @Published private(set) var revision: Int = 0
 
-    /// Left edge of the visible window, in seconds of output time.
-    private(set) var start: TimeInterval = 0
-    /// Width of the visible window, in seconds. Equal to `duration` when the
-    /// whole sound is on screen.
-    private(set) var visible: TimeInterval = 1
-
-    private(set) var duration: TimeInterval = 1
-    private(set) var sampleRate: Double = 48_000
-    private(set) var width: CGFloat = 600
+    private(set) var viewport = EditorTimelineViewport()
 
     /// Where the pointer is, 0…1 across the surface. Anchors scroll-zoom and pinch.
     var pointerFraction: Double = 0.5
-    /// Set while the user is dragging, so playback's follow-the-playhead does
-    /// not yank the view out from under them.
+
+    /// Set while the user is dragging, so playback's follow does not yank the
+    /// view out from under them.
     var isUserAdjusting = false
+
+    /// Whether the view pages to keep the playhead in frame.
+    ///
+    /// **Off the moment the user scrolls or drags; back on at the next play
+    /// from a control.** A view that fights the user's scroll is worse than one
+    /// that never follows. Zooming does *not* turn it off — the frame's words
+    /// are "scrolls or drags", and a zoom anchored on the playhead keeps the
+    /// playhead in frame by construction, so there is nothing to fight.
+    private(set) var isFollowing = true
 
     private var adoptedSourceID: UUID?
     private var appliedSeed: Seed?
 
     private init() {}
 
-    // MARK: Derived
+    // MARK: Forwarded
 
-    var end: TimeInterval { start + visible }
-    var window: ClosedRange<TimeInterval> { start...(start + visible) }
-    var secondsPerPoint: Double { visible / max(Double(width), 1) }
-    var isFitToWindow: Bool { visible >= duration - 0.0005 }
-
-    /// The deepest zoom. Sixty-four sample frames across the whole surface is
-    /// sample-adjacent by any definition — at 48 kHz on a 700pt view that is
-    /// about eleven points per sample.
-    var minimumVisible: TimeInterval {
-        min(duration, max(0.002, 64 / max(sampleRate, 1)))
-    }
-
-    // MARK: Mapping
+    var start: TimeInterval { viewport.start }
+    var visible: TimeInterval { viewport.visible }
+    var duration: TimeInterval { viewport.duration }
+    var sampleRate: Double { viewport.sampleRate }
+    var width: CGFloat { viewport.width }
+    var end: TimeInterval { viewport.end }
+    var window: ClosedRange<TimeInterval> { viewport.window }
+    var secondsPerPoint: Double { viewport.secondsPerPoint }
+    var isFitToWindow: Bool { viewport.isFitToWindow }
+    var minimumVisible: TimeInterval { viewport.minimumVisible }
 
     func time(atX x: CGFloat, width surfaceWidth: CGFloat) -> TimeInterval {
-        start + Double(x / max(surfaceWidth, 1)) * visible
+        viewport.time(atX: x, width: surfaceWidth)
     }
 
     func x(for time: TimeInterval, width surfaceWidth: CGFloat) -> CGFloat {
-        CGFloat((time - start) / max(visible, .leastNormalMagnitude)) * surfaceWidth
+        viewport.x(for: time, width: surfaceWidth)
     }
 
     func clampToSound(_ time: TimeInterval) -> TimeInterval {
-        min(max(time, 0), duration)
+        viewport.clampToSound(time)
     }
 
     // MARK: Adoption
 
     /// An opening position, for a render harness that has no user to set one.
     struct Seed: Equatable {
-        /// 0 fits the whole sound, 1 is sample-adjacent. Logarithmic.
+        /// 0 fits the whole project, 1 is sample-adjacent. Logarithmic.
         var zoomFraction: Double?
         /// Left edge in seconds. Wins over `centreOn`.
         var windowStart: TimeInterval?
         /// A moment to put in the middle — used to frame a seeded selection
-        /// handle without anyone having to work out the window by hand.
+        /// handle or a seeded clip without anyone having to work out the window
+        /// by hand.
         var centreOn: TimeInterval?
     }
 
-    /// Points the timeline at a sound and returns the window to draw.
+    /// Points the timeline at a project and returns the window to draw.
     ///
     /// **Called from `body`, and it publishes nothing.** Both of those are
     /// deliberate. Called from `body`, the frame that needs the window is the
@@ -138,9 +147,9 @@ final class EditorTimeline: ObservableObject {
     /// including inside a layout pass.
     ///
     /// Idempotent, so every view that draws the timeline can call it and
-    /// whichever renders first wins. A different source starts fitted; the same
-    /// source keeps the zoom the user set, because a gain slider that re-renders
-    /// the waveform must not also throw away where they were looking.
+    /// whichever renders first wins. A different first source starts fitted;
+    /// the same one keeps the zoom the user set, because adding a track or
+    /// nudging a gain slider must not throw away where they were looking.
     @discardableResult
     func adopt(
         sourceID: UUID?,
@@ -149,21 +158,21 @@ final class EditorTimeline: ObservableObject {
         width surfaceWidth: CGFloat,
         seed: Seed? = nil
     ) -> ClosedRange<TimeInterval> {
-        width = max(surfaceWidth, 1)
+        viewport.width = max(surfaceWidth, 1)
 
         let resolvedRate = rate > 0 ? rate : 48_000
         let resolved = max(newDuration, 0.001)
         let isNewSound = sourceID != adoptedSourceID
 
-        if isNewSound || resolved != duration || resolvedRate != sampleRate {
-            let wasFitted = isFitToWindow
-            sampleRate = resolvedRate
-            duration = resolved
+        if isNewSound || resolved != viewport.duration || resolvedRate != viewport.sampleRate {
+            let wasFitted = viewport.isFitToWindow
+            viewport.sampleRate = resolvedRate
+            viewport.duration = resolved
             adoptedSourceID = sourceID
             if isNewSound || wasFitted {
-                assign(start: 0, visible: duration)
+                viewport.fitAll()
             } else {
-                clampWindow()
+                viewport.clamp()
             }
         }
 
@@ -175,17 +184,17 @@ final class EditorTimeline: ObservableObject {
             if let seed { apply(seed) }
         }
 
-        return window
+        return viewport.window
     }
 
     private func apply(_ seed: Seed) {
         if let fraction = seed.zoomFraction {
-            setWindow(zoomFraction: fraction, anchorFraction: 0.5)
+            viewport.setZoomFraction(fraction, anchorFraction: 0.5)
         }
         if let windowStart = seed.windowStart {
-            setWindow(start: windowStart)
+            viewport.setStart(windowStart)
         } else if let centre = seed.centreOn {
-            setWindow(start: centre - visible / 2)
+            viewport.setStart(centre - viewport.visible / 2)
         }
     }
 
@@ -195,98 +204,70 @@ final class EditorTimeline: ObservableObject {
     // button or the key monitor.
 
     func fitAll() {
-        if assign(start: 0, visible: duration) { notifyChange() }
+        // Not `endFollowing`: at fit-to-window there is nothing to follow, and
+        // zooming back in afterwards should still follow.
+        if viewport.fitAll() { notifyChange() }
     }
 
-    /// Zooms so `anchorFraction` of the surface keeps the moment that is under
-    /// it. Getting this wrong is the single most common way a waveform view
-    /// feels amateur, so it is the only way this class changes `visible`.
     func setVisible(_ target: TimeInterval, anchorFraction: Double) {
-        if setWindow(visible: target, anchorFraction: anchorFraction) { notifyChange() }
+        if viewport.setVisible(target, anchorFraction: anchorFraction) { notifyChange() }
     }
 
     func zoom(by factor: Double, anchorFraction: Double) {
-        guard factor > 0, factor.isFinite else { return }
-        setVisible(visible / factor, anchorFraction: anchorFraction)
+        if viewport.zoom(by: factor, anchorFraction: anchorFraction) { notifyChange() }
     }
 
     func setZoomFraction(_ fraction: Double, anchorFraction: Double) {
-        if setWindow(zoomFraction: fraction, anchorFraction: anchorFraction) { notifyChange() }
+        if viewport.setZoomFraction(fraction, anchorFraction: anchorFraction) { notifyChange() }
     }
 
-    func scroll(byPoints points: CGFloat) {
-        guard !isFitToWindow else { return }
-        scroll(toStart: start + Double(points) * secondsPerPoint)
-    }
-
-    func scroll(toStart newStart: TimeInterval) {
-        if setWindow(start: newStart) { notifyChange() }
-    }
-
-    /// Pages the window when the playhead walks off the right edge. Silent when
-    /// the whole sound is already on screen, and silent while the user is
-    /// dragging.
-    func reveal(_ time: TimeInterval) {
-        guard !isFitToWindow, !isUserAdjusting else { return }
-        if time < start || time > start + visible * 0.98 {
-            scroll(toStart: time - visible * 0.1)
-        }
-    }
-
-    /// Logarithmic, because linear zoom spends 90% of a slider's travel on the
-    /// first 10% of the useful range.
     var zoomFraction: Double {
-        get {
-            let span = log(duration / minimumVisible)
-            guard span > 0, span.isFinite else { return 0 }
-            return min(max(log(duration / max(visible, minimumVisible)) / span, 0), 1)
-        }
+        get { viewport.zoomFraction }
         set { setZoomFraction(newValue, anchorFraction: 0.5) }
     }
 
-    // MARK: The window, without notifying
-
-    @discardableResult
-    private func setWindow(visible target: TimeInterval, anchorFraction: Double) -> Bool {
-        let anchor = min(max(anchorFraction, 0), 1)
-        let anchorTime = start + anchor * visible
-        let resolved = min(max(target, minimumVisible), duration)
-        var changed = assign(start: anchorTime - anchor * resolved, visible: resolved)
-        changed = clampWindow() || changed
-        return changed
+    /// The user scrolling. Turns follow off — this is the whole of that rule's
+    /// enforcement, and it is why paging goes through `reveal` and not here.
+    func scroll(byPoints points: CGFloat) {
+        guard !viewport.isFitToWindow else { return }
+        scroll(toStart: viewport.start + Double(points) * viewport.secondsPerPoint)
     }
 
-    @discardableResult
-    private func setWindow(zoomFraction fraction: Double, anchorFraction: Double) -> Bool {
-        let span = log(duration / minimumVisible)
-        guard span > 0, span.isFinite else { return false }
-        return setWindow(
-            visible: duration / exp(min(max(fraction, 0), 1) * span),
-            anchorFraction: anchorFraction
-        )
+    func scroll(toStart newStart: TimeInterval) {
+        endFollowing()
+        if viewport.setStart(newStart) { notifyChange() }
     }
 
-    @discardableResult
-    private func setWindow(start newStart: TimeInterval) -> Bool {
-        assign(start: min(max(newStart, 0), max(duration - visible, 0)), visible: visible)
+    // MARK: Follow
+
+    /// Turned on by `EditorPlayback` when playback starts from a control.
+    func beginFollowing() {
+        isFollowing = true
     }
 
-    @discardableResult
-    private func clampWindow() -> Bool {
-        let boundedVisible = min(max(visible, minimumVisible), duration)
-        let boundedStart = min(max(start, 0), max(duration - boundedVisible, 0))
-        return assign(start: boundedStart, visible: boundedVisible)
+    func endFollowing() {
+        isFollowing = false
     }
 
-    /// The only place `start` and `visible` are written. Reports whether
-    /// anything actually moved, so a mutator that changed nothing notifies
-    /// nobody.
-    @discardableResult
-    private func assign(start newStart: TimeInterval, visible newVisible: TimeInterval) -> Bool {
-        var changed = false
-        if visible != newVisible { visible = newVisible; changed = true }
-        if start != newStart { start = newStart; changed = true }
-        return changed
+    /// Pages the window when the playhead walks off the visible span. Silent
+    /// when following is off, when the user is dragging, and when the whole
+    /// project is already on screen.
+    func reveal(_ time: TimeInterval) {
+        guard isFollowing, !isUserAdjusting else { return }
+        if viewport.page(toReveal: time) { notifyChange() }
+    }
+
+    /// A selection the user cannot see is not a selection.
+    ///
+    /// When something other than a drag puts one off screen — a proposal, an
+    /// undo, a move's range — the view goes to it. Only when it misses the
+    /// window entirely: a select-all while zoomed in already contains what is on
+    /// screen, and jumping then would throw away the place they were looking at
+    /// for nothing. Does not touch follow: this is about the selection, not
+    /// about who is driving the scroll.
+    func reveal(range: ClosedRange<TimeInterval>) {
+        guard !isUserAdjusting else { return }
+        if viewport.reveal(range: range) { notifyChange() }
     }
 
     private func notifyChange() {
@@ -294,7 +275,7 @@ final class EditorTimeline: ObservableObject {
     }
 
     #if MELO_DEV
-    /// Forgets the sound and the seed, so a render scene starts from a known
+    /// Forgets the project and the seed, so a render scene starts from a known
     /// window instead of the one the previous scene left.
     ///
     /// This object outlives every scene, which is the sticky global-state trap
@@ -304,325 +285,30 @@ final class EditorTimeline: ObservableObject {
     func resetForSnapshot() {
         adoptedSourceID = nil
         appliedSeed = nil
-        duration = 1
-        sampleRate = 48_000
-        width = 600
         pointerFraction = 0.5
         isUserAdjusting = false
-        assign(start: 0, visible: 1)
+        isFollowing = true
+        viewport = EditorTimelineViewport()
     }
     #endif
 }
 
-// MARK: - Palette
-
-/// The waveform gets its own fixed colours, following the precedent
-/// `DesignTokens.Colors` already sets for the VU meter: a readout of what the
-/// audio *is* does not change hue with the user's accent. The accent is spent
-/// on the selection chrome instead, where it means "you did this".
-enum EditorWaveformPalette {
-
-    static let ground = DesignTokens.dynamicColor(
-        name: "editorWaveformGround",
-        light: NSColor.black.withAlphaComponent(0.045),
-        dark: NSColor.black.withAlphaComponent(0.30)
-    )
-
-    static let zeroLine = DesignTokens.dynamicColor(
-        name: "editorWaveformZeroLine",
-        light: NSColor.black.withAlphaComponent(0.16),
-        dark: NSColor.white.withAlphaComponent(0.14)
-    )
-
-    /// Peak envelope — the quiet outer silhouette.
-    static let peak = DesignTokens.dynamicColor(
-        name: "editorWaveformPeak",
-        light: NSColor(srgbRed: 0.34, green: 0.44, blue: 0.60, alpha: 0.42),
-        dark: NSColor(srgbRed: 0.54, green: 0.70, blue: 0.94, alpha: 0.34)
-    )
-
-    /// RMS body — the dense core drawn inside the peak. Two weights rather than
-    /// one silhouette is what makes a waveform read as a real one.
-    static let body = DesignTokens.dynamicColor(
-        name: "editorWaveformBody",
-        light: NSColor(srgbRed: 0.15, green: 0.26, blue: 0.45, alpha: 0.94),
-        dark: NSColor(srgbRed: 0.66, green: 0.83, blue: 1.00, alpha: 0.96)
-    )
-
-    /// Inside the selection. Warm against the cool base so the selected span is
-    /// unmistakable in a still frame — the accent alone would not be, because
-    /// the harness window is never key and macOS desaturates its tint.
-    static let peakSelected = DesignTokens.dynamicColor(
-        name: "editorWaveformPeakSelected",
-        light: NSColor(srgbRed: 0.76, green: 0.50, blue: 0.14, alpha: 0.46),
-        dark: NSColor(srgbRed: 1.00, green: 0.79, blue: 0.42, alpha: 0.36)
-    )
-
-    static let bodySelected = DesignTokens.dynamicColor(
-        name: "editorWaveformBodySelected",
-        light: NSColor(srgbRed: 0.52, green: 0.30, blue: 0.02, alpha: 0.96),
-        dark: NSColor(srgbRed: 1.00, green: 0.84, blue: 0.52, alpha: 0.98)
-    )
-
-    /// While the stack is held bypassed, the picture is still the processed
-    /// render but the sound is not — so the picture says so by going grey.
-    static let peakBypassed = DesignTokens.dynamicColor(
-        name: "editorWaveformPeakBypassed",
-        light: NSColor.black.withAlphaComponent(0.18),
-        dark: NSColor.white.withAlphaComponent(0.16)
-    )
-
-    static let bodyBypassed = DesignTokens.dynamicColor(
-        name: "editorWaveformBodyBypassed",
-        light: NSColor.black.withAlphaComponent(0.42),
-        dark: NSColor.white.withAlphaComponent(0.46)
-    )
-
-    static let playhead = DesignTokens.dynamicColor(
-        name: "editorWaveformPlayhead",
-        light: NSColor.black.withAlphaComponent(0.84),
-        dark: NSColor.white.withAlphaComponent(0.92)
-    )
-
-    static let cutFlag = DesignTokens.dynamicColor(
-        name: "editorWaveformCutFlag",
-        light: NSColor(srgbRed: 0.72, green: 0.22, blue: 0.16, alpha: 0.90),
-        dark: NSColor(srgbRed: 1.00, green: 0.46, blue: 0.40, alpha: 0.88)
-    )
-
-    static let rulerTickMajor = DesignTokens.dynamicColor(
-        name: "editorWaveformTickMajor",
-        light: NSColor.black.withAlphaComponent(0.34),
-        dark: NSColor.white.withAlphaComponent(0.30)
-    )
-
-    static let rulerTickMinor = DesignTokens.dynamicColor(
-        name: "editorWaveformTickMinor",
-        light: NSColor.black.withAlphaComponent(0.16),
-        dark: NSColor.white.withAlphaComponent(0.14)
-    )
-}
-
-// MARK: - Metrics
-
-enum EditorWaveformMetrics {
-    static let rulerHeight: CGFloat = 22
-    static let scrollBarHeight: CGFloat = 10
-    /// Half-width of a selection handle's grab zone. 9pt either side of the
-    /// edge is an 18pt target for a 6pt-wide grip — real to hit, quiet to look
-    /// at. `Dimensions.minTouchTarget` is the floor for a control the pointer
-    /// has to acquire cold; a handle sits on a line the user is already aiming
-    /// at, and 28pt of grab either side of a selection edge would swallow short
-    /// selections whole.
-    static let handleGrab: CGFloat = 9
-    static let handleWidth: CGFloat = 6
-    static let handleHeight: CGFloat = 26
-    /// How far the pointer travels before a click becomes a drag.
-    static let dragThreshold: CGFloat = 3
-    static let laneGap: CGFloat = 6
-    /// How close a dragged edge has to come to a landmark before it snaps.
-    static let snapPoints: CGFloat = 4
-
-    /// `.bars`: 2pt of ink and 1pt of air. Below about 2pt a bar stops reading
-    /// as an object and becomes a texture, which is the filled style with extra
-    /// steps; above about 4pt the picture starts throwing away detail the
-    /// buckets actually have.
-    static let barWidth: CGFloat = 2
-    static let barGap: CGFloat = 1
-
-    /// `.pixel`: the edge of one block, before it is rounded so a whole number
-    /// of them fills half a lane exactly. Five points at Melo's window sizes is
-    /// roughly fourteen blocks from the centre line to the top — the same order
-    /// as the 18×9 and 20×11 grids the app icon and the menu-bar mark are drawn
-    /// on, which is what makes this read as the same drawing technique rather
-    /// than as a coarse bar chart.
-    static let pixelCell: CGFloat = 5
-    /// The air around each block. Half a point at a five-point cell is a tenth
-    /// of the grid: enough that the blocks are countable, little enough that a
-    /// solid passage still reads as solid.
-    static let pixelInset: CGFloat = 0.5
-}
-
-// MARK: - Columns
-
-/// One vertical slice of the picture: the peak excursion and the RMS level over
-/// the audio that lands under a single column of pixels.
-struct EditorWaveformColumn: Equatable {
-    var minimum: Float
-    var maximum: Float
-    var rms: Float
-
-    static let silent = EditorWaveformColumn(minimum: 0, maximum: 0, rms: 0)
-}
-
-/// Turns whatever buckets are to hand into exactly the columns the surface has,
-/// for exactly the window on screen.
-///
-/// The same function serves the sharp path and the fallback: a detail response
-/// covers the visible window at the visible width and maps one-to-one, and the
-/// store's whole-file overview maps many-to-one. Having one resampler means the
-/// picture never disappears while a detail request is in flight — it only gets
-/// sharper when the response lands.
-enum EditorWaveformSampler {
-
-    static func columns(
-        buckets: [WaveformData.Bucket],
-        lanes: Int,
-        lane: Int,
-        covering source: ClosedRange<TimeInterval>,
-        window target: ClosedRange<TimeInterval>,
-        count: Int
-    ) -> [EditorWaveformColumn] {
-        let laneCount = max(lanes, 1)
-        let perLane = buckets.count / laneCount
-        let sourceSpan = source.upperBound - source.lowerBound
-        guard perLane > 0, count > 0, sourceSpan > 0 else { return [] }
-
-        let targetSpan = target.upperBound - target.lowerBound
-        guard targetSpan > 0 else { return [] }
-
-        let bucketsPerSecond = Double(perLane) / sourceSpan
-        var output = [EditorWaveformColumn](repeating: .silent, count: count)
-
-        for index in 0..<count {
-            let t0 = target.lowerBound + targetSpan * Double(index) / Double(count)
-            let t1 = target.lowerBound + targetSpan * Double(index + 1) / Double(count)
-            // Outside the buckets we were given: genuinely silent, not zero
-            // data drawn as if measured.
-            guard t1 > source.lowerBound, t0 < source.upperBound else { continue }
-
-            var low = Int(((t0 - source.lowerBound) * bucketsPerSecond).rounded(.down))
-            var high = Int(((t1 - source.lowerBound) * bucketsPerSecond).rounded(.up))
-            low = min(max(low, 0), perLane - 1)
-            high = min(max(high, low + 1), perLane)
-
-            var minimum = Float.greatestFiniteMagnitude
-            var maximum = -Float.greatestFiniteMagnitude
-            var meanSquare = 0.0
-            for bucketIndex in low..<high {
-                let bucket = buckets[bucketIndex * laneCount + lane]
-                minimum = min(minimum, bucket.minimum)
-                maximum = max(maximum, bucket.maximum)
-                meanSquare += Double(bucket.rms) * Double(bucket.rms)
-            }
-            let taken = high - low
-            output[index] = EditorWaveformColumn(
-                minimum: minimum,
-                maximum: maximum,
-                // Root-mean-square of the squares, not the mean of the roots.
-                // The second one is wrong and looks it: quiet passages inflate.
-                rms: Float((meanSquare / Double(taken)).squareRoot())
-            )
-        }
-        return output
-    }
-}
-
-// MARK: - Detail
-
-/// Asks the render engine for the window on screen, at the width on screen.
-///
-/// Debounced and coalesced: a zoom drag emits a viewport per frame and the
-/// engine is an actor holding one decoded source, so firing every frame would
-/// queue sixty renders behind each other. The last request wins.
-@MainActor
-final class EditorWaveformDetail: ObservableObject {
-
-    struct Slice: Equatable {
-        var range: ClosedRange<TimeInterval>
-        /// Columns *requested*. `buckets.count / requested` is the channel
-        /// count the engine actually returned, which is how stereo lanes are
-        /// discovered without a second field on `WaveformData`.
-        var requested: Int
-        var data: WaveformData
-    }
-
-    @Published private(set) var slice: Slice?
-
-    private var work: Task<Void, Never>?
-    private var inFlight: (range: ClosedRange<TimeInterval>, requested: Int)?
-    /// Snapshot fixtures have no file behind them, so `RenderEngine` throws on
-    /// every call. Two failures and this stops asking until the document
-    /// changes — otherwise a pinned frame would spin the actor forever.
-    private var consecutiveFailures = 0
-    private var lastDocument: EditorDocument?
-
-    func invalidate() {
-        work?.cancel()
-        work = nil
-        inFlight = nil
-        consecutiveFailures = 0
-        // Guarded: `slice` is the only `@Published` property here, and this is
-        // reached from callbacks that fire on every resize.
-        if slice != nil { slice = nil }
-    }
-
-    /// True when `slice` already covers `window` at roughly the right density,
-    /// so a small scroll or a nudge of the zoom reuses what is on screen.
-    func covers(_ window: ClosedRange<TimeInterval>, columns: Int) -> Bool {
-        guard let slice, columns > 0 else { return false }
-        guard slice.range.lowerBound <= window.lowerBound + 0.0001,
-              slice.range.upperBound >= window.upperBound - 0.0001 else { return false }
-        let have = (slice.range.upperBound - slice.range.lowerBound) / Double(slice.requested)
-        let want = (window.upperBound - window.lowerBound) / Double(columns)
-        guard have > 0, want > 0 else { return false }
-        // Within a factor of ~1.35 either way. Tighter than this re-renders on
-        // every pinch frame; looser and a deep zoom stays visibly blocky.
-        return abs(log(have / want)) < 0.3
-    }
-
-    func request(document: EditorDocument, engine: RenderEngine, window: ClosedRange<TimeInterval>, columns: Int) {
-        if document != lastDocument {
-            lastDocument = document
-            consecutiveFailures = 0
-        }
-        guard consecutiveFailures < 2, columns > 0 else { return }
-
-        // Ask for half a window of margin either side so a small scroll is free.
-        let margin = (window.upperBound - window.lowerBound) * 0.25
-        let lower = max(0, window.lowerBound - margin)
-        let upper = window.upperBound + margin
-        guard upper > lower else { return }
-        let padded = lower...upper
-        let requested = min(4096, Int((Double(columns) * (upper - lower) / (window.upperBound - window.lowerBound)).rounded()))
-        guard requested > 0 else { return }
-
-        if let inFlight, inFlight.range == padded, inFlight.requested == requested { return }
-        inFlight = (padded, requested)
-
-        work?.cancel()
-        work = Task { [weak self] in
-            // One display frame of quiet. A pinch that is still moving replaces
-            // this task before the engine is ever reached.
-            try? await Task.sleep(for: .milliseconds(45))
-            guard !Task.isCancelled else { return }
-            do {
-                let data = try await engine.waveform(document, range: padded, bucketCount: requested)
-                guard !Task.isCancelled, let self else { return }
-                self.slice = Slice(range: padded, requested: requested, data: data)
-                self.consecutiveFailures = 0
-                self.inFlight = nil
-            } catch {
-                guard !Task.isCancelled, let self else { return }
-                self.consecutiveFailures += 1
-                self.inFlight = nil
-            }
-        }
-    }
-}
-
 // MARK: - Cuts
 
-/// What the enabled duration-changing moves did to the length, expressed in the
-/// timeline the view actually draws.
+/// What the enabled duration-changing **master** moves did to the length,
+/// expressed in the timeline the view actually draws.
 ///
 /// **Named limitation, not an oversight.** `removeSilence` re-detects its gaps
 /// inside the render (`DSP/MoveProcessors.swift:241-276`) and does not report
-/// where they were, and the timeline drawn here is output time, in which those
-/// gaps have collapsed to points. Recomputing them here would be a second
-/// silence detector that has to agree with the first — the exact defect class
-/// `CLAUDE.md:138` records. So this shows what is exactly knowable: what a trim
-/// took off each end, and how much shorter the stack made the sound overall.
+/// where they were, and the timeline drawn here is clip time, in which those
+/// gaps do not exist at all. Recomputing them here would be a second silence
+/// detector that has to agree with the first — the exact defect class
+/// `CLAUDE.md:138` records. So this shows what is exactly knowable: what a
+/// master trim took off each end, and how much shorter the master stack made
+/// the mix overall.
+///
+/// A clip's own trim is not in here and must not be: it has an edge you can see
+/// and grab, which is a better flag than a label.
 enum EditorCutMap {
 
     struct Summary: Equatable {
@@ -639,7 +325,7 @@ enum EditorCutMap {
 
     static func summary(for document: EditorDocument?, outputDuration: TimeInterval) -> Summary {
         guard let document else { return Summary() }
-        let enabled = document.moves.filter(\.isEnabled)
+        let enabled = document.master.filter(\.isEnabled)
         var head: TimeInterval?
         var tail: TimeInterval?
         var changesSpeed = false
@@ -665,9 +351,36 @@ enum EditorCutMap {
     }
 }
 
+// MARK: - A clip edit in progress
+
+/// What a drag is doing to the document before it is committed.
+///
+/// Public to the module because `SnapshotScenes` seeds one: a drag is the state
+/// the render harness structurally cannot reach — it photographs states, not
+/// gestures — so the only way a mid-drag frame exists is for a scene to hand
+/// the view one of these.
+enum EditorTimelineClipEdit: Equatable {
+    /// Several clips moving together, along the timeline and between lanes.
+    case move(ids: Set<UUID>, by: TimeInterval, lanes: Int)
+    /// The leading edge, expressed as the clip's new `sourceIn`.
+    case trimStart(id: UUID, sourceIn: TimeInterval)
+    /// The trailing edge, expressed as the clip's new `sourceOut`.
+    case trimEnd(id: UUID, sourceOut: TimeInterval)
+    case fadeIn(id: UUID, seconds: TimeInterval)
+    case fadeOut(id: UUID, seconds: TimeInterval)
+
+    /// The clips this edit touches, for the drawing to mark as live.
+    var ids: Set<UUID> {
+        switch self {
+        case let .move(ids, _, _): return ids
+        case let .trimStart(id, _), let .trimEnd(id, _), let .fadeIn(id, _), let .fadeOut(id, _): return [id]
+        }
+    }
+}
+
 // MARK: - The view
 
-/// The waveform, the ruler above it, the selection, the playhead and the zoom.
+/// The ruler, the lanes, the clips, the selection, the playhead and the zoom.
 ///
 /// Constructible from nothing but the store: no audio device, no window and no
 /// engine are touched by drawing it, which is what lets the harness render it
@@ -678,30 +391,35 @@ struct EditorWaveformView: View {
     @ObservedObject private var store: EditorStore
     @ObservedObject private var timeline = EditorTimeline.shared
     @ObservedObject private var playback = EditorPlayback.shared
-    @StateObject private var detail = EditorWaveformDetail()
+    @ObservedObject private var clipWaveforms = EditorClipWaveforms.shared
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.displayScale) private var displayScale
 
-    /// How the lanes are drawn. Read straight from defaults rather than from
+    /// How the clips are drawn. Read straight from defaults rather than from
     /// `SettingsManager`, so this view stays constructible from nothing but the
     /// store — see `EditorWaveformStyle` for why that property matters.
     @AppStorage(EditorWaveformStyle.storageKey) private var storedStyle = EditorWaveformStyle.fallback
 
     @State private var drag: DragState?
+    @State private var edit: EditorTimelineClipEdit?
     @State private var lastClick: ClickRecord?
-    @State private var hoveredEdge: SelectionEdge?
+    @State private var hover: EditorTimelineHit?
+    /// Which time-selection handle the pointer is on. The two selection handles
+    /// float above the clips and are hit-tested separately, so a selection you
+    /// can see is a selection you can grab even when a clip is under it.
+    @State private var selectionEdgeUnderPointer: SelectionEdge?
     @State private var scrollMonitor: Any?
     @State private var magnifyBase: CGFloat = 1
     @State private var edgeDetents = DetentTracker(values: [], tolerance: 0)
+
     /// Set only by the `#if MELO_DEV` initialiser; applied once on appear.
     private var seededZoom: Double?
     private var seededWindowStart: TimeInterval?
     private var seededHoveredEdge: SelectionEdge?
-    /// A style the harness asked for, which wins over the stored preference.
-    /// Seeded rather than written to defaults so rendering one style's scene
-    /// cannot leak into the next scene's frame.
     private var seededStyle: EditorWaveformStyle?
+    private var seededHover: EditorTimelineHit?
+    private var seededEdit: EditorTimelineClipEdit?
 
     init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
@@ -709,6 +427,8 @@ struct EditorWaveformView: View {
         seededWindowStart = nil
         seededHoveredEdge = nil
         seededStyle = nil
+        seededHover = nil
+        seededEdit = nil
     }
 
     // MARK: Body
@@ -716,86 +436,77 @@ struct EditorWaveformView: View {
     var body: some View {
         GeometryReader { proxy in
             let size = proxy.size
-            let columns = columnCount(for: size.width)
-            // Adopted here, in `body`, rather than from `onAppear` or a geometry
-            // `onChange`. It publishes nothing, so it is safe from inside a
-            // layout pass, and it happens in the pass that draws — which is the
-            // difference between a correct first frame and a one-second window
-            // of a four-minute song. See `EditorTimeline.adopt`.
-            let window = timeline.adopt(
-                sourceID: store.document?.source.id,
-                duration: store.waveform?.duration ?? store.document?.source.duration ?? 0,
-                sampleRate: store.document?.source.sampleRate ?? 48_000,
-                width: size.width,
-                seed: viewportSeed
-            )
-            let lanes = laneColumns(window: window, count: columns)
+            let plan = plan(for: size)
 
-            VStack(spacing: 0) {
-                EditorTimeRuler(timeline: timeline)
-                    .frame(height: EditorWaveformMetrics.rulerHeight)
-
-                EditorWaveformLanesCanvas(
-                    lanes: lanes,
-                    window: window,
+            ZStack(alignment: .top) {
+                EditorTimelineLanes(
+                    lanes: plan.lanes,
+                    window: plan.window,
                     selection: store.selection,
                     isBypassed: playback.isBypassed,
-                    isDense: isDense(window: window, count: columns),
                     style: seededStyle ?? storedStyle,
                     scheme: colorScheme
                 )
                 .equatable()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
+                EditorTimeRuler(timeline: timeline)
+                    .frame(height: EditorWaveformMetrics.rulerHeight)
+                    .frame(maxHeight: .infinity, alignment: .top)
+
                 if !timeline.isFitToWindow {
                     EditorWaveformScrollBar(timeline: timeline)
                         .frame(height: EditorWaveformMetrics.scrollBarHeight)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
                 }
-            }
-            .background(EditorWaveformPalette.ground)
-            .overlay {
-                EditorWaveformChrome(
-                    window: window,
+
+                EditorTimelineChrome(
+                    window: plan.window,
+                    laneCount: plan.laneCount,
                     selection: store.selection,
                     playhead: store.playhead,
                     // The seeded edge stands in for a pointer the harness has
                     // no way to put on the handle.
-                    hoveredEdge: hoveredEdge ?? seededHoveredEdge,
-                    draggingEdge: drag?.edge,
+                    hoveredEdge: selectionEdgeUnderPointer ?? seededHoveredEdge,
+                    draggingEdge: draggingSelectionEdge,
                     cuts: EditorCutMap.summary(for: store.document, outputDuration: timeline.duration),
-                    hasSound: store.waveform != nil
+                    hasSound: store.document != nil
                 )
                 .allowsHitTesting(false)
             }
             // No inset and no rounded corners: `EditorRootView` gives this
             // pane the full width between two dividers on purpose, and a
-            // drawing of the whole sound that stops short of the edge is a
+            // drawing of the whole project that stops short of the edge is a
             // drawing of most of it.
+            .background(EditorWaveformPalette.ground)
             .contentShape(Rectangle())
-            .gesture(dragGesture(width: size.width))
+            .gesture(dragGesture(size: size, plan: plan))
             .simultaneousGesture(magnifyGesture)
             .onContinuousHover(coordinateSpace: .local) { phase in
-                handleHover(phase, width: size.width)
+                handleHover(phase, size: size, plan: plan)
             }
             .onHover { hovering in
                 if hovering { installScrollMonitor() } else { removeScrollMonitor() }
             }
-            .onAppear { requestDetail(width: size.width) }
+            .contextMenu { clipMenu }
+            .onAppear { requestDetail(plan) }
             .onDisappear { removeScrollMonitor() }
             // Nothing on the geometry path touches the timeline any more —
             // `adopt` in `body` already recorded the width. All this does is ask
             // for sharper buckets, and even that waits until the layout pass has
             // unwound.
-            .onChange(of: size.width) { _, width in
-                afterLayout { requestDetail(width: width) }
+            .onChange(of: size.width) { _, _ in
+                afterLayout { requestDetail(plan) }
             }
-            .onChange(of: documentStamp) { _, _ in requestDetail(width: size.width) }
-            .onChange(of: window) { _, _ in requestDetail(width: size.width) }
-            .onChange(of: store.selection) { _, selection in reveal(selection) }
+            .onChange(of: documentStamp) { _, _ in requestDetail(plan) }
+            .onChange(of: plan.window) { _, _ in requestDetail(plan) }
+            .onChange(of: store.selection) { _, selection in
+                if let selection { timeline.reveal(range: selection) }
+            }
             .onChange(of: store.playhead) { _, value in timeline.reveal(value) }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Waveform")
+        .accessibilityLabel("Timeline")
         .accessibilityValue(accessibilityValue)
         .accessibilityHint("Drag to select. Double-click to select everything.")
         .accessibilityAdjustableAction { direction in
@@ -809,104 +520,318 @@ struct EditorWaveformView: View {
         }
     }
 
-    // MARK: Data
+    // MARK: - The plan
+    //
+    // Everything the frame needs, worked out once. Hit-testing and drawing read
+    // the *same* `frames` and the *same* `size`, which is the property that
+    // makes a click land on the clip it looks like it landed on.
+
+    private struct Plan {
+        var window: ClosedRange<TimeInterval>
+        var laneCount: Int
+        var trackIDs: [UUID]
+        var frames: [EditorClipFrame]
+        var lanes: [[EditorTimelineClipDrawing]]
+        var needs: [EditorClipWaveforms.Need]
+    }
+
+    private func plan(for size: CGSize) -> Plan {
+        guard let document = store.document, !document.tracks.isEmpty else {
+            let window = timeline.adopt(
+                sourceID: nil,
+                duration: 0,
+                sampleRate: 48_000,
+                width: size.width,
+                seed: viewportSeed
+            )
+            return Plan(window: window, laneCount: 0, trackIDs: [], frames: [], lanes: [], needs: [])
+        }
+
+        let resolved = resolvedClips(in: document)
+        // The end of the last clip, *including a drag in progress* — a clip
+        // dragged past the old end extends the ruler on the same frame rather
+        // than one commit later.
+        let duration = max(resolved.map(\.clip.end).max() ?? 0, 0.001)
+
+        let window = timeline.adopt(
+            sourceID: document.sources.first?.id,
+            duration: duration,
+            sampleRate: document.source.sampleRate,
+            width: size.width,
+            seed: viewportSeed
+        )
+
+        let laneCount = document.tracks.count
+        let lanesRect = EditorTimelineGeometry.lanesRect(in: size)
+        let showsNames = resolved.count > 1 || laneCount > 1
+        let liveIDs = edit?.ids ?? []
+
+        var frames: [EditorClipFrame] = []
+        var lanes = [[EditorTimelineClipDrawing]](repeating: [], count: laneCount)
+        var needs: [EditorClipWaveforms.Need] = []
+
+        for entry in resolved {
+            let clip = entry.clip
+            guard entry.trackIndex >= 0, entry.trackIndex < laneCount else { continue }
+            frames.append(
+                EditorClipFrame(
+                    id: clip.id,
+                    trackIndex: entry.trackIndex,
+                    start: clip.start,
+                    end: clip.end,
+                    fadeIn: clip.fadeIn,
+                    fadeOut: clip.fadeOut
+                )
+            )
+
+            // Only the part on screen is ever sampled or drawn. Asking for the
+            // whole file at full resolution and clipping is how a "lightweight"
+            // editor becomes a fan-spinner.
+            let lower = max(clip.start, window.lowerBound)
+            let upper = min(clip.end, window.upperBound)
+            guard upper > lower else { continue }
+
+            let laneRect = EditorTimelineGeometry.laneRect(
+                index: entry.trackIndex, count: laneCount, in: lanesRect
+            )
+            let widthOnScreen = timeline.x(for: upper, width: size.width)
+                - timeline.x(for: lower, width: size.width)
+            let count = columnCount(for: widthOnScreen)
+            guard count > 0, laneRect.height > 4 else { continue }
+
+            let sourceRange = clip.sourceTime(atTimelineTime: lower)...clip.sourceTime(atTimelineTime: upper)
+            needs.append(
+                EditorClipWaveforms.Need(sourceID: clip.sourceID, range: sourceRange, columns: count)
+            )
+
+            let channels = channelColumns(
+                for: clip,
+                document: document,
+                sourceRange: sourceRange,
+                timelineRange: lower...upper,
+                count: count,
+                splittable: laneRect.height - EditorWaveformMetrics.clipTitleHeight
+                    >= EditorWaveformMetrics.channelSplitMinimumHeight
+            )
+
+            lanes[entry.trackIndex].append(
+                EditorTimelineClipDrawing(
+                    id: clip.id,
+                    name: document.source(clip.sourceID)?.displayName ?? "Clip",
+                    showsName: showsNames,
+                    start: clip.start,
+                    end: clip.end,
+                    fadeIn: clip.fadeIn,
+                    fadeOut: clip.fadeOut,
+                    fadeShape: Self.shape(of: clip.fadeCurve),
+                    isSelected: store.selectedClipIDs.contains(clip.id),
+                    isHovered: hoveredClipID == clip.id,
+                    isLive: liveIDs.contains(clip.id),
+                    visible: lower...upper,
+                    channels: channels.columns,
+                    isDense: channels.isDense
+                )
+            )
+        }
+
+        return Plan(
+            window: window,
+            laneCount: laneCount,
+            trackIDs: document.tracks.map(\.id),
+            frames: frames,
+            lanes: lanes,
+            needs: needs
+        )
+    }
+
+    /// The document's clips with any drag in progress applied.
+    ///
+    /// **The one place a preview is turned into numbers.** Every clamp goes
+    /// through `EditorClipEdit`, whose rules are executed and asserted against
+    /// the same numbers `EditorStore` uses on commit — so the clip does not jump
+    /// when the mouse comes up.
+    private func resolvedClips(in document: EditorDocument) -> [(clip: Clip, trackIndex: Int)] {
+        var output: [(clip: Clip, trackIndex: Int)] = []
+        let trackCount = document.tracks.count
+
+        // A group move is limited by its earliest clip, so a multi-clip drag
+        // keeps its spacing instead of collapsing the leftmost one against zero.
+        var groupDelta: TimeInterval = 0
+        var laneDelta = 0
+        if case let .move(ids, by, lanes) = edit {
+            let touched = document.tracks.enumerated().flatMap { index, track in
+                track.clips.filter { ids.contains($0.id) }.map { (clip: $0, index: index) }
+            }
+            let earliest = touched.map(\.clip.start).min() ?? 0
+            groupDelta = EditorClipEdit.clampedGroupDelta(by, earliestStart: earliest)
+            let lowest = touched.map(\.index).min() ?? 0
+            let highest = touched.map(\.index).max() ?? 0
+            laneDelta = min(max(lanes, -lowest), max(trackCount - 1 - highest, 0))
+        }
+
+        for (index, track) in document.tracks.enumerated() {
+            for clip in track.clips {
+                var resolvedClip = clip
+                var resolvedIndex = index
+                let sourceDuration = document.source(clip.sourceID)?.duration ?? clip.sourceOut
+
+                switch edit {
+                case let .move(ids, _, _) where ids.contains(clip.id):
+                    resolvedClip.start = EditorClipEdit.moved(start: clip.start, by: groupDelta)
+                    resolvedIndex = min(max(index + laneDelta, 0), max(trackCount - 1, 0))
+                case let .trimStart(id, sourceIn) where id == clip.id:
+                    let trimmed = EditorClipEdit.trimmedStart(
+                        sourceIn: clip.sourceIn,
+                        sourceOut: clip.sourceOut,
+                        start: clip.start,
+                        to: sourceIn
+                    )
+                    resolvedClip.sourceIn = trimmed.sourceIn
+                    resolvedClip.start = trimmed.start
+                case let .trimEnd(id, sourceOut) where id == clip.id:
+                    resolvedClip.sourceOut = EditorClipEdit.trimmedEnd(
+                        sourceIn: clip.sourceIn, to: sourceOut, sourceDuration: sourceDuration
+                    )
+                case let .fadeIn(id, seconds) where id == clip.id:
+                    resolvedClip.fadeIn = EditorClipEdit.fade(
+                        seconds, otherFade: clip.fadeOut, clipDuration: clip.duration
+                    )
+                case let .fadeOut(id, seconds) where id == clip.id:
+                    resolvedClip.fadeOut = EditorClipEdit.fade(
+                        seconds, otherFade: clip.fadeIn, clipDuration: clip.duration
+                    )
+                default:
+                    break
+                }
+
+                // A trim can shorten the clip under a fade that was already
+                // there. Same rule the store applies on commit.
+                resolvedClip.fadeIn = min(resolvedClip.fadeIn, resolvedClip.duration)
+                resolvedClip.fadeOut = min(resolvedClip.fadeOut, resolvedClip.duration - resolvedClip.fadeIn)
+                output.append((resolvedClip, resolvedIndex))
+            }
+        }
+        return output
+    }
+
+    private static func shape(of curve: FadeCurve) -> EditorClipEdit.FadeShape {
+        switch curve {
+        case .linear: return .linear
+        case .equalPower: return .equalPower
+        case .exponential: return .exponential
+        }
+    }
+
+    // MARK: - Columns
 
     /// One column per physical pixel, capped. Beyond a few thousand the extra
     /// columns are drawing rectangles narrower than the screen can show.
     private func columnCount(for width: CGFloat) -> Int {
-        min(4096, max(1, Int((width * displayScale).rounded())))
+        min(4096, max(0, Int((width * displayScale).rounded())))
     }
 
-    /// Cheap identity for "the sound changed". Comparing two 2048-bucket arrays
-    /// on every body evaluation is not free, and the length plus the ends plus
-    /// the source is enough to catch a re-render.
-    private var documentStamp: String {
-        let source = store.document?.source.id.uuidString ?? "-"
-        let moves = store.document?.moves.count ?? 0
-        let buckets = store.waveform?.buckets.count ?? 0
-        let duration = store.waveform?.duration ?? 0
-        let tail = store.waveform?.buckets.last?.rms ?? 0
-        return "\(source)|\(moves)|\(buckets)|\(Int(duration * 1000))|\(Int(tail * 10_000))"
-    }
+    /// The clip's own audio, through its window, scaled by its envelope.
+    ///
+    /// Three places the buckets can come from, in order — see
+    /// `EditorClipWaveforms`. The third is the store's rendered mix, which is
+    /// only an exact picture of a clip when the project is the default one
+    /// (one source, one track, one clip starting at zero and covering all of
+    /// it). It is the fallback that keeps a picture up while the real data is
+    /// in flight, and it is the only data a render scene has unless a scene
+    /// seeds `EditorClipWaveforms` — which is exactly why every frame written
+    /// before clips existed still renders.
+    private func channelColumns(
+        for clip: Clip,
+        document: EditorDocument,
+        sourceRange: ClosedRange<TimeInterval>,
+        timelineRange: ClosedRange<TimeInterval>,
+        count: Int,
+        splittable: Bool
+    ) -> (columns: [[EditorWaveformColumn]], isDense: Bool) {
+        let channels = max(1, document.source(clip.sourceID)?.channelCount ?? 1)
 
-    /// Detail if it covers the window, the store's overview if not, nothing if
-    /// there is no sound. Never blank while a request is in flight.
-    private func laneColumns(window: ClosedRange<TimeInterval>, count: Int) -> [[EditorWaveformColumn]] {
-        let channels = max(1, store.document?.source.channelCount ?? 1)
+        var raw: [[EditorWaveformColumn]] = []
+        var isDense = false
 
-        if let slice = detail.slice, detail.covers(window, columns: count) {
-            // `RenderEngine.waveform` emits `bucketCount * channelCount`
-            // buckets interleaved, so dividing by what was asked for gives the
-            // channel count back without `WaveformData` needing a field for it.
-            let lanes = min(max(slice.data.buckets.count / max(slice.requested, 1), 1), channels)
-            return (0..<lanes).map { lane in
+        if let (data, covering) = clipWaveforms.buckets(
+            for: clip.sourceID, covering: sourceRange, columns: count
+        ), !data.buckets.isEmpty {
+            let lanes = EditorWaveformSampler.laneCount(bucketCount: data.buckets.count, channels: channels)
+            raw = (0..<lanes).map { lane in
                 EditorWaveformSampler.columns(
-                    buckets: slice.data.buckets,
-                    lanes: lanes,
-                    lane: lane,
-                    covering: slice.range,
-                    window: window,
-                    count: count
+                    buckets: data.buckets,
+                    lanes: lanes, lane: lane,
+                    covering: covering, window: sourceRange, count: count
                 )
             }
+            isDense = clipWaveforms.isDense(
+                sourceID: clip.sourceID, covering: sourceRange, columns: count, channels: channels
+            )
+        } else if let overview = store.waveform, !overview.buckets.isEmpty, overview.duration > 0 {
+            let lanes = EditorWaveformSampler.laneCount(bucketCount: overview.buckets.count, channels: channels)
+            raw = (0..<lanes).map { lane in
+                EditorWaveformSampler.columns(
+                    buckets: overview.buckets,
+                    lanes: lanes, lane: lane,
+                    covering: 0...overview.duration,
+                    window: timelineRange, count: count
+                )
+            }
+            let perLane = Double(overview.buckets.count / max(lanes, 1))
+            let span = timelineRange.upperBound - timelineRange.lowerBound
+            isDense = perLane * span / overview.duration >= Double(count) * 0.6
         }
 
-        guard let overview = store.waveform, !overview.buckets.isEmpty else { return [] }
-        // The overview arrives from the same engine under the same interleaving
-        // rule, but nothing here knows the bucket count the store asked for — so
-        // the channel count is the divisor. It has to resolve to the *same*
-        // number of lanes the detail path will, or the picture would jump from
-        // one lane to two the instant a detail request landed.
-        let overviewLanes = Self.laneCount(bucketCount: overview.buckets.count, channels: channels)
-        return (0..<overviewLanes).map { lane in
-            EditorWaveformSampler.columns(
-                buckets: overview.buckets,
-                lanes: overviewLanes,
-                lane: lane,
-                covering: 0...max(overview.duration, 0.001),
-                window: window,
-                count: count
-            )
+        guard !raw.isEmpty else { return ([], false) }
+        if !splittable, raw.count > 1 {
+            // Too short to split honestly: one lane carrying the widest
+            // excursion either channel saw. A 15pt stripe per channel is not a
+            // drawing of two channels.
+            raw = [(0..<count).map { index in
+                EditorWaveformColumn.merged(raw.map { $0[index] })
+            }]
         }
+
+        // The clip's own gain and its two fades, multiplied into the picture.
+        // This is what makes a fade a *real slope in the audio* rather than a
+        // wedge laid over an unchanged waveform, and what makes a clip you
+        // turned down look turned down.
+        let gain = pow(10.0, clip.gainDB / 20)
+        let clipDuration = clip.duration
+        let span = timelineRange.upperBound - timelineRange.lowerBound
+        let needsEnvelope = clip.fadeIn > 0 || clip.fadeOut > 0 || gain != 1
+        guard needsEnvelope, span > 0 else { return (raw, isDense) }
+
+        let scaled = raw.map { lane in
+            lane.enumerated().map { index, column -> EditorWaveformColumn in
+                let time = timelineRange.lowerBound + span * (Double(index) + 0.5) / Double(count)
+                let envelope = EditorClipEdit.envelopeGain(
+                    at: time - clip.start,
+                    clipDuration: clipDuration,
+                    fadeIn: clip.fadeIn,
+                    fadeOut: clip.fadeOut,
+                    curve: Self.shape(of: clip.fadeCurve)
+                )
+                return column.scaled(by: gain * envelope)
+            }
+        }
+        return (scaled, isDense)
     }
 
-    /// One lane per channel when the buckets divide evenly by it, one lane
-    /// otherwise. The fallback is not defensive noise: a summed waveform is a
-    /// true picture of the sound and two lanes of half a file is not, so an
-    /// unexpected bucket count degrades to the honest drawing.
-    private static func laneCount(bucketCount: Int, channels: Int) -> Int {
-        guard channels > 1, bucketCount >= channels * 2, bucketCount % channels == 0 else { return 1 }
-        return channels
-    }
-
-    /// Whether there is at least one bucket behind every couple of columns. Below
-    /// that the bars are the same value repeated and a joined line is the honest
-    /// picture — which is also what every editor shows at sample zoom.
-    private func isDense(window: ClosedRange<TimeInterval>, count: Int) -> Bool {
-        let span = window.upperBound - window.lowerBound
-        guard span > 0, count > 0 else { return true }
-        let available: Double
-        if let slice = detail.slice, detail.covers(window, columns: count) {
-            let lanes = max(slice.data.buckets.count / max(slice.requested, 1), 1)
-            let perLane = Double(slice.data.buckets.count / lanes)
-            let sliceSpan = slice.range.upperBound - slice.range.lowerBound
-            available = sliceSpan > 0 ? perLane * span / sliceSpan : 0
-        } else if let overview = store.waveform, overview.duration > 0 {
-            let lanes = Self.laneCount(
-                bucketCount: overview.buckets.count,
-                channels: max(1, store.document?.source.channelCount ?? 1)
-            )
-            available = Double(overview.buckets.count / lanes) * span / overview.duration
-        } else {
-            available = 0
-        }
-        return available >= Double(count) * 0.6
+    /// Cheap identity for "the project changed". Comparing the whole document on
+    /// every body evaluation is not free, and the sources plus the clip count
+    /// plus the length is enough to catch anything that needs new buckets.
+    private var documentStamp: String {
+        guard let document = store.document else { return "-" }
+        let sources = document.sources.map(\.id.uuidString).joined(separator: ",")
+        let clips = document.tracks.reduce(0) { $0 + $1.clips.count }
+        return "\(sources)|\(document.tracks.count)|\(clips)|\(Int(document.duration * 1000))"
     }
 
     /// Runs `work` on the next main-actor turn, once the layout pass that
     /// delivered the callback has unwound.
     ///
-    /// Only detail requests use this now, and only from the geometry path. It is
+    /// Only detail requests use this, and only from the geometry path. It is
     /// the right tool for work whose result nobody is photographing — an
     /// asynchronous render request that is already debounced by 45 ms. It was
     /// the wrong tool for adopting the sound, because a turn of latency in the
@@ -915,17 +840,31 @@ struct EditorWaveformView: View {
         Task { @MainActor in work() }
     }
 
+    private func requestDetail(_ plan: Plan) {
+        guard let document = store.document else {
+            clipWaveforms.invalidate()
+            return
+        }
+        clipWaveforms.request(document: document, engine: store.renderEngine, needs: plan.needs)
+    }
+
     /// An opening window for a render scene. Always `nil` outside `MELO_DEV`.
     private var viewportSeed: EditorTimeline.Seed? {
-        guard seededZoom != nil || seededWindowStart != nil || seededHoveredEdge != nil else {
+        guard seededZoom != nil || seededWindowStart != nil
+                || seededHoveredEdge != nil || seededHover != nil || seededEdit != nil else {
             return nil
         }
         // Asking for a grabbed handle is asking to see the handle: without this,
         // a seeded window that misses the seeded selection renders a zoomed
-        // frame with no selection chrome in it at all.
+        // frame with no chrome in it at all.
         var centreOn: TimeInterval?
-        if seededWindowStart == nil, let edge = seededHoveredEdge, let selection = store.selection {
-            centreOn = edge == .lower ? selection.lowerBound : selection.upperBound
+        if seededWindowStart == nil {
+            if let edge = seededHoveredEdge, let selection = store.selection {
+                centreOn = edge == .lower ? selection.lowerBound : selection.upperBound
+            } else if let id = seededHoverClipID ?? seededEdit?.ids.first,
+                      let clip = store.document?.clip(id) {
+                centreOn = (clip.start + clip.end) / 2
+            }
         }
         return EditorTimeline.Seed(
             zoomFraction: seededZoom,
@@ -934,38 +873,24 @@ struct EditorWaveformView: View {
         )
     }
 
-    /// A selection the user cannot see is not a selection.
-    ///
-    /// When something other than a drag puts one off screen — a proposal, an
-    /// undo, a move's range — the view goes to it. Only when it misses the
-    /// window entirely: a select-all while zoomed in already contains what is on
-    /// screen, and jumping then would throw away the place they were looking at
-    /// for nothing.
-    private func reveal(_ selection: ClosedRange<TimeInterval>?) {
-        guard let selection, !timeline.isUserAdjusting, !timeline.isFitToWindow else { return }
-        let window = timeline.window
-        guard selection.upperBound < window.lowerBound || selection.lowerBound > window.upperBound else {
-            return
-        }
-        timeline.scroll(toStart: selection.lowerBound - timeline.visible * 0.1)
-    }
-
-    private func requestDetail(width: CGFloat) {
-        guard let document = store.document else {
-            detail.invalidate()
-            return
-        }
-        let count = columnCount(for: width)
-        let window = timeline.window
-        guard !detail.covers(window, columns: count) else { return }
-        detail.request(document: document, engine: store.renderEngine, window: window, columns: count)
-    }
-
     private var accessibilityValue: String {
-        guard store.waveform != nil else { return "No sound loaded" }
-        var parts = ["Playhead at \(EditorFormat.spokenTime(store.playhead)) of \(EditorFormat.spokenTime(timeline.duration))"]
+        guard let document = store.document else { return "No sound loaded" }
+        var parts = [
+            "Playhead at \(EditorFormat.spokenTime(store.playhead)) of \(EditorFormat.spokenTime(timeline.duration))"
+        ]
+        if document.isMultitrack {
+            let clips = document.tracks.reduce(0) { $0 + $1.clips.count }
+            parts.append("\(document.tracks.count) tracks, \(clips) clips")
+        }
         if let selection = store.selection {
-            parts.append("Selection \(EditorFormat.spokenTime(selection.lowerBound)) to \(EditorFormat.spokenTime(selection.upperBound))")
+            parts.append(
+                "Selection \(EditorFormat.spokenTime(selection.lowerBound)) to "
+                    + "\(EditorFormat.spokenTime(selection.upperBound))"
+            )
+        }
+        if !store.selectedClipIDs.isEmpty {
+            let count = store.selectedClipIDs.count
+            parts.append("\(count) clip\(count == 1 ? "" : "s") selected")
         }
         if !timeline.isFitToWindow {
             parts.append("Showing \(EditorFormat.spokenTime(timeline.visible))")
@@ -973,127 +898,363 @@ struct EditorWaveformView: View {
         return parts.joined(separator: ". ")
     }
 
-    // MARK: Selection
+    // MARK: - Selection edges
 
     enum SelectionEdge: Equatable { case lower, upper }
-
-    private struct DragState: Equatable {
-        /// The end of the selection that stays put.
-        var anchor: TimeInterval
-        var startX: CGFloat
-        var isActive: Bool
-        /// Which handle is being dragged, when the drag started on one.
-        var edge: SelectionEdge?
-    }
 
     private struct ClickRecord: Equatable {
         var at: Date
         var x: CGFloat
     }
 
-    private func dragGesture(width: CGFloat) -> some Gesture {
+    /// Live drag state. The `kind` decides what the pointer's movement means;
+    /// nothing branches on a mode, because there is no mode.
+    private struct DragState {
+        enum Kind: Equatable {
+            /// A span of time — the gesture the whole move stack is aimed with.
+            case timeSelection(anchor: TimeInterval, edge: SelectionEdge?)
+            /// The ruler. Moves the playhead and nothing else.
+            case scrub
+            /// `grabbed` is the clip actually under the pointer. Its two edges
+            /// are what snap; the pointer does not. Snapping the pointer looks
+            /// identical in a screenshot and is wrong in the hand — the clip
+            /// then lands wherever the grab offset happened to put it, so
+            /// butting two clips together is luck rather than a detent.
+            case moveClips(ids: Set<UUID>, grabbed: UUID, grabTime: TimeInterval, grabLane: Int)
+            case trimStart(id: UUID)
+            case trimEnd(id: UUID)
+            case fadeIn(id: UUID)
+            case fadeOut(id: UUID)
+        }
+        var kind: Kind
+        var isActive: Bool
+    }
+
+    private var hoveredClipID: UUID? {
+        if case let .clip(id, _) = hover { return id }
+        return seededHoverClipID
+    }
+
+    private var seededHoverClipID: UUID? {
+        if case let .clip(id, _) = seededHover { return id }
+        return nil
+    }
+
+    private var draggingSelectionEdge: SelectionEdge? {
+        if case let .timeSelection(_, edge) = drag?.kind, drag?.isActive == true { return edge }
+        return nil
+    }
+
+    // MARK: - Gestures
+
+    private func dragGesture(size: CGSize, plan: Plan) -> some Gesture {
         DragGesture(minimumDistance: 0, coordinateSpace: .local)
             .onChanged { value in
-                guard store.waveform != nil else { return }
-                var state = drag ?? beginDrag(atX: value.startLocation.x, width: width)
-                if !state.isActive, abs(value.translation.width) > EditorWaveformMetrics.dragThreshold {
+                guard store.document != nil else { return }
+                var state = drag ?? beginDrag(at: value.startLocation, size: size, plan: plan)
+                if !state.isActive,
+                   abs(value.translation.width) > EditorWaveformMetrics.dragThreshold
+                    || abs(value.translation.height) > EditorWaveformMetrics.dragThreshold {
                     state.isActive = true
                     timeline.isUserAdjusting = true
-                    edgeDetents = DetentTracker(
-                        values: snapLandmarks(excluding: state.anchor),
-                        tolerance: timeline.secondsPerPoint * Double(EditorWaveformMetrics.snapPoints)
-                    )
+                    timeline.endFollowing()
+                    if case let .timeSelection(anchor, _) = state.kind {
+                        edgeDetents = DetentTracker(
+                            values: snapLandmarks(excluding: anchor, plan: plan),
+                            tolerance: timeline.secondsPerPoint * Double(EditorWaveformMetrics.snapPoints)
+                        )
+                    }
                 }
                 if state.isActive {
-                    let raw = timeline.clampToSound(timeline.time(atX: value.location.x, width: width))
-                    let moving = snapped(raw)
-                    if edgeDetents.crossed(moving) { Haptics.detent() }
-                    let lower = min(state.anchor, moving)
-                    let upper = max(state.anchor, moving)
-                    if upper > lower {
-                        store.selection = lower...upper
-                    } else {
-                        store.selection = nil
-                    }
-                    store.playhead = lower
-                    state.edge = moving <= state.anchor ? .lower : .upper
-                    autoScroll(pointerX: value.location.x, width: width)
+                    state = update(state, at: value.location, size: size, plan: plan)
+                    autoScroll(pointerX: value.location.x, width: size.width)
                 }
                 drag = state
             }
             .onEnded { value in
+                let finished = drag
                 defer {
                     drag = nil
+                    edit = nil
                     timeline.isUserAdjusting = false
                 }
-                guard store.waveform != nil, let state = drag else { return }
-                if state.isActive {
-                    // A drag that ended up shorter than two points is a click
-                    // that wobbled, not a selection.
-                    if let selection = store.selection,
-                       selection.upperBound - selection.lowerBound < timeline.secondsPerPoint * 2 {
-                        store.selection = nil
-                    } else {
-                        Haptics.commit()
-                    }
-                    return
-                }
-                let x = value.location.x
-                if isSecondClick(atX: x) {
-                    store.selection = 0...timeline.duration
-                    store.playhead = 0
-                    lastClick = nil
-                    Haptics.commit()
+                guard store.document != nil, let finished else { return }
+                if finished.isActive {
+                    commit(finished, plan: plan)
                 } else {
-                    lastClick = ClickRecord(at: Date(), x: x)
-                    store.selection = nil
-                    store.playhead = timeline.clampToSound(timeline.time(atX: x, width: width))
+                    click(finished, at: value.location, size: size, plan: plan)
                 }
             }
     }
 
-    private func beginDrag(atX x: CGFloat, width: CGFloat) -> DragState {
-        let time = timeline.clampToSound(timeline.time(atX: x, width: width))
-        let shift = NSEvent.modifierFlags.contains(.shift)
+    private func beginDrag(at point: CGPoint, size: CGSize, plan: Plan) -> DragState {
+        let time = timeline.clampToSound(timeline.time(atX: point.x, width: size.width))
 
-        if let selection = store.selection {
-            let lowerX = timeline.x(for: selection.lowerBound, width: width)
-            let upperX = timeline.x(for: selection.upperBound, width: width)
-            if abs(x - lowerX) <= EditorWaveformMetrics.handleGrab {
-                return DragState(anchor: selection.upperBound, startX: x, isActive: false, edge: .lower)
-            }
-            if abs(x - upperX) <= EditorWaveformMetrics.handleGrab {
-                return DragState(anchor: selection.lowerBound, startX: x, isActive: false, edge: .upper)
-            }
-            if shift {
-                // Extend from whichever end is further away, which is what the
-                // rest of macOS does with a shift-click.
-                let anchor = abs(time - selection.lowerBound) > abs(time - selection.upperBound)
-                    ? selection.lowerBound
-                    : selection.upperBound
-                return DragState(anchor: anchor, startX: x, isActive: false, edge: nil)
-            }
-        } else if shift {
-            return DragState(anchor: store.playhead, startX: x, isActive: false, edge: nil)
+        if point.y < EditorWaveformMetrics.rulerHeight {
+            return DragState(kind: .scrub, isActive: false)
         }
-        return DragState(anchor: time, startX: x, isActive: false, edge: nil)
+
+        // The time-selection handles float above everything, so a selection you
+        // can see is a selection you can grab even when a clip is under it.
+        if let edge = selectionEdge(nearX: point.x, width: size.width), let selection = store.selection {
+            let anchor = edge == .lower ? selection.upperBound : selection.lowerBound
+            return DragState(kind: .timeSelection(anchor: anchor, edge: edge), isActive: false)
+        }
+
+        let hit = EditorTimelineGeometry.hitTest(
+            point, frames: plan.frames, laneCount: plan.laneCount, in: size, viewport: timeline.viewport
+        )
+
+        switch hit {
+        case let .clip(id, .move):
+            var ids = store.selectedClipIDs
+            if !ids.contains(id) { ids = [id] }
+            let lane = plan.frames.first { $0.id == id }?.trackIndex ?? 0
+            return DragState(
+                kind: .moveClips(ids: ids, grabbed: id, grabTime: time, grabLane: lane),
+                isActive: false
+            )
+        case let .clip(id, .trimStart):
+            return DragState(kind: .trimStart(id: id), isActive: false)
+        case let .clip(id, .trimEnd):
+            return DragState(kind: .trimEnd(id: id), isActive: false)
+        case let .clip(id, .fadeIn):
+            return DragState(kind: .fadeIn(id: id), isActive: false)
+        case let .clip(id, .fadeOut):
+            return DragState(kind: .fadeOut(id: id), isActive: false)
+        default:
+            break
+        }
+
+        // Anywhere else — a clip's body included — is a span of time, which is
+        // what a drag across the waveform has always meant and what every move
+        // in the stack is aimed with.
+        let shift = NSEvent.modifierFlags.contains(.shift)
+        if shift, let selection = store.selection {
+            // Extend from whichever end is further away, which is what the rest
+            // of macOS does with a shift-click.
+            let anchor = abs(time - selection.lowerBound) > abs(time - selection.upperBound)
+                ? selection.lowerBound
+                : selection.upperBound
+            return DragState(kind: .timeSelection(anchor: anchor, edge: nil), isActive: false)
+        }
+        if shift {
+            return DragState(kind: .timeSelection(anchor: store.playhead, edge: nil), isActive: false)
+        }
+        return DragState(kind: .timeSelection(anchor: time, edge: nil), isActive: false)
     }
 
-    /// The landmarks a dragged edge snaps to: the ends of the sound and the
-    /// playhead. Nothing else — snapping to a grid the user cannot see is how a
-    /// selection stops landing where they let go.
-    private func snapLandmarks(excluding anchor: TimeInterval) -> [Double] {
+    private func update(_ state: DragState, at point: CGPoint, size: CGSize, plan: Plan) -> DragState {
+        var state = state
+        let raw = timeline.time(atX: point.x, width: size.width)
+        let time = timeline.clampToSound(raw)
+
+        switch state.kind {
+        case .scrub:
+            store.playhead = time
+
+        case let .timeSelection(anchor, _):
+            let moving = snapped(time, plan: plan)
+            if edgeDetents.crossed(moving) { Haptics.detent() }
+            let lower = min(anchor, moving)
+            let upper = max(anchor, moving)
+            store.selection = upper > lower ? lower...upper : nil
+            store.playhead = lower
+            state.kind = .timeSelection(anchor: anchor, edge: moving <= anchor ? .lower : .upper)
+
+        case let .moveClips(ids, grabbed, grabTime, grabLane):
+            let lanesRect = EditorTimelineGeometry.lanesRect(in: size)
+            let lane = EditorTimelineGeometry.nearestLaneIndex(
+                atY: point.y, count: max(plan.laneCount, 1), in: lanesRect
+            )
+            // The clip's *stored* edges, not `plan.frames` — those already
+            // carry the preview, so snapping against them would chase itself.
+            let clip = store.document?.clip(grabbed)
+            let delta = snappedDelta(
+                raw - grabTime,
+                edges: clip.map { [$0.start, $0.end] } ?? [],
+                plan: plan
+            )
+            edit = .move(ids: ids, by: delta, lanes: lane - grabLane)
+
+        case let .trimStart(id):
+            guard let clip = store.document?.clip(id) else { break }
+            edit = .trimStart(id: id, sourceIn: clip.sourceIn + (snapped(raw, plan: plan) - clip.start))
+
+        case let .trimEnd(id):
+            guard let clip = store.document?.clip(id) else { break }
+            edit = .trimEnd(id: id, sourceOut: clip.sourceIn + (snapped(raw, plan: plan) - clip.start))
+
+        case let .fadeIn(id):
+            guard let clip = store.document?.clip(id) else { break }
+            edit = .fadeIn(id: id, seconds: raw - clip.start)
+
+        case let .fadeOut(id):
+            guard let clip = store.document?.clip(id) else { break }
+            edit = .fadeOut(id: id, seconds: clip.end - raw)
+        }
+        return state
+    }
+
+    /// Writes the drag to the store. One call per gesture wherever the store
+    /// offers one.
+    private func commit(_ state: DragState, plan: Plan) {
+        switch state.kind {
+        case .scrub:
+            break
+
+        case .timeSelection:
+            // A drag that ended up shorter than two points is a click that
+            // wobbled, not a selection.
+            if let selection = store.selection,
+               selection.upperBound - selection.lowerBound < timeline.secondsPerPoint * 2 {
+                store.selection = nil
+            } else {
+                Haptics.commit()
+            }
+
+        case .moveClips:
+            guard let document = store.document, let edit else { break }
+            // One batch through one `mutate`, so a three-clip drag is one ⌘Z.
+            store.moveClips(
+                resolvedClips(in: document).compactMap { entry in
+                    guard edit.ids.contains(entry.clip.id),
+                          entry.trackIndex < plan.trackIDs.count else { return nil }
+                    return EditorStore.ClipMove(
+                        id: entry.clip.id,
+                        trackID: plan.trackIDs[entry.trackIndex],
+                        start: entry.clip.start
+                    )
+                }
+            )
+            Haptics.commit()
+
+        case let .trimStart(id):
+            guard case let .trimStart(_, sourceIn) = edit else { break }
+            store.trimClip(id, sourceIn: sourceIn, sourceOut: nil)
+            Haptics.commit()
+
+        case let .trimEnd(id):
+            guard case let .trimEnd(_, sourceOut) = edit else { break }
+            store.trimClip(id, sourceIn: nil, sourceOut: sourceOut)
+            Haptics.commit()
+
+        case let .fadeIn(id):
+            guard case let .fadeIn(_, seconds) = edit else { break }
+            store.setClipFades(id, fadeIn: max(0, seconds), fadeOut: nil, curve: nil)
+            Haptics.commit()
+
+        case let .fadeOut(id):
+            guard case let .fadeOut(_, seconds) = edit else { break }
+            store.setClipFades(id, fadeIn: nil, fadeOut: max(0, seconds), curve: nil)
+            Haptics.commit()
+        }
+    }
+
+    /// A press that never became a drag.
+    ///
+    /// **The name strip is the clip; the body is the audio.** Clicking a clip's
+    /// strip selects the clip. Clicking its body — or empty lane — moves the
+    /// playhead and clears the clip selection, exactly as clicking the waveform
+    /// did before clips existed. That is the whole of the model, and it is why
+    /// one track with one clip behaves identically to the pane it replaced.
+    private func click(_ state: DragState, at point: CGPoint, size: CGSize, plan: Plan) {
+        let time = timeline.clampToSound(timeline.time(atX: point.x, width: size.width))
+
+        if case .scrub = state.kind {
+            store.playhead = time
+            return
+        }
+
+        if isSecondClick(atX: point.x) {
+            store.selection = 0...timeline.duration
+            store.playhead = 0
+            lastClick = nil
+            Haptics.commit()
+            return
+        }
+        lastClick = ClickRecord(at: Date(), x: point.x)
+
+        let hit = EditorTimelineGeometry.hitTest(
+            point, frames: plan.frames, laneCount: plan.laneCount, in: size, viewport: timeline.viewport
+        )
+        if case let .lane(index) = hit, index < plan.trackIDs.count {
+            store.selectedTrackID = plan.trackIDs[index]
+        }
+        if case let .clip(id, part) = hit {
+            if let lane = plan.frames.first(where: { $0.id == id })?.trackIndex,
+               lane < plan.trackIDs.count {
+                store.selectedTrackID = plan.trackIDs[lane]
+            }
+            if part == .move {
+                let additive = NSEvent.modifierFlags.contains(.shift)
+                    || NSEvent.modifierFlags.contains(.command)
+                if additive {
+                    if store.selectedClipIDs.contains(id) {
+                        store.selectedClipIDs.remove(id)
+                    } else {
+                        store.selectedClipIDs.insert(id)
+                    }
+                } else {
+                    store.selectedClipIDs = [id]
+                }
+                return
+            }
+        }
+
+        store.selectedClipIDs = []
+        store.selection = nil
+        store.playhead = time
+    }
+
+    /// The landmarks a dragged edge snaps to: the ends of the project, the
+    /// playhead, and every clip boundary. Nothing else — snapping to a grid the
+    /// user cannot see is how an edge stops landing where they let go, and a
+    /// clip boundary is a line they can see.
+    private func snapLandmarks(excluding anchor: TimeInterval, plan: Plan) -> [Double] {
         var values: [Double] = [0, timeline.duration]
         if abs(store.playhead - anchor) > 0.0001 { values.append(store.playhead) }
+        for frame in plan.frames {
+            values.append(frame.start)
+            values.append(frame.end)
+        }
         return values
     }
 
-    private func snapped(_ time: TimeInterval) -> TimeInterval {
+    private func snapped(_ time: TimeInterval, plan: Plan) -> TimeInterval {
         let tolerance = timeline.secondsPerPoint * Double(EditorWaveformMetrics.snapPoints)
-        for landmark in [0, timeline.duration, store.playhead] where abs(time - landmark) <= tolerance {
-            return landmark
+        var landmarks: [Double] = [0, timeline.duration, store.playhead]
+        // A clip does not snap to itself.
+        let moving = edit?.ids ?? []
+        for frame in plan.frames where !moving.contains(frame.id) {
+            landmarks.append(frame.start)
+            landmarks.append(frame.end)
         }
-        return time
+        var best: (value: Double, distance: Double)?
+        for landmark in landmarks {
+            let distance = abs(time - landmark)
+            guard distance <= tolerance else { continue }
+            if best == nil || distance < best!.distance { best = (landmark, distance) }
+        }
+        return best?.value ?? time
+    }
+
+    /// A move drag's delta, adjusted so that whichever of the dragged clip's
+    /// two edges comes closest to a landmark lands exactly on it.
+    ///
+    /// Both edges are offered, and the nearer wins: dragging a clip up against
+    /// the one before it should butt its head to that clip's tail, and dragging
+    /// it back should butt its tail to the next clip's head. Offering only the
+    /// head makes half the gestures miss.
+    private func snappedDelta(_ delta: TimeInterval, edges: [TimeInterval], plan: Plan) -> TimeInterval {
+        guard !edges.isEmpty else { return delta }
+        var best: (delta: TimeInterval, distance: TimeInterval)?
+        for edge in edges {
+            let target = snapped(edge + delta, plan: plan)
+            let distance = abs(target - (edge + delta))
+            if best == nil || distance < best!.distance { best = (target - edge, distance) }
+        }
+        return best?.delta ?? delta
     }
 
     private func isSecondClick(atX x: CGFloat) -> Bool {
@@ -1102,9 +1263,9 @@ struct EditorWaveformView: View {
             && abs(lastClick.x - x) <= 4
     }
 
-    /// Keeps the window moving when a selection drag runs off the edge. Tied to
-    /// pointer movement rather than a timer on purpose: a timer that scrolls
-    /// while the pointer is parked overshoots every time.
+    /// Keeps the window moving when a drag runs off the edge. Tied to pointer
+    /// movement rather than a timer on purpose: a timer that scrolls while the
+    /// pointer is parked overshoots every time.
     private func autoScroll(pointerX: CGFloat, width: CGFloat) {
         guard !timeline.isFitToWindow else { return }
         if pointerX < 16 {
@@ -1114,35 +1275,101 @@ struct EditorWaveformView: View {
         }
     }
 
-    // MARK: Pointer
+    // MARK: - Pointer
 
-    private func handleHover(_ phase: HoverPhase, width: CGFloat) {
+    private func handleHover(_ phase: HoverPhase, size: CGSize, plan: Plan) {
         switch phase {
         case let .active(location):
-            timeline.pointerFraction = Double(location.x / max(width, 1))
-            let edge = edge(nearX: location.x, width: width)
-            if edge != hoveredEdge {
-                hoveredEdge = edge
-                // `NSCursor.columnResize` is macOS 15; `resizeLeftRight` is the
-                // one that has always been there and reads identically.
-                (edge == nil ? NSCursor.arrow : NSCursor.resizeLeftRight).set()
-            }
+            timeline.pointerFraction = Double(location.x / max(size.width, 1))
+            let edge = selectionEdge(nearX: location.x, width: size.width)
+            if edge != selectionEdgeUnderPointer { selectionEdgeUnderPointer = edge }
+            let hit = edge == nil
+                ? EditorTimelineGeometry.hitTest(
+                    location, frames: plan.frames, laneCount: plan.laneCount,
+                    in: size, viewport: timeline.viewport
+                )
+                : nil
+            if hit != hover { hover = hit }
+            Self.cursor(for: hit, selectionEdge: edge).set()
         case .ended:
-            if hoveredEdge != nil {
-                hoveredEdge = nil
-                NSCursor.arrow.set()
-            }
+            if hover != nil { hover = nil }
+            if selectionEdgeUnderPointer != nil { selectionEdgeUnderPointer = nil }
+            NSCursor.arrow.set()
         }
     }
 
-    private func edge(nearX x: CGFloat, width: CGFloat) -> SelectionEdge? {
+    private static func cursor(for hit: EditorTimelineHit?, selectionEdge: SelectionEdge?) -> NSCursor {
+        if selectionEdge != nil { return .resizeLeftRight }
+        guard case let .clip(_, part) = hit else { return .arrow }
+        switch part {
+        // `NSCursor.columnResize` is macOS 15; `resizeLeftRight` is the one
+        // that has always been there and reads identically.
+        case .trimStart, .trimEnd, .fadeIn, .fadeOut: return .resizeLeftRight
+        case .move: return .openHand
+        case .body: return .arrow
+        }
+    }
+
+    private func selectionEdge(nearX x: CGFloat, width: CGFloat) -> SelectionEdge? {
         guard let selection = store.selection else { return nil }
-        if abs(x - timeline.x(for: selection.lowerBound, width: width)) <= EditorWaveformMetrics.handleGrab { return .lower }
-        if abs(x - timeline.x(for: selection.upperBound, width: width)) <= EditorWaveformMetrics.handleGrab { return .upper }
+        let grab = EditorWaveformMetrics.handleGrab
+        if abs(x - timeline.x(for: selection.lowerBound, width: width)) <= grab { return .lower }
+        if abs(x - timeline.x(for: selection.upperBound, width: width)) <= grab { return .upper }
         return nil
     }
 
-    // MARK: Zoom
+    // MARK: - The clip menu
+    //
+    // Right-click, built against whatever the pointer is over — which is where
+    // the click happened, because the pointer had to be there to click. Split,
+    // copy, paste and delete are here rather than as buttons because the pane
+    // has to stay calm at rest: a toolbar of clip verbs above one track and one
+    // clip is exactly the chrome the simple case must not grow.
+    //
+    // The same four verbs want keyboard shortcuts, which live in
+    // `Editor/Window/EditorCommands.swift` and are not this file's to write.
+    // Reported.
+
+    @ViewBuilder
+    private var clipMenu: some View {
+        if let id = hoveredClipID, let document = store.document, document.clip(id) != nil {
+            let targets = store.selectedClipIDs.contains(id) ? Array(store.selectedClipIDs) : [id]
+            Button("Split at Playhead") {
+                for target in targets { store.splitClip(target, at: store.playhead) }
+            }
+            .disabled(!canSplit(targets))
+
+            Button(targets.count > 1 ? "Copy \(targets.count) Clips" : "Copy") {
+                store.copyClips(targets)
+            }
+            Button("Paste") {
+                store.pasteClips(at: store.playhead, track: store.selectedTrackID)
+            }
+            .disabled(!store.canPasteClips)
+
+            Divider()
+
+            Button(targets.count > 1 ? "Delete \(targets.count) Clips" : "Delete", role: .destructive) {
+                for target in targets { store.removeClip(target) }
+            }
+        } else if store.document != nil {
+            Button("Paste") {
+                store.pasteClips(at: store.playhead, track: store.selectedTrackID)
+            }
+            .disabled(!store.canPasteClips)
+        }
+    }
+
+    private func canSplit(_ ids: [UUID]) -> Bool {
+        guard let document = store.document else { return false }
+        return ids.contains { id in
+            guard let clip = document.clip(id) else { return false }
+            let offset = store.playhead - clip.start
+            return offset > Clip.minimumDuration && offset < clip.duration - Clip.minimumDuration
+        }
+    }
+
+    // MARK: - Zoom
 
     private var magnifyGesture: some Gesture {
         MagnifyGesture(minimumScaleDelta: 0.01)
@@ -1155,13 +1382,13 @@ struct EditorWaveformView: View {
     }
 
     /// A local monitor rather than an `NSViewRepresentable`, following
-    /// `ScrollWheelStepModifier`: a representable inside the waveform would be
+    /// `ScrollWheelStepModifier`: a representable inside the timeline would be
     /// a hole in every captured frame.
     ///
     /// Plain scroll pans and Option- or Command-scroll zooms, which is the
-    /// macOS convention and the opposite of what a web canvas does. `zoomFraction`
-    /// is the value stepped, so a swipe covers the same fraction of the zoom
-    /// range wherever it starts.
+    /// macOS convention and the opposite of what a web canvas does.
+    /// `zoomFraction` is the value stepped, so a swipe covers the same fraction
+    /// of the zoom range wherever it starts.
     private func installScrollMonitor() {
         guard scrollMonitor == nil else { return }
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
@@ -1182,7 +1409,7 @@ struct EditorWaveformView: View {
             } else {
                 guard !timeline.isFitToWindow else { return nil }
                 // Trackpads send the horizontal component; wheels only send the
-                // vertical one, and on a waveform vertical wheel means "along".
+                // vertical one, and on a timeline vertical wheel means "along".
                 let horizontal = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY)
                 let delta = horizontal ? event.scrollingDeltaX : event.scrollingDeltaY
                 var start = timeline.start
@@ -1204,546 +1431,17 @@ struct EditorWaveformView: View {
     private func removeScrollMonitor() {
         if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
         scrollMonitor = nil
-        if hoveredEdge != nil {
-            hoveredEdge = nil
-            NSCursor.arrow.set()
-        }
-    }
-}
-
-// MARK: - Lanes
-
-/// The waveform itself. `Equatable` and used through `.equatable()` so a
-/// playhead moving at sixty hertz does not rebuild two thousand rectangles it
-/// did not change — the chrome above redraws instead, and it is four shapes.
-///
-/// Internal rather than private so `EditorWaveformStylePicker` can draw its
-/// thumbnails with it. A picker that hand-drew four little waveforms would be a
-/// second implementation of every style, and the first thing to go stale.
-struct EditorWaveformLanesCanvas: View, Equatable {
-
-    let lanes: [[EditorWaveformColumn]]
-    let window: ClosedRange<TimeInterval>
-    let selection: ClosedRange<TimeInterval>?
-    let isBypassed: Bool
-    let isDense: Bool
-    let style: EditorWaveformStyle
-    /// Not read directly — the palette is dynamic — but a colour scheme change
-    /// has to invalidate the cached drawing, and equality is what decides that.
-    let scheme: ColorScheme
-
-    // `nonisolated` because SwiftUI's `View` carries `@MainActor` onto this
-    // type, and `Equatable.==` is a nonisolated requirement. Every stored
-    // property here is an immutable `Sendable` value, so reading them off the
-    // main actor is sound.
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.isBypassed == rhs.isBypassed
-            && lhs.isDense == rhs.isDense
-            && lhs.style == rhs.style
-            && lhs.scheme == rhs.scheme
-            && lhs.selection == rhs.selection
-            && lhs.window == rhs.window
-            && lhs.lanes == rhs.lanes
-    }
-
-    var body: some View {
-        Canvas(opaque: false) { context, size in
-            draw(&context, size: size)
-        }
-    }
-
-    private func draw(_ context: inout GraphicsContext, size: CGSize) {
-        guard size.width > 1, size.height > 1 else { return }
-        guard !lanes.isEmpty else {
-            drawZeroLine(&context, rect: CGRect(origin: .zero, size: size))
-            return
-        }
-
-        let count = lanes.count
-        let gap = count > 1 ? EditorWaveformMetrics.laneGap : 0
-        let laneHeight = (size.height - gap * CGFloat(count - 1)) / CGFloat(count)
-        guard laneHeight > 2 else { return }
-
-        for (index, columns) in lanes.enumerated() {
-            let rect = CGRect(
-                x: 0,
-                y: CGFloat(index) * (laneHeight + gap),
-                width: size.width,
-                height: laneHeight
-            )
-            drawLane(&context, rect: rect, columns: columns)
-        }
-    }
-
-    private func drawZeroLine(_ context: inout GraphicsContext, rect: CGRect) {
-        context.fill(
-            Path(CGRect(x: rect.minX, y: rect.midY - 0.5, width: rect.width, height: 1)),
-            with: .color(EditorWaveformPalette.zeroLine)
-        )
-    }
-
-    private func drawLane(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
-        drawZeroLine(&context, rect: rect)
-        guard !columns.isEmpty else { return }
-
-        switch style {
-        case .bars: drawBars(&context, rect: rect, columns: columns)
-        case .pixel: drawPixel(&context, rect: rect, columns: columns)
-        case .filled: drawFilled(&context, rect: rect, columns: columns)
-        case .line: drawLine(&context, rect: rect, columns: columns)
-        }
-    }
-
-    // MARK: The one rule every style obeys
-    //
-    // **The RMS core is only ever drawn when `isDense`.** Below that there are
-    // fewer buckets than columns — either genuinely past sample resolution, or
-    // a detail render that has not landed yet — and one bucket repeated across
-    // forty columns paints as a solid slab of constant level. That slab is the
-    // most confident-looking thing on the screen and it is not a measurement of
-    // anything: it is one number stretched. The peak extent is true at every
-    // scale, because a bucket really does assert that the signal ranged between
-    // those two values over the span it covers, however many columns that span
-    // is drawn across. So the envelope survives the zoom and the core does not.
-    //
-    // `.line` never draws a core at all, which is why it is the only style that
-    // looks the same coarse as it does dense.
-
-    /// Whether the core may be drawn at all, in the one place all four styles
-    /// read it from.
-    private var drawsCore: Bool { isDense }
-
-    // MARK: Filled
-
-    /// What Melo Edit shipped with: the peak envelope as a filled silhouette,
-    /// the RMS core filled inside it, and — when the data is coarser than the
-    /// pixels — a line through the bucket midpoints in place of the core.
-    private func drawFilled(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
-        let geometry = LaneGeometry(rect: rect)
-        let columnWidth = rect.width / CGFloat(columns.count)
-
-        var peakOutside = Path()
-        var peakInside = Path()
-        var bodyOutside = Path()
-        var bodyInside = Path()
-        var linePath = Path()
-        var lineStarted = false
-
-        for (index, column) in columns.enumerated() {
-            let x = rect.minX + CGFloat(index) * columnWidth
-            let selected = isSelected(from: index, to: index + 1, of: columns.count)
-
-            // A hairline for silence: nothing at all reads as missing data
-            // rather than as quiet.
-            let peakRect = CGRect(
-                x: x,
-                y: geometry.y(column.maximum),
-                width: columnWidth,
-                height: max(geometry.y(column.minimum) - geometry.y(column.maximum), 1)
-            )
-            if selected { peakInside.addRect(peakRect) } else { peakOutside.addRect(peakRect) }
-
-            if drawsCore {
-                let rms = geometry.length(column.rms)
-                let bodyRect = CGRect(
-                    x: x,
-                    y: geometry.midY - rms,
-                    width: columnWidth,
-                    height: max(rms * 2, 1)
-                )
-                if selected { bodyInside.addRect(bodyRect) } else { bodyOutside.addRect(bodyRect) }
-            } else {
-                let value = (column.maximum + column.minimum) / 2
-                let point = CGPoint(x: x + columnWidth / 2, y: geometry.y(value))
-                if lineStarted {
-                    linePath.addLine(to: point)
-                } else {
-                    linePath.move(to: point)
-                    lineStarted = true
-                }
-            }
-        }
-
-        context.fill(peakOutside, with: .color(peakColor(selected: false)))
-        context.fill(peakInside, with: .color(peakColor(selected: true)))
-        if lineStarted {
-            context.stroke(linePath, with: .color(bodyColor(selected: false)), lineWidth: 1.25)
-        }
-        context.fill(bodyOutside, with: .color(bodyColor(selected: false)))
-        context.fill(bodyInside, with: .color(bodyColor(selected: true)))
-    }
-
-    // MARK: Bars
-
-    /// Discrete bars on a fixed pitch, each one the peak extent of the audio
-    /// under it, with the RMS core as a second bar inside.
-    ///
-    /// The columns are *not* resampled to the bar pitch upstream. Sampling stays
-    /// at one column per physical pixel and the bars aggregate what lands under
-    /// them, so a transient two pixels wide still raises the bar it falls in
-    /// rather than being missed by a coarser sample grid.
-    private func drawBars(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
-        let geometry = LaneGeometry(rect: rect)
-        let columnWidth = rect.width / CGFloat(columns.count)
-        let pitch = EditorWaveformMetrics.barWidth + EditorWaveformMetrics.barGap
-        let perBar = max(1, Int((pitch / columnWidth).rounded()))
-
-        var peakOutside = Path()
-        var peakInside = Path()
-        var bodyOutside = Path()
-        var bodyInside = Path()
-
-        var start = 0
-        while start < columns.count {
-            let end = min(start + perBar, columns.count)
-            let column = Self.aggregate(columns[start..<end])
-            let selected = isSelected(from: start, to: end, of: columns.count)
-            let x = rect.minX + CGFloat(start) * columnWidth
-            // The gap comes out of the right of every bar, including the last,
-            // so the pitch is constant and the bars do not shuffle by a
-            // half-pixel as the window scrolls.
-            let width = max(CGFloat(end - start) * columnWidth - EditorWaveformMetrics.barGap, 1)
-
-            let top = geometry.y(column.maximum)
-            let bar = CGRect(x: x, y: top, width: width, height: max(geometry.y(column.minimum) - top, 1))
-            if selected { peakInside.addRect(bar) } else { peakOutside.addRect(bar) }
-
-            if drawsCore {
-                let rms = geometry.length(column.rms)
-                let core = CGRect(x: x, y: geometry.midY - rms, width: width, height: max(rms * 2, 1))
-                if selected { bodyInside.addRect(core) } else { bodyOutside.addRect(core) }
-            }
-            start = end
-        }
-
-        context.fill(peakOutside, with: .color(peakColor(selected: false)))
-        context.fill(peakInside, with: .color(peakColor(selected: true)))
-        context.fill(bodyOutside, with: .color(bodyColor(selected: false)))
-        context.fill(bodyInside, with: .color(bodyColor(selected: true)))
-    }
-
-    // MARK: Pixel
-
-    /// Blocks on a square grid, the technique the app icon is drawn in.
-    ///
-    /// The grid is derived from the lane rather than fixed in absolute points:
-    /// a whole number of rows has to fit between the centre line and full scale
-    /// or a peak of 1.0 would stop short of the top by up to one block, and the
-    /// cell is squared off that row height so the blocks are blocks.
-    ///
-    /// Peak blocks and core blocks are drawn in disjoint row ranges rather than
-    /// stacked. Both palette colours carry alpha, and overlapping them would
-    /// make the core a third colour that is in no palette.
-    private func drawPixel(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
-        let geometry = LaneGeometry(rect: rect)
-        let rows = max(2, Int((geometry.half / EditorWaveformMetrics.pixelCell).rounded()))
-        let cell = geometry.half / CGFloat(rows)
-        let gridColumns = max(1, Int((rect.width / cell).rounded()))
-        let cellWidth = rect.width / CGFloat(gridColumns)
-        let inset = min(EditorWaveformMetrics.pixelInset, min(cellWidth, cell) / 4)
-
-        var peakOutside = Path()
-        var peakInside = Path()
-        var bodyOutside = Path()
-        var bodyInside = Path()
-
-        for gridIndex in 0..<gridColumns {
-            let low = columns.count * gridIndex / gridColumns
-            let high = max(low + 1, columns.count * (gridIndex + 1) / gridColumns)
-            guard low < columns.count else { break }
-            let column = Self.aggregate(columns[low..<min(high, columns.count)])
-            let selected = isSelected(from: low, to: min(high, columns.count), of: columns.count)
-            let x = rect.minX + CGFloat(gridIndex) * cellWidth + inset
-            let width = max(cellWidth - inset * 2, 0.5)
-
-            let up = Self.blocks(column.maximum, rows: rows)
-            let down = Self.blocks(-column.minimum, rows: rows)
-            // The core can never poke out of the envelope it is inside.
-            let core = drawsCore ? min(Self.blocks(column.rms, rows: rows), min(up, down)) : 0
-
-            func block(_ row: Int, above: Bool) -> CGRect {
-                let y = above
-                    ? geometry.midY - CGFloat(row + 1) * cell
-                    : geometry.midY + CGFloat(row) * cell
-                return CGRect(x: x, y: y + inset, width: width, height: max(cell - inset * 2, 0.5))
-            }
-
-            for row in core..<up {
-                let blockRect = block(row, above: true)
-                if selected { peakInside.addRect(blockRect) } else { peakOutside.addRect(blockRect) }
-            }
-            for row in core..<down {
-                let blockRect = block(row, above: false)
-                if selected { peakInside.addRect(blockRect) } else { peakOutside.addRect(blockRect) }
-            }
-            for row in 0..<core {
-                let above = block(row, above: true)
-                let below = block(row, above: false)
-                if selected {
-                    bodyInside.addRect(above)
-                    bodyInside.addRect(below)
-                } else {
-                    bodyOutside.addRect(above)
-                    bodyOutside.addRect(below)
-                }
-            }
-        }
-
-        context.fill(peakOutside, with: .color(peakColor(selected: false)))
-        context.fill(peakInside, with: .color(peakColor(selected: true)))
-        context.fill(bodyOutside, with: .color(bodyColor(selected: false)))
-        context.fill(bodyInside, with: .color(bodyColor(selected: true)))
-    }
-
-    /// How many whole blocks a level of `0...1` reaches, floored at one for
-    /// anything audible. Rounding alone would draw quiet audio as nothing at
-    /// all, which on a grid this coarse is indistinguishable from silence.
-    private static func blocks(_ level: Float, rows: Int) -> Int {
-        guard level > 0 else { return 0 }
-        return max(1, min(rows, Int((Double(min(level, 1)) * Double(rows)).rounded())))
-    }
-
-    // MARK: Line
-
-    /// The peak outline, stroked, with nothing inside it.
-    ///
-    /// Two polylines rather than one closed shape, because the top and the
-    /// bottom of a real waveform are not mirror images and drawing one from the
-    /// other would be inventing half the picture.
-    private func drawLine(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
-        let geometry = LaneGeometry(rect: rect)
-        let columnWidth = rect.width / CGFloat(columns.count)
-
-        var top = SplitPolyline()
-        var bottom = SplitPolyline()
-
-        for (index, column) in columns.enumerated() {
-            let x = rect.minX + (CGFloat(index) + 0.5) * columnWidth
-            let selected = isSelected(from: index, to: index + 1, of: columns.count)
-            top.add(CGPoint(x: x, y: geometry.y(column.maximum)), selected: selected)
-            bottom.add(CGPoint(x: x, y: geometry.y(column.minimum)), selected: selected)
-        }
-
-        for polyline in [top, bottom] {
-            context.stroke(polyline.outside, with: .color(bodyColor(selected: false)), lineWidth: 1)
-            context.stroke(polyline.inside, with: .color(bodyColor(selected: true)), lineWidth: 1)
-        }
-    }
-
-    // MARK: Shared
-
-    /// Where the centre line is and how far full scale is from it, so four draw
-    /// routines cannot disagree about it.
-    private struct LaneGeometry {
-        let midY: CGFloat
-        let half: CGFloat
-
-        init(rect: CGRect) {
-            midY = rect.midY
-            half = max(rect.height / 2 - 1, 1)
-        }
-
-        /// The y of a signed sample value, clamped to the lane.
-        func y(_ value: Float) -> CGFloat {
-            midY - CGFloat(min(max(value, -1), 1)) * half
-        }
-
-        /// How far an unsigned level reaches from the centre line.
-        func length(_ value: Float) -> CGFloat {
-            CGFloat(min(max(value, 0), 1)) * half
-        }
-    }
-
-    /// Combines the columns under one bar or one block into the column that bar
-    /// or block draws: the widest excursion either of them saw, and the
-    /// root-mean-square of their squares — not the mean of their roots, which is
-    /// wrong and looks it, because quiet passages inflate.
-    private static func aggregate(_ columns: ArraySlice<EditorWaveformColumn>) -> EditorWaveformColumn {
-        guard !columns.isEmpty else { return .silent }
-        var minimum = Float.greatestFiniteMagnitude
-        var maximum = -Float.greatestFiniteMagnitude
-        var meanSquare = 0.0
-        for column in columns {
-            minimum = min(minimum, column.minimum)
-            maximum = max(maximum, column.maximum)
-            meanSquare += Double(column.rms) * Double(column.rms)
-        }
-        return EditorWaveformColumn(
-            minimum: minimum,
-            maximum: maximum,
-            rms: Float((meanSquare / Double(columns.count)).squareRoot())
-        )
-    }
-
-    /// Whether the midpoint of the columns in `start..<end` falls in the
-    /// selection. The midpoint rather than either edge, so a bar straddling a
-    /// selection boundary belongs to whichever side most of it is on.
-    private func isSelected(from start: Int, to end: Int, of count: Int) -> Bool {
-        guard let selection, count > 0 else { return false }
-        let span = window.upperBound - window.lowerBound
-        let centre = window.lowerBound + span * ((Double(start) + Double(end)) / 2 / Double(count))
-        return selection.contains(centre)
-    }
-
-    /// A polyline that changes colour partway along, kept as two paths.
-    ///
-    /// The point at which the run changes is added to *both* paths. Without
-    /// that the stroke would have a one-column hole at every selection edge,
-    /// which at a 1pt line width reads as a rendering defect rather than as a
-    /// boundary.
-    private struct SplitPolyline {
-        var outside = Path()
-        var inside = Path()
-        private var started = false
-        private var wasSelected = false
-
-        mutating func add(_ point: CGPoint, selected: Bool) {
-            guard started else {
-                if selected { inside.move(to: point) } else { outside.move(to: point) }
-                started = true
-                wasSelected = selected
-                return
-            }
-            if wasSelected { inside.addLine(to: point) } else { outside.addLine(to: point) }
-            if selected != wasSelected {
-                if selected { inside.move(to: point) } else { outside.move(to: point) }
-                wasSelected = selected
-            }
-        }
-    }
-
-    private func peakColor(selected: Bool) -> Color {
-        if isBypassed { return EditorWaveformPalette.peakBypassed }
-        return selected ? EditorWaveformPalette.peakSelected : EditorWaveformPalette.peak
-    }
-
-    private func bodyColor(selected: Bool) -> Color {
-        if isBypassed { return EditorWaveformPalette.bodyBypassed }
-        return selected ? EditorWaveformPalette.bodySelected : EditorWaveformPalette.body
-    }
-}
-
-// MARK: - Chrome
-
-/// Selection, handles, playhead and the cut flags. Everything that moves while
-/// the sound plays, kept out of the lanes canvas so it can redraw cheaply.
-private struct EditorWaveformChrome: View {
-
-    let window: ClosedRange<TimeInterval>
-    let selection: ClosedRange<TimeInterval>?
-    let playhead: TimeInterval
-    let hoveredEdge: EditorWaveformView.SelectionEdge?
-    let draggingEdge: EditorWaveformView.SelectionEdge?
-    let cuts: EditorCutMap.Summary
-    let hasSound: Bool
-
-    var body: some View {
-        Canvas(opaque: false) { context, size in
-            guard hasSound, size.width > 1 else { return }
-            let span = window.upperBound - window.lowerBound
-            guard span > 0 else { return }
-
-            func x(_ time: TimeInterval) -> CGFloat {
-                CGFloat((time - window.lowerBound) / span) * size.width
-            }
-
-            if let selection {
-                drawSelection(&context, size: size, from: x(selection.lowerBound), to: x(selection.upperBound))
-            }
-            drawCutFlags(&context, size: size)
-            drawPlayhead(&context, size: size, at: x(playhead))
-        }
-    }
-
-    private func drawSelection(_ context: inout GraphicsContext, size: CGSize, from lowerX: CGFloat, to upperX: CGFloat) {
-        let clampedLower = max(lowerX, -2)
-        let clampedUpper = min(upperX, size.width + 2)
-        guard clampedUpper > clampedLower else { return }
-
-        context.fill(
-            Path(CGRect(x: clampedLower, y: 0, width: clampedUpper - clampedLower, height: size.height)),
-            with: .color(Color.accentColor.opacity(0.12))
-        )
-        for edgeX in [lowerX, upperX] where edgeX >= -1 && edgeX <= size.width + 1 {
-            context.fill(
-                Path(CGRect(x: edgeX - 0.5, y: 0, width: 1, height: size.height)),
-                with: .color(Color.accentColor.opacity(0.85))
-            )
-        }
-        drawHandle(&context, size: size, at: lowerX, edge: .lower)
-        drawHandle(&context, size: size, at: upperX, edge: .upper)
-    }
-
-    private func drawHandle(_ context: inout GraphicsContext, size: CGSize, at edgeX: CGFloat, edge: EditorWaveformView.SelectionEdge) {
-        guard edgeX >= -EditorWaveformMetrics.handleWidth, edgeX <= size.width + EditorWaveformMetrics.handleWidth else { return }
-        let active = hoveredEdge == edge || draggingEdge == edge
-        let width = EditorWaveformMetrics.handleWidth
-        let height = EditorWaveformMetrics.handleHeight * (active ? 1.15 : 1)
-        let rect = CGRect(
-            x: edgeX - width / 2,
-            y: (size.height - height) / 2,
-            width: width,
-            height: height
-        )
-        context.fill(
-            Path(roundedRect: rect, cornerRadius: width / 2, style: .continuous),
-            with: .color(Color.accentColor.opacity(active ? 1 : 0.85))
-        )
-        // Two grip lines, so the handle reads as something to grab rather than
-        // as a coloured tick.
-        for offset in [-1.25, 1.25] as [CGFloat] {
-            context.fill(
-                Path(CGRect(x: edgeX + offset - 0.5, y: rect.midY - 5, width: 1, height: 10)),
-                with: .color(Color.white.opacity(0.8))
-            )
-        }
-    }
-
-    private func drawPlayhead(_ context: inout GraphicsContext, size: CGSize, at playheadX: CGFloat) {
-        guard playheadX >= -1, playheadX <= size.width + 1 else { return }
-        context.fill(
-            Path(CGRect(x: playheadX - 0.5, y: 0, width: 1, height: size.height)),
-            with: .color(EditorWaveformPalette.playhead)
-        )
-        var cap = Path()
-        cap.move(to: CGPoint(x: playheadX - 5, y: 0))
-        cap.addLine(to: CGPoint(x: playheadX + 5, y: 0))
-        cap.addLine(to: CGPoint(x: playheadX, y: 7))
-        cap.closeSubpath()
-        context.fill(cap, with: .color(EditorWaveformPalette.playhead))
-    }
-
-    /// What the stack took off, drawn at the ends where it was taken. A trim is
-    /// exact and says so; anything the view cannot place exactly is not drawn.
-    private func drawCutFlags(_ context: inout GraphicsContext, size: CGSize) {
-        guard !cuts.isEmpty else { return }
-        let y = EditorWaveformMetrics.rulerHeight + 4
-
-        if let head = cuts.headRemoved {
-            draw(&context, label: "✂ " + EditorFormat.seconds(head), at: CGPoint(x: 4, y: y), anchor: .topLeading)
-        }
-        if let tail = cuts.tailRemoved {
-            draw(&context, label: EditorFormat.seconds(tail) + " ✂", at: CGPoint(x: size.width - 4, y: y), anchor: .topTrailing)
-        }
-        if let shortened = cuts.shortenedBy, cuts.headRemoved == nil, cuts.tailRemoved == nil {
-            draw(&context, label: EditorFormat.seconds(shortened) + " shorter", at: CGPoint(x: 4, y: y), anchor: .topLeading)
-        }
-    }
-
-    private func draw(_ context: inout GraphicsContext, label: String, at point: CGPoint, anchor: UnitPoint) {
-        let text = context.resolve(
-            Text(label)
-                .font(DesignTokens.Typography.Scale.caption2(.semibold).monospacedDigit())
-                .foregroundStyle(EditorWaveformPalette.cutFlag)
-        )
-        context.draw(text, at: point, anchor: anchor)
+        if hover != nil { hover = nil }
+        if selectionEdgeUnderPointer != nil { selectionEdgeUnderPointer = nil }
+        NSCursor.arrow.set()
     }
 }
 
 // MARK: - Scroll bar
 
-/// Where the window sits in the whole sound. Only present when zoomed in: at
-/// fit-to-window it would be a full-width bar saying nothing.
+/// Where the window sits in the whole project. Only drawn when zoomed in: at
+/// fit-to-window it would be a full-width bar saying nothing. **Its ten points
+/// are reserved either way** — see `EditorWaveformMetrics.scrollBarHeight`.
 private struct EditorWaveformScrollBar: View {
 
     @ObservedObject var timeline: EditorTimeline
@@ -1778,36 +1476,50 @@ private struct EditorWaveformScrollBar: View {
 #if MELO_DEV
 extension EditorWaveformView {
     /// Seeds the state the store does not hold, so the harness can render a
-    /// zoomed view and a grabbed handle. `EditorStore.setForSnapshot`
-    /// covers the document and the waveform, and a scene sets `selection` and
-    /// `playhead` on the store directly — those are published properties, not
-    /// this view's `@State`.
+    /// zoomed view, a grabbed handle, a hovered clip and a drag in progress.
+    ///
+    /// `EditorStore.setForSnapshot` covers the document and the mix waveform,
+    /// `EditorClipWaveforms.setForSnapshot` covers per-source pictures for a
+    /// multitrack scene, and a scene sets `selection`, `playhead`,
+    /// `selectedClipIDs` and `selectedTrackID` on the store directly — those are
+    /// published properties, not this view's `@State`.
     ///
     /// Declared in an extension, and behind `#if MELO_DEV`, so the real
-    /// `init(store:)` is the only one a release build has at all. Inside the
-    /// harness both are reachable, which is the point — `SnapshotScenes` uses
-    /// each.
+    /// `init(store:)` is the only one a release build has at all.
     ///
     /// - Parameters:
-    ///   - zoom: 0 fits the whole sound, 1 is sample-adjacent. Logarithmic.
-    ///   - windowStart: Left edge in seconds, applied after `zoom`.
-    ///   - hoveredEdge: Draws a selection handle in its grabbed state, which is
-    ///     otherwise reachable only by putting a pointer on it.
+    ///   - zoom: 0 fits the whole project, 1 is sample-adjacent. Logarithmic.
+    ///   - windowStart: Left edge in seconds, applied after `zoom`. Left `nil`,
+    ///     the window centres itself on whatever else was seeded.
+    ///   - hoveredEdge: Draws a time-selection handle in its grabbed state.
     ///   - style: Overrides the stored preference for this view only. A scene
     ///     that wrote the preference instead would change what every later
     ///     scene rendered, and the harness renders them in one process.
+    ///   - hoveredClip: Draws a clip in its hovered state — which is the only
+    ///     state that shows the name strip's wash, and therefore the only frame
+    ///     in which the move handle is visible at all.
+    ///   - edit: A drag in progress, drawn exactly as the pointer would have it
+    ///     mid-gesture. The harness cannot produce a gesture, so this is the
+    ///     only way a mid-drag frame exists.
     init(
         store: EditorStore,
         zoom: Double? = nil,
         windowStart: TimeInterval? = nil,
         hoveredEdge: SelectionEdge? = nil,
-        style: EditorWaveformStyle? = nil
+        style: EditorWaveformStyle? = nil,
+        hoveredClip: Clip.ID? = nil,
+        hoveredPart: EditorClipPart = .move,
+        edit: EditorTimelineClipEdit? = nil
     ) {
         _store = ObservedObject(wrappedValue: store)
         seededZoom = zoom
         seededWindowStart = windowStart
         seededHoveredEdge = hoveredEdge
         seededStyle = style
+        seededHover = hoveredClip.map { .clip(id: $0, part: hoveredPart) }
+        seededEdit = edit
+        _edit = State(initialValue: edit)
+        _hover = State(initialValue: hoveredClip.map { .clip(id: $0, part: hoveredPart) })
     }
 }
 #endif

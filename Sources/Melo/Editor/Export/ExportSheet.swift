@@ -2,10 +2,12 @@
 //
 // Choosing a format and where it goes.
 //
-// Six formats macOS writes natively, and two — MP3 and Opus — that need an
-// `ffmpeg` most people do not have. Those two are in the list with an honest
-// state rather than hidden, because a user who cannot find MP3 concludes Melo
-// cannot do it.
+// Six formats macOS writes natively, and two — MP3 and Opus — written by the
+// `ffmpeg` Melo ships in `Contents/Helpers`. All eight are plainly available.
+//
+// The missing-tool state below is not dead code: `build-app.sh` warns rather
+// than fails when `Vendor/ffmpeg/ffmpeg` is absent, so a build that cannot
+// write MP3 can exist, and it should say so rather than fail at Export.
 
 import AppKit
 import SwiftUI
@@ -54,8 +56,8 @@ struct ExportSheet: View {
     }
 
     #if MELO_DEV
-    /// Snapshot seam: starts the sheet on a chosen format, so the frame that
-    /// has to show the missing-`ffmpeg` state can be rendered without a click.
+    /// Snapshot seam: starts the sheet on a chosen format, so a frame that has
+    /// to show one format's options or caveat can be rendered without a click.
     init(store: EditorStore, isPresented: Binding<Bool>, format: AudioFormatKind) {
         self.init(store: store, isPresented: isPresented, initialFormat: format)
     }
@@ -76,7 +78,11 @@ private struct ExportSheetContent: View {
     @State private var bitRateKbps: Int?
     @State private var channels: ChannelMode
     @State private var fileName: String
-    @State private var toolLocations: [ExternalTool: URL] = [:]
+    /// Seeded with what Melo ships, so the first frame already knows MP3 and
+    /// Opus work. An empty start meant the two tiles rendered "Needs ffmpeg"
+    /// and Export rendered disabled until the `.task` below had run — a flash
+    /// of a state that is false on every normal build.
+    @State private var toolLocations: [ExternalTool: URL] = ExternalToolLocator.bundledLocations()
     @State private var didLocateTools = false
 
     /// Remembered between exports, because "the same folder as last time" is
@@ -151,12 +157,18 @@ private struct ExportSheetContent: View {
             didLocateTools = true
             locateTools()
         }
-        // Someone reads "brew install ffmpeg", switches to Terminal, runs it,
-        // and comes back. Coming back is the event. `ExternalToolLocator`
-        // deliberately does not cache a miss for exactly this flow, so a
-        // one-shot lookup at sheet-open would be the only thing left making
-        // MP3 look impossible on a Mac that can now do it.
+        // Someone switches to Terminal, installs a tool, and comes back.
+        // Coming back is the event, and `ExternalToolLocator` deliberately does
+        // not cache a miss for exactly this flow.
+        //
+        // The guard is what bundling changed. ffmpeg lives inside the app and
+        // cannot appear or vanish while Melo is running, so re-walking the
+        // filesystem for it on every activation is work with no possible new
+        // answer. Once every tool is located there is nothing left to look for;
+        // in practice that leaves yt-dlp, which is the only one this can still
+        // newly find.
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            guard toolLocations.count < ExternalTool.allCases.count else { return }
             locateTools()
         }
         .onChange(of: format) { _, new in
@@ -238,14 +250,24 @@ private struct ExportSheetContent: View {
     }
 
     /// The one sentence a user needs before they press Export: what is missing
-    /// and the command that fixes it, or the thing this format does to the
-    /// sound that the others do not.
+    /// and how to fix it, or the thing this format does to the sound that the
+    /// others do not.
+    ///
+    /// On a normal build the first branch never fires — MP3 and Opus are
+    /// written by the ffmpeg inside the app. It survives for the build made
+    /// without `Vendor/ffmpeg/ffmpeg`, where it is the only warning the user
+    /// gets before pressing a button that cannot work.
     private var formatNote: FormatNoteContent? {
         if let tool = format.requiresExternalTool, toolLocations[tool] == nil {
             return FormatNoteContent(
                 symbol: "wrench.and.screwdriver",
-                message: "\(format.displayName) needs \(tool.executableName), and this Mac doesn't have it.",
-                command: tool.installHint
+                // The command box below already says how to get a tool the user
+                // installs. A tool Melo ships has no command to show, so its
+                // recovery has to be in the sentence or it is nowhere.
+                message: tool.installCommand == nil
+                    ? "\(tool.missingDescription) \(tool.missingRecovery)"
+                    : tool.missingDescription,
+                command: tool.installCommand
             )
         }
         if let caveat = format.exportFacts.caveat {
@@ -576,7 +598,11 @@ private struct PresetChip: View {
                         .lineLimit(1)
                 }
 
-                Text(isAvailable ? preset.summary : "Needs \(preset.format.requiresExternalTool?.executableName ?? "a tool")")
+                // Not "Needs ffmpeg". Melo ships ffmpeg, so the only way this
+                // line shows for MP3 or Opus is a copy of Melo that is missing
+                // a piece of itself — and pointing the user at a dependency
+                // they never had to have would send them somewhere useless.
+                Text(isAvailable ? preset.summary : "Unavailable")
                     .font(DesignTokens.Typography.Scale.caption2())
                     .foregroundStyle(DesignTokens.Colors.textSecondary)
                     .lineLimit(1)
@@ -624,8 +650,11 @@ private struct FormatTile: View {
 
                     Spacer(minLength: DesignTokens.Spacing.xs)
 
-                    if !isAvailable, let tool = kind.requiresExternalTool {
-                        Text("Needs \(tool.executableName)")
+                    // Same reasoning as PresetChip: the badge names the state,
+                    // not a tool the user is supposed to go and fetch. The
+                    // format note under the grid says what actually happened.
+                    if !isAvailable, kind.requiresExternalTool != nil {
+                        Text("Unavailable")
                             .font(DesignTokens.Typography.Scale.caption2(.medium))
                             .foregroundStyle(DesignTokens.Colors.textSecondary)
                             .padding(.horizontal, DesignTokens.Spacing.xs2)

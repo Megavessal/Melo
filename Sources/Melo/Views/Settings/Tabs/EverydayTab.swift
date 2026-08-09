@@ -183,8 +183,10 @@ struct EverydayTab: View {
         }
         // Read once when the tab appears rather than observed: a Settings tab
         // has no reason to hold a recents list, and the folder does not change
-        // while someone is looking at this page.
-        .onAppear { hasKeptSources = EditorRecents.keptSourcesExist }
+        // while someone is looking at this page. `task` rather than `onAppear`
+        // because the read enumerates a directory, and this used to do it on
+        // the thread that draws the tab.
+        .task { hasKeptSources = await EditorRecents.keptSourcesExist() }
         .settingsSectionAnchor("Melo Edit", target: sectionTarget)
     }
 

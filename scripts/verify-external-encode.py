@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Guards MP3 and Opus export, which goes out through an `ffmpeg` nobody here has.
+"""Guards MP3 and Opus export, which goes out through a child `ffmpeg`.
 
-`ffmpeg` is not installed on the build machine and will not be. So the only way
-to prove argument construction, progress parsing, error reporting and
-cancellation is to substitute the binary and keep everything else real: this
+Melo ships its own `ffmpeg` at `Contents/Helpers/ffmpeg`, but it only exists
+inside a *built* app — there is nothing to run from a source tree, and pinning
+these behaviours to a real encode would make this script depend on a build. So
+the only way to prove argument construction, progress parsing, error reporting
+and cancellation is to substitute the binary and keep everything else real: this
 file writes small shell scripts that speak ffmpeg's command line and emit
 ffmpeg's `-progress` format, then drives `AudioFileIO.encode` through the
 **real** `SystemToolProcessRunner` with the **real** `Process`, the real pipes
@@ -17,7 +19,7 @@ compares the argv a spawned process **actually received** against what that
 function returns, which is the only version that fails when the two stop being
 connected.
 
-Five things are pinned, in descending order of what they would cost if wrong.
+Six things are pinned, in descending order of what they would cost if wrong.
 
 1. **Cancellation intent is checked before the exit code.** A tool killed by a
    signal can still report exit 0 — `bash` with `trap 'exit 0' TERM` does
@@ -37,6 +39,11 @@ Five things are pinned, in descending order of what they would cost if wrong.
 5. **The staged intermediate is real, and it is gone afterwards.** The stand-in
    measures the WAV it was handed, so an empty file fails; and no
    `MeloEncode-*` directory may survive any path, including the throwing ones.
+6. **ffmpeg resolves to the bundled copy and yt-dlp does not.** Melo ships an
+   ffmpeg in `Contents/Helpers` and will never ship a yt-dlp. Both tools are
+   given two candidates — one beside the executable, one on `PATH` — so
+   "prefers the bundle" has something to beat; with no losing candidate the
+   assertion would hold for a locator that ignored the bundle entirely.
 
 Standalone `python3`, no arguments. Exits non-zero and prints every failure.
 """
@@ -408,9 +415,22 @@ do {
 } catch let failure as AudioFileIO.Failure {
     check("MP3 without ffmpeg names the tool it needs",
           failure == .toolMissing(.ffmpeg), "\(failure)")
-    check("and says how to get it",
-          failure.recoverySuggestion == "brew install ffmpeg",
+    // Melo ships ffmpeg in Contents/Helpers, so this failure means the app is
+    // missing a piece of itself. `brew install ffmpeg` was the honest sentence
+    // when Melo shipped nothing; now it would send a user to fix Melo's problem
+    // with a dependency they never had to have.
+    check("a missing ffmpeg reads as a broken Melo, not a missing dependency",
+          failure.errorDescription == "Melo's own ffmpeg is missing from the app.",
+          failure.errorDescription ?? "nil")
+    check("and the recovery is a reinstall, not an install command",
+          failure.recoverySuggestion == "Reinstalling Melo puts it back.",
           failure.recoverySuggestion ?? "nil")
+    check("ffmpeg offers no install command at all",
+          ExternalTool.ffmpeg.installCommand == nil,
+          ExternalTool.ffmpeg.installCommand ?? "nil")
+    check("yt-dlp, which Melo does not ship, still offers one",
+          ExternalTool.ytdlp.installCommand == "brew install yt-dlp",
+          ExternalTool.ytdlp.installCommand ?? "nil")
 } catch {
     check("MP3 without ffmpeg throws AudioFileIO.Failure", false, "\(error)")
 }
@@ -430,6 +450,58 @@ do {
 } catch {
     check("WAV still writes with no external tool anywhere", false, "\(error)")
 }
+
+// ---------------------------------------------------------------------------
+// G2. Where each tool is found, which is not the same question for the two.
+//
+// The harness lays four runnable stand-ins on disk before this binary starts:
+// `Contents/Helpers/ffmpeg` and `Contents/Helpers/yt-dlp` beside the executable
+// (which is what `Bundle.main.bundleURL` resolves to for a plain Mach-O), and a
+// second `ffmpeg` and `yt-dlp` in a directory prepended to `PATH`. So both
+// tools have two candidates and the two must resolve differently:
+//
+//   ffmpeg  -> the bundled one, over a user's own copy on PATH.
+//   yt-dlp  -> the PATH one. Melo does not ship yt-dlp and a bundle-shaped file
+//              named yt-dlp must not be picked up.
+//
+// Written this way because "prefers the bundle" is unfalsifiable without a
+// losing candidate: with nothing on PATH, a locator that ignored the bundle
+// entirely and a locator that preferred it are indistinguishable.
+// ---------------------------------------------------------------------------
+
+func resolved(_ url: URL) -> String { url.resolvingSymlinksInPath().path }
+
+let bundleRoot = Bundle.main.bundleURL
+check("the bundle-root assumption this section rests on still holds",
+      resolved(bundleRoot) == resolved(work),
+      "Bundle.main.bundleURL is \(bundleRoot.path), expected \(work.path) - "
+        + "the four stand-ins were laid out relative to the work directory, so "
+        + "these checks would pass vacuously")
+
+let helperFFmpeg = work.appendingPathComponent("Contents/Helpers/ffmpeg")
+let helperYtdlp = work.appendingPathComponent("Contents/Helpers/yt-dlp")
+let pathFFmpeg = work.appendingPathComponent("decoy-bin/ffmpeg")
+let pathYtdlp = work.appendingPathComponent("decoy-bin/yt-dlp")
+
+check("all four candidates are really on disk, or nothing below means anything",
+      [helperFFmpeg, helperYtdlp, pathFFmpeg, pathYtdlp]
+        .allSatisfy { FileManager.default.isExecutableFile(atPath: $0.path) })
+
+let locatedFFmpeg = ExternalToolLocator.locate(.ffmpeg)
+check("ffmpeg comes from Contents/Helpers, not from PATH",
+      locatedFFmpeg.map(resolved) == resolved(helperFFmpeg),
+      locatedFFmpeg?.path ?? "nil")
+
+let locatedYtdlp = ExternalToolLocator.locate(.ytdlp)
+check("yt-dlp still comes off the machine, exactly as before",
+      locatedYtdlp.map(resolved) == resolved(pathYtdlp),
+      locatedYtdlp?.path ?? "nil")
+check("a file named yt-dlp inside the app is never used - Melo does not ship one",
+      ExternalToolLocator.bundled(.ytdlp) == nil,
+      ExternalToolLocator.bundled(.ytdlp)?.path ?? "nil")
+check("bundledLocations reports ffmpeg and nothing else",
+      Array(ExternalToolLocator.bundledLocations().keys) == [.ffmpeg],
+      "\(ExternalToolLocator.bundledLocations().keys)")
 
 // ---------------------------------------------------------------------------
 // H. Nothing was left behind, on any path — including the two that threw.
@@ -471,6 +543,22 @@ def run_swift_checks() -> None:
             path.write_text(body)
             path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
+        # The locator fixtures. `Bundle.main.bundleURL` for a plain Mach-O is
+        # the directory holding it, so `work/Contents/Helpers` is what the app
+        # bundle's helper directory looks like from inside these checks. The
+        # decoy directory is prepended — never substituted — for PATH, because
+        # the stand-in shell scripts above need /bin and /usr/bin to keep
+        # working.
+        for directory, names in (
+            (work / "Contents/Helpers", ("ffmpeg", "yt-dlp")),
+            (work / "decoy-bin", ("ffmpeg", "yt-dlp")),
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
+            for name in names:
+                candidate = directory / name
+                candidate.write_text("#!/bin/bash\nexit 0\n")
+                candidate.chmod(candidate.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
         (work / "main.swift").write_text(MAIN_SWIFT)
         binary = work / "checks"
         compiled = subprocess.run(
@@ -487,8 +575,14 @@ def run_swift_checks() -> None:
             )
             return
 
+        environment = dict(os.environ)
+        environment["PATH"] = f"{work / 'decoy-bin'}:{environment.get('PATH', '')}"
         result = subprocess.run(
-            [str(binary), str(work)], capture_output=True, text=True, timeout=300
+            [str(binary), str(work)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            env=environment,
         )
         reported = [
             line[len("FAIL "):] for line in result.stdout.splitlines() if line.startswith("FAIL ")

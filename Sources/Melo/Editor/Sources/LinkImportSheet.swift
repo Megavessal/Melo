@@ -285,7 +285,7 @@ struct LinkImportSheet: View {
 
     private var installCommandRow: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
-            Text(ExternalTool.ytdlp.installHint)
+            Text(ExternalTool.ytdlp.installCommand ?? "")
                 .font(DesignTokens.Typography.Scale.body())
                 .textSelection(.enabled)
                 .foregroundStyle(DesignTokens.Colors.textPrimary)
@@ -549,8 +549,9 @@ final class LinkImportModel: ObservableObject {
     // MARK: Copy
 
     func copyInstallCommand() {
+        guard let command = ExternalTool.ytdlp.installCommand else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ExternalTool.ytdlp.installHint, forType: .string)
+        NSPasteboard.general.setString(command, forType: .string)
         didCopyInstallCommand = true
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.6))

@@ -137,8 +137,9 @@ extension AudioFormatKind {
         }
     }
 
-    /// Display order for the picker: the six macOS can write, then the two
-    /// that need a tool most people do not have.
+    /// Display order for the picker: the six macOS can write, then the two the
+    /// bundled ffmpeg writes. All eight are available on any normal build; the
+    /// order is about which encoder does the work, not about what the user has.
     static var exportOrder: [AudioFormatKind] {
         [.wav, .aiff, .caf, .m4aAAC, .m4aALAC, .flac, .mp3, .opus]
     }

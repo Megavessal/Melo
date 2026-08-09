@@ -1095,9 +1095,18 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             "editor",
             category: .editor,
             title: "Melo Edit",
-            summary: "Melo’s audio editor. One sound, one waveform, and a stack of moves you can reorder, switch off, or throw away.",
-            details: "It opens as a window of its own and gives Melo a Dock icon while it is up. Your original file is never written to — everything you do is held as the stack until you export.",
-            keywords: ["audio editor", "edit audio", "edit a sound", "open the editor", "editing", "editor", "cut audio", "how do i edit a file", "cutting room", "audio editing"],
+            // "One sound, one waveform" was here and became false when the
+            // editor went multitrack. It was a *constraint* described in an
+            // indexed, searchable sentence — the inverse of this project's
+            // recorded worst pattern, and just as misleading: a reader looking
+            // for layering would have been told the app cannot do it.
+            summary: "Melo’s audio editor. Open a sound, or layer several on their own tracks, and shape each one with moves you can reorder, switch off, or throw away.",
+            details: "It opens as a window of its own and gives Melo a Dock icon while it is up. One sound gets one track and looks it; add another and the tracks appear. Your original files are never written to — everything you do is held until you export.",
+            // "layer", "second track" and "multitrack" are new vocabulary the
+            // app introduced today. "one sound" stays: it is still what most
+            // people arrive wanting, and it is now the thing this entry has to
+            // reassure them is still simple.
+            keywords: ["audio editor", "edit audio", "edit a sound", "open the editor", "editing", "editor", "cut audio", "how do i edit a file", "cutting room", "audio editing", "multitrack", "multiple tracks", "layer audio", "add a second track", "one sound"],
             // The one entry in this section that takes the *Settings* route
             // rather than the third one, because it is the only one about the
             // window rather than about something inside it, and Everyday holds
@@ -1118,8 +1127,11 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // recovery suggestion for `.tooLong` reads "Trim it down first, or
             // open a shorter piece of it", which is advice. An indexed sentence
             // promising an offer is a search result that ends in a button hunt.
-            details: "Anything your Mac can already play will open. A file longer than two hours is refused rather than quietly filling memory, and Melo says so instead of grinding.",
-            keywords: ["open a file", "import audio", "which formats can i open", "what files does it accept", "drag a file in", "edit an mp3", "edit a wav", "load a song", "flac"],
+            details: "Anything your Mac can already play will open. Open a second one while the first is up and it arrives as a new track rather than replacing it — Close This Sound is how you start over. A file longer than two hours is refused rather than quietly filling memory, and Melo says so instead of grinding.",
+            // "open a file" stays even though the menu now says Add: people
+            // will keep typing what they have always typed, and the answer
+            // they get is the one that explains the change.
+            keywords: ["open a file", "add a file", "add a track", "import audio", "which formats can i open", "what files does it accept", "drag a file in", "edit an mp3", "edit a wav", "load a song", "flac", "open a second file"],
             location: "Melo Edit › the opening screen",
             opensEditor: true
         ),
@@ -1311,12 +1323,17 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // Not "Why MP3 …". Measured: a title carrying "MP3" put this entry
             // 980 to 560 above "Export from Melo Edit" for the bare
             // query "mp3", which answers "how do I make one" with "here is why
-            // you cannot". The word is still an alias, so the greyed-out case
-            // is one phrase away.
-            title: "When a Format or a Link Is Unavailable",
-            summary: "MP3 and Opus are written by ffmpeg, and links are read by yt-dlp. Melo looks for both on your Mac rather than bundling them, and names the one that is missing.",
-            details: "Homebrew is the usual way to get them: brew install ffmpeg, brew install yt-dlp. Everything else in Melo Edit works without either.",
-            keywords: ["ffmpeg", "yt-dlp", "mp3 is greyed out", "mp3 is grayed out", "cannot export mp3", "install ffmpeg", "missing tool", "the link did nothing", "opus"],
+            // you cannot". The word is still an alias, so someone who arrived
+            // expecting MP3 to be blocked is one phrase from being told it is
+            // not.
+            title: "When a Link Is Unavailable",
+            // MP3 and Opus stopped being a limitation the day Melo started
+            // shipping its own ffmpeg. This entry keeps their aliases because
+            // "mp3 is greyed out" is still what a worried user types — and the
+            // answer they now get is that it isn't.
+            summary: "MP3 and Opus are written by an ffmpeg that ships inside Melo, so both always work. Links are read by yt-dlp, which you install yourself, and Melo names it when it isn't there.",
+            details: "Homebrew is the usual way to get yt-dlp: brew install yt-dlp. Everything else in Melo Edit works without it.",
+            keywords: ["ffmpeg", "yt-dlp", "install yt-dlp", "mp3 is greyed out", "mp3 is grayed out", "cannot export mp3", "missing tool", "the link did nothing", "opus"],
             location: "Melo Edit › Export",
             opensEditor: true
         )

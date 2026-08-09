@@ -38,6 +38,34 @@ enum MeloReleaseNotes {
     /// entry ships with no items — so a release cannot go out silent.
     static let all: [MeloReleaseNote] = [
         MeloReleaseNote(
+            id: "3.1.2",
+            version: "3.1.2",
+            build: 312,
+            headline: "MP3 and Opus just work now",
+            items: [
+                MeloReleaseNote.Item(
+                    id: "3.1.2-bundled-ffmpeg",
+                    title: "Melo brings its own encoder",
+                    // Says what changed for the reader, not how. "ffmpeg" is
+                    // named because 3.1.0 and 3.1.1 both told people to go and
+                    // install it, so the word is the link between the old
+                    // instruction and it no longer applying.
+                    detail: "MP3 and Opus needed an ffmpeg you installed yourself. Melo now ships one — 1.7 MB, audio only — so both formats export straight away.",
+                    target: nil
+                ),
+                MeloReleaseNote.Item(
+                    id: "3.1.2-links-unchanged",
+                    title: "Links still need yt-dlp",
+                    // Kept because the note above invites the reasonable
+                    // assumption that the other tool came too. Saying why is
+                    // cheaper than the support question, and the reason is real
+                    // rather than an excuse.
+                    detail: "That one keeps up with sites that change every week, so a copy frozen into Melo would be broken by the time you updated. Melo finds yours and says so when there isn't one.",
+                    target: nil
+                )
+            ]
+        ),
+        MeloReleaseNote(
             id: "3.1.1",
             version: "3.1.1",
             build: 311,

@@ -76,7 +76,7 @@ enum AudioFileIO {
             case let .encodeFailed(reason):
                 "Melo couldn't finish writing the file. \(reason)"
             case let .toolMissing(tool):
-                "That format needs \(tool.executableName), which isn't on this Mac."
+                tool.missingDescription
             }
         }
 
@@ -91,7 +91,7 @@ enum AudioFileIO {
             case .encodeFailed:
                 nil
             case let .toolMissing(tool):
-                tool.installHint
+                tool.missingRecovery
             }
         }
     }
@@ -373,12 +373,15 @@ enum AudioFileIO {
     /// Writes the block to `settings.destinationURL`.
     ///
     /// Native formats go through `AVAudioFile(forWriting:settings:)`. MP3 and
-    /// Opus have no encoder on macOS, so they go through `ffmpeg` when the user
-    /// has one, and throw `Failure.toolMissing` only when they genuinely do not.
+    /// Opus have no encoder on macOS, so they go through the `ffmpeg` Melo
+    /// ships in `Contents/Helpers`. `Failure.toolMissing` is still thrown when
+    /// `locate` comes back empty — `build-app.sh` warns rather than fails when
+    /// `Vendor/ffmpeg/ffmpeg` is absent, so a build without the binary exists —
+    /// but it now describes a broken install rather than a missing dependency.
     ///
     /// `runner` and `locate` are injected the way `LinkExtractor` injects them,
-    /// so the external path can be driven end to end by a scripted stand-in on
-    /// a machine with no `ffmpeg` — which is every machine this was built on.
+    /// so the external path can be driven end to end by a scripted stand-in
+    /// from a source tree, where the bundled binary does not exist yet.
     ///
     /// Async because the external path awaits a child process. The native path
     /// does no awaiting and behaves exactly as it did.

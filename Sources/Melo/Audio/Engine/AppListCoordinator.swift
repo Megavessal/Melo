@@ -16,12 +16,28 @@ final class AppListCoordinator {
     // MARK: - Pinning
 
     func pinApp(_ app: AudioApp) {
-        let info = PinnedAppInfo(
-            persistenceIdentifier: app.persistenceIdentifier,
+        pinApp(
+            identifier: app.persistenceIdentifier,
             displayName: app.name,
             bundleID: app.bundleID
         )
-        settingsManager.pinApp(app.persistenceIdentifier, info: info)
+    }
+
+    /// Pin an app there is no live `AudioApp` for — one found by name in
+    /// `InstalledAppCatalog`, before it has ever played a sound.
+    ///
+    /// The same write as `pinApp(_:)`, which now funnels through here: one
+    /// place builds a `PinnedAppInfo`, so an app pinned from the catalogue and
+    /// the same app pinned from its row cannot end up under different keys.
+    /// Widening the existing path rather than adding a second one, because two
+    /// writers of one setting is how the row and the saved value drift apart.
+    func pinApp(identifier: String, displayName: String, bundleID: String?) {
+        let info = PinnedAppInfo(
+            persistenceIdentifier: identifier,
+            displayName: displayName,
+            bundleID: bundleID
+        )
+        settingsManager.pinApp(identifier, info: info)
     }
 
     func unpinApp(_ identifier: String) {

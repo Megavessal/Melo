@@ -16,6 +16,14 @@ import Foundation
 import os
 
 struct EditorSession: Codable, Equatable, Sendable {
+    /// **The 3.1.x key, and it stays.** In 3.2 this is the *master* list, which
+    /// is exactly what the old flat list meant: moves applied to the whole
+    /// sound. Two reasons it is still written rather than folded into `tracks`.
+    /// One, downgrade is a path people take — every release from 2.9.0 on is
+    /// still attached to the releases page — and a 3.1.x build reading a
+    /// sidecar with no `moves` key fails the decode and silently discards the
+    /// stack. Two, it is what a 3.1.x sidecar carries, so `restore(into:)` has
+    /// one field to read on both sides of the migration.
     var moves: [Move]
     /// The destination's id, not the destination. Resolved through
     /// `DestinationCatalogue.all` on load, so a session restored next month
@@ -37,6 +45,23 @@ struct EditorSession: Codable, Equatable, Sendable {
     /// mode this project spends the most effort avoiding. Rejected 2026-08-09:
     /// removing it as a write-only member. One unread `Date` is the whole cost.
     var savedAt: Date
+
+    // MARK: 3.2 — the timeline
+    //
+    // **Both optional, and that is the entire migration mechanism.** A 3.1.x
+    // sidecar has neither key, decodes cleanly with both `nil`, and
+    // `restore(into:)` reads that as "one track, one clip, moves on the
+    // master". Adding either as non-optional would fail the decode of every
+    // sidecar written by every previous build, so the first open after the
+    // update would erase every move stack on the machine — the schema trap
+    // `load(for:)` already carries a comment about, sprung from the other end.
+
+    /// The whole source pool, because a clip refers to a source by id and a
+    /// restored track means nothing without the file it points at. The primary
+    /// file's entry is re-probed on load; the rest are taken as saved.
+    var sources: [EditorSource]?
+    /// The lanes, their clips, and their per-track and per-clip moves.
+    var tracks: [Track]?
 
     /// Cheap evidence that the file on disk is still the file we measured.
     /// Size and modification date, not a content hash: hashing a 400 MB WAV on
@@ -134,6 +159,53 @@ extension EditorSession {
         return session
     }
 
+    // MARK: - Restore, across the 3.1 → 3.2 line
+
+    /// Puts a saved session back onto a document that has just been opened.
+    ///
+    /// `document` arrives in the default shape — one source, one track, one
+    /// clip covering the whole of it — and that shape is also the answer for
+    /// every sidecar written before tracks existed. So the migration is not a
+    /// conversion step with its own failure modes: it is the branch that leaves
+    /// the default alone and puts `moves` on the master, which is what those
+    /// moves always meant.
+    ///
+    /// **Nobody sees a notice**, and nobody loses a stack. Anything about the
+    /// saved timeline that does not fit the file actually on disk falls back to
+    /// that same branch rather than dropping the moves.
+    func restore(into document: inout EditorDocument) {
+        document.analysis = analysis
+        document.destination = destinationID.flatMap { identifier in
+            DestinationCatalogue.all.first { $0.id == identifier }
+        }
+        document.master = moves
+
+        // 3.1.x, or a 3.2 sidecar saved with nothing on the timeline: the
+        // default document is already right.
+        guard let savedTracks = tracks, !savedTracks.isEmpty,
+              let savedSources = sources, !savedSources.isEmpty else { return }
+
+        // The freshly probed source is authoritative about the file — it was
+        // just read, and `openSource` has already stamped the caller's origin
+        // and display name onto it. The saved entry is authoritative about its
+        // **id**, which is what every restored clip points at. Take both.
+        let probed = document.source
+        guard let index = savedSources.firstIndex(where: { $0.url == probed.url }) else {
+            // The saved timeline does not mention the file we opened, so it
+            // does not describe this document. Keep the moves, drop the layout.
+            Self.logger.info("Melo Edit session had a timeline for a different file; kept the moves")
+            return
+        }
+
+        var pool = savedSources
+        var primary = probed
+        primary.id = savedSources[index].id
+        pool[index] = primary
+
+        document.sources = pool
+        document.tracks = savedTracks
+    }
+
     // MARK: - Save
 
     /// Writes the sidecar for `document`. Silent on failure by design: a
@@ -144,11 +216,13 @@ extension EditorSession {
         guard let fingerprint = Fingerprint.of(url) else { return }
 
         let session = EditorSession(
-            moves: document.moves,
+            moves: document.master,
             destinationID: document.destination?.id,
             analysis: document.analysis,
             fingerprint: fingerprint,
-            savedAt: Date()
+            savedAt: Date(),
+            sources: document.sources,
+            tracks: document.tracks
         )
 
         do {
