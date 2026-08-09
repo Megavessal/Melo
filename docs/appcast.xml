@@ -3,6 +3,22 @@
     <channel>
         <title>Melo</title>
         <item>
+            <title>3.0.0</title>
+            <pubDate>Sat, 08 Aug 2026 23:35:00 -0400</pubDate>
+            <link>https://github.com/megavessal/Melo</link>
+            <sparkle:version>300</sparkle:version>
+            <sparkle:shortVersionString>3.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo-macOS-3.0.0.zip" length="6026629" type="application/octet-stream" sparkle:edSignature="soPGXXq1EvEh4j7K10nys3BjB+eY4Px3ixR+JeGp/Z3RBMgpUmIX+G0MRwwvCkpKn87lDuEm50R2Q+zYHovAAg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo300-299.delta" sparkle:deltaFrom="299" length="2010766" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="vmEaFUdlzKSqNr9GWFhPqf74RVq/84UV7uDZCDLj1UDBrw+SKsNhCEA4sgaShnFxVB8dQKPDL8Icn8i8s0CtAg=="/>
+                <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo300-298.delta" sparkle:deltaFrom="298" length="2910346" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="zGssZA8/NTGycEcwy+ODLpAzurATTdA9h7qwJ8BrmKLsrVDHscEr+CGL5V4HWt+1jKakMi5k6R0YZ+2ahYFFAw=="/>
+                <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo300-297.delta" sparkle:deltaFrom="297" length="3016722" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="MOgmXyvKlJnbhMNgiftH61syfhrT1FgMeJxwtaJTaR8633huz0D3MZTSM2kUXYRAk5kRuADH4aiwzJleHAZmAQ=="/>
+                <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo300-294.delta" sparkle:deltaFrom="294" length="3015562" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="/i5Le4eaEuPNd0/NrNDmel4cFt/jeVJkiUdPSTGfv7nQOspR3R/oD4Y9ZM5EFsMoQkVQXTRUR6RuL9cU6AD3Cg=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>2.9.4</title>
             <pubDate>Sat, 08 Aug 2026 20:16:29 -0400</pubDate>
             <link>https://github.com/megavessal/Melo</link>
@@ -10,7 +26,7 @@
             <sparkle:shortVersionString>2.9.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.4/Melo-macOS-2.9.4.zip" length="4904451" type="application/octet-stream" sparkle:edSignature="oeTpOGpNpBao/hbB8K9v+hlmQjkOQUSlv4UsmhxI54cCkN5trwMuY5Vqf2QnjjLIPEX6s6oAMWA7lBhbJB7NDg=="/>
+            <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo-macOS-2.9.4.zip" length="4904451" type="application/octet-stream" sparkle:edSignature="oeTpOGpNpBao/hbB8K9v+hlmQjkOQUSlv4UsmhxI54cCkN5trwMuY5Vqf2QnjjLIPEX6s6oAMWA7lBhbJB7NDg=="/>
             <sparkle:deltas>
                 <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.4/Melo299-298.delta" sparkle:deltaFrom="298" length="1451498" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="6/0sjmITPApyEH8QEotx1rKzqbcyqlIHPDA5eJH0iyJwT94HHMtvLs59K292TMdN74gDIvLGY4gQIxQXm91bAw=="/>
                 <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.4/Melo299-297.delta" sparkle:deltaFrom="297" length="1563454" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="yQGjDB3XukSlK/HyW2pa7KHViSJuj7KL7gZeTl8qEPfJXu0745DKHjh6w6VGSyNcd/uByQYecR62ROAXELshAg=="/>
@@ -25,7 +41,7 @@
             <sparkle:shortVersionString>2.9.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.4/Melo-macOS-2.9.3.zip" length="4499242" type="application/octet-stream" sparkle:edSignature="o0tIPy68sZuE72+hDigunYvPcmMar7STUgid4Hrk8ic61ivqZyxiMFPIpHeBM1n8mcAUSDJuAv9KqmcuU7PXBg=="/>
+            <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo-macOS-2.9.3.zip" length="4499242" type="application/octet-stream" sparkle:edSignature="o0tIPy68sZuE72+hDigunYvPcmMar7STUgid4Hrk8ic61ivqZyxiMFPIpHeBM1n8mcAUSDJuAv9KqmcuU7PXBg=="/>
             <sparkle:deltas>
                 <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.3/Melo298-297.delta" sparkle:deltaFrom="297" length="670034" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="RMuUogndiVViRoyvNaMCU9rl8M2dJY/8diV6FmSgib6uzsM5ZaCnjYXcu7lxbG3sx7SuIEHrymrSKekQU1ZdBg=="/>
                 <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.3/Melo298-294.delta" sparkle:deltaFrom="294" length="692718" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="Kr9AEMIg63F5pIgQe9bzDnBRDJ22Vv+vWJvk+JL2P1sL2JkcGqJw/LIYFqauuomhmKZD26JrZSBaPZiiXEdgAQ=="/>
@@ -39,7 +55,7 @@
             <sparkle:shortVersionString>2.9.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.4/Melo-macOS-2.9.2.zip" length="4360550" type="application/octet-stream" sparkle:edSignature="dTw41uxJkmqBMfF3TE75J/+cdid9JkSxBwe6qK+NVgy294qpMtGN4iv7/nABE6F9TIKYnurQuVQ5Yt3uYQ1cDw=="/>
+            <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo-macOS-2.9.2.zip" length="4360550" type="application/octet-stream" sparkle:edSignature="dTw41uxJkmqBMfF3TE75J/+cdid9JkSxBwe6qK+NVgy294qpMtGN4iv7/nABE6F9TIKYnurQuVQ5Yt3uYQ1cDw=="/>
             <sparkle:deltas>
                 <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.2/Melo297-294.delta" sparkle:deltaFrom="294" length="421838" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="451728" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="WNBA8z8viU+UfHpE+xRrSFW640SZHscXpf7/wkFoI/J6myWSi/GZiuPnfXUXsBpZfdP3JbK5F1ASP6D08hPIAQ=="/>
             </sparkle:deltas>
@@ -52,7 +68,7 @@
             <sparkle:shortVersionString>2.9.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/megavessal/Melo/releases/download/v2.9.4/Melo-macOS-2.9.0.zip" length="9702839" type="application/octet-stream" sparkle:edSignature="lq8G7eiuCa/5PRbTGYfA1lBOTabp2prZ0/hgBNimF5pTf2BEnJr8xxaYR+xlFKDuwdobSHNkAPGrMd0BY7seBQ=="/>
+            <enclosure url="https://github.com/megavessal/Melo/releases/download/v3.0.0/Melo-macOS-2.9.0.zip" length="9702839" type="application/octet-stream" sparkle:edSignature="lq8G7eiuCa/5PRbTGYfA1lBOTabp2prZ0/hgBNimF5pTf2BEnJr8xxaYR+xlFKDuwdobSHNkAPGrMd0BY7seBQ=="/>
         </item>
     </channel>
 </rss>
