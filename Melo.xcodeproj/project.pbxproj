@@ -294,6 +294,7 @@
 		AFBC6B66BFBF4095A2171D2C /* EditorWaveformPainter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F08A945BEF44DBABB00B38D /* EditorWaveformPainter.swift */; };
 		59E361C2D0AD4517A2758184 /* DropdownWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */; };
 		69E38F3B0704461ABC4B09BD /* InstalledAppCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */; };
+		C4AAE089EF8D4242A3FBFD3A /* SingleInstanceGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664502F222D64AC8A3B2098D /* SingleInstanceGuard.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -586,6 +587,7 @@
 		3F08A945BEF44DBABB00B38D /* EditorWaveformPainter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformPainter.swift; sourceTree = SOURCE_ROOT; };
 		D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DropdownWidth.swift; sourceTree = SOURCE_ROOT; };
 		E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/InstalledAppCatalog.swift; sourceTree = SOURCE_ROOT; };
+		664502F222D64AC8A3B2098D /* SingleInstanceGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/SingleInstanceGuard.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -748,6 +750,7 @@
 			E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */,
 			7DE7F06B980C7D37F64538B5 /* TransportType.swift */,
 			BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */,
+			664502F222D64AC8A3B2098D /* SingleInstanceGuard.swift */,
 			BE566B26122749F8874F5E67 /* DockPresence.swift */,
 			3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */,
 			EBC30BBD341C272738383CFC /* CallDuckingManager.swift */,
@@ -949,6 +952,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			C4AAE089EF8D4242A3FBFD3A /* SingleInstanceGuard.swift in Sources */,
 			69E38F3B0704461ABC4B09BD /* InstalledAppCatalog.swift in Sources */,
 			59E361C2D0AD4517A2758184 /* DropdownWidth.swift in Sources */,
 			AFBC6B66BFBF4095A2171D2C /* EditorWaveformPainter.swift in Sources */,

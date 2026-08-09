@@ -200,6 +200,15 @@ struct MeloApp: App {
         // running copy; anything above this line would run during that check.
         UpdateStartupConfirmation.handlePreflightAndExitIfNeeded()
 
+        // Second, and before anything is constructed. A second Melo hands the
+        // user over to the copy already running and exits from inside this call;
+        // everything below would otherwise be a second audio engine, a second
+        // set of process taps and a second menu bar item, built only to be
+        // thrown away. Exempt for the render harness and for `--melo-preflight`
+        // — see the type comment, which explains why that exemption is not the
+        // hole it looks like.
+        SingleInstanceGuard.claimOrHandOff()
+
         // Before the first line that reads UserDefaults. Melo's bundle identifier
         // changed from its pre-2.9.4 placeholder, and macOS keys the defaults
         // store by identifier and nothing else — so on the first launch after the rename
@@ -283,6 +292,15 @@ struct MeloApp: App {
         }
         let statusService = MediaKeyStatus()
         let popupService = PopupVisibilityService()
+        // The other half of the single-instance guard: from here on this process
+        // can answer a later launch and put itself on screen for it. Registered
+        // as soon as both halves of the answer exist rather than at the end of
+        // init, because the window in which a launch would go unanswered is the
+        // window in which two Melos survive.
+        SingleInstanceGuard.beginListening(
+            popupController: popupController,
+            popupVisibility: popupService
+        )
         let hud = HUDWindowController(settingsManager: settings, mediaKeyStatus: statusService, popupVisibility: popupService)
         let feedbackPlayer = VolumeFeedbackPlayer()
 
