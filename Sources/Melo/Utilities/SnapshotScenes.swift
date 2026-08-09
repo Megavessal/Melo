@@ -1356,13 +1356,19 @@ enum SnapshotScenes {
 
         scenes.append(themeBackdropScene(
             "theme-space-rocket", .space, .dark, at: 5.4,
-            note: "Rockets belong here. Two should be in flight. This frame and "
+            note: "Rockets belong here. Exactly one is on screen, and that is "
+                + "correct: two lanes are mid-flight at t=5.4, but the second "
+                + "sits at x=-52, already past the left edge. The earlier note "
+                + "here said 'two should be in flight', which is true of the "
+                + "model and false of the frame — it reads as a half-failure and "
+                + "invites a fix to something that works. This frame and "
                 + "theme-galaxy-rocket are the controls for the gate: if they are "
                 + "empty, an empty theme-mac-egg proves nothing."
         ))
         scenes.append(themeBackdropScene(
             "theme-galaxy-rocket", .galaxy, .dark, at: 5.4,
-            note: "Rockets belong here too. Two should be in flight."
+            note: "Rockets belong here too. One on screen, for the same reason "
+                + "as theme-space-rocket — same forced time, same lane phases."
         ))
         // Light on purpose: `.systemAccent` and `.custom` are the two themes that
         // do not force dark appearance, and the claim about these two visitors is

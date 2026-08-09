@@ -249,10 +249,17 @@ private struct AnimatedStarField: View {
 // MARK: - Rocket
 
 /// Small pixel-art rockets. Three lanes fly independently, each on its own
-/// cycle length and phase, so the sky is usually empty or holds one rocket and
-/// occasionally holds three. The lane periods are deliberately not multiples of
-/// one another — equal periods would make all three cross together every time,
-/// which reads as a formation rather than as traffic.
+/// cycle length and phase.
+///
+/// Computed from the timings below, the sky is empty 33% of the time, holds one
+/// rocket 44%, two 20%, and three 2.9%. The numbers are stated rather than
+/// described because the previous rests (8.2 / 17.3 / 25.1) left the sky
+/// occupied 82% of the time under a comment claiming it was usually empty —
+/// three independent lanes combine far less intuitively than they read.
+/// Only the rests were lengthened; flight durations set crossing speed and are
+/// unchanged. The lane periods are deliberately not multiples of one another —
+/// equal periods would make all three cross together every time, which reads as
+/// a formation rather than as traffic.
 private struct RocketFlight: View {
     var isVisible: Bool = true
 
@@ -265,9 +272,9 @@ private struct RocketFlight: View {
 
     /// flight, rest, phase offset — per lane, in seconds.
     private static let laneTiming: [(flight: Double, rest: Double, offset: Double)] = [
-        (10.8, 8.2, 0.0),
-        (12.7, 17.3, 6.4),
-        (9.4, 25.1, 13.9)
+        (10.8, 24.2, 0.0),
+        (12.7, 28.4, 6.4),
+        (9.4, 21.0, 13.9)
     ]
 
     /// 15% smaller than the previous 54×26 / 50×24 pair.
@@ -499,6 +506,22 @@ private struct EggCycle {
     }
 }
 
+/// Rolls a visitor's cycle once, for the Reduce Motion path.
+///
+/// Reduce Motion asks for the animation to go, not the content. Drawing the rest
+/// pose unconditionally — which is what the static branches used to do — pinned
+/// a permanent ornament on screen for motion-sensitive users, where everyone
+/// else meets the visitor on roughly 8–10% of popup opens. Rolling the same
+/// cycle once per open restores that rate with nothing ever moving.
+///
+/// Read once and held in `@State` rather than computed in `body`, because a
+/// SwiftUI re-evaluation that straddled a cycle boundary would pop the visitor
+/// in or out mid-session — motion, arriving by the back door, on the one path
+/// that exists to avoid it.
+private func meloEggRestingPresence(_ cycle: EggCycle) -> Bool {
+    cycle.appearance(at: meloEggTime(Date())) != nil
+}
+
 /// The integer hash the star field and rocket already use, as a free function
 /// so the eggs below vary per appearance without a fourth copy of it.
 private func meloEggUnit(index: Int, salt: Int) -> Double {
@@ -565,6 +588,10 @@ private struct DeskMacPeek: View {
 
     private var isStatic: Bool { reduceMotion || !isVisible }
 
+    /// Whether this open is one of the ~8% that meets the visitor. See
+    /// `meloEggRestingPresence`.
+    @State private var restingVisitor = false
+
     private static let cycle = EggCycle(period: 78, duration: 6.2, offset: 4)
     /// A 12×12 grid at 2.5pt — a third of the rocket's footprint.
     private static let glyphSize = CGSize(width: 30, height: 30)
@@ -572,8 +599,10 @@ private struct DeskMacPeek: View {
     var body: some View {
         GeometryReader { geometry in
             if isStatic {
-                machine(geometry: geometry, rise: 1, screen: 1, flash: 0)
-                    .opacity(0.50)
+                if restingVisitor {
+                    machine(geometry: geometry, rise: 1, screen: 1, flash: 0)
+                        .opacity(0.50)
+                }
             } else {
                 TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: isStatic)) { timeline in
                     if let appearance = Self.cycle.appearance(at: meloEggTime(timeline.date)) {
@@ -595,6 +624,10 @@ private struct DeskMacPeek: View {
                     }
                 }
             }
+        }
+        .onAppear { restingVisitor = meloEggRestingPresence(Self.cycle) }
+        .onChange(of: isVisible) { _, nowVisible in
+            if nowVisible { restingVisitor = meloEggRestingPresence(Self.cycle) }
         }
     }
 
@@ -678,6 +711,10 @@ private struct CabinWindowLight: View {
 
     private var isStatic: Bool { reduceMotion || !isVisible }
 
+    /// Whether this open is one of the ~10% that meets the visitor. See
+    /// `meloEggRestingPresence`.
+    @State private var restingVisitor = false
+
     private static let cycle = EggCycle(period: 74, duration: 7.4, offset: 21)
 
     /// Points that sit below `NightMountainSilhouette`'s far ridge and above its
@@ -692,7 +729,9 @@ private struct CabinWindowLight: View {
     var body: some View {
         GeometryReader { geometry in
             if isStatic {
-                lamp(geometry: geometry, spot: Self.spots[0], level: 0.55)
+                if restingVisitor {
+                    lamp(geometry: geometry, spot: Self.spots[0], level: 0.55)
+                }
             } else {
                 TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: isStatic)) { timeline in
                     let now = meloEggTime(timeline.date)
@@ -709,6 +748,10 @@ private struct CabinWindowLight: View {
                     }
                 }
             }
+        }
+        .onAppear { restingVisitor = meloEggRestingPresence(Self.cycle) }
+        .onChange(of: isVisible) { _, nowVisible in
+            if nowVisible { restingVisitor = meloEggRestingPresence(Self.cycle) }
         }
     }
 
@@ -763,6 +806,10 @@ private struct PaintBrushStroke: View {
 
     private var isStatic: Bool { reduceMotion || !isVisible }
 
+    /// Whether this open is one of the ~8% that meets the visitor. See
+    /// `meloEggRestingPresence`.
+    @State private var restingVisitor = false
+
     private static let cycle = EggCycle(period: 68, duration: 5.6, offset: 47)
     private static let glyphSize = CGSize(width: 28, height: 16)
 
@@ -772,10 +819,12 @@ private struct PaintBrushStroke: View {
             let startX = geometry.size.width * 0.08
 
             if isStatic {
-                let endX = startX + geometry.size.width * 0.28
-                ZStack {
-                    stroke(from: startX, to: endX, y: y, opacity: 0.42, size: geometry.size)
-                    brush(at: endX, y: y, lift: 0, opacity: 0.45)
+                if restingVisitor {
+                    let endX = startX + geometry.size.width * 0.28
+                    ZStack {
+                        stroke(from: startX, to: endX, y: y, opacity: 0.42, size: geometry.size)
+                        brush(at: endX, y: y, lift: 0, opacity: 0.45)
+                    }
                 }
             } else {
                 TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: isStatic)) { timeline in
@@ -797,6 +846,10 @@ private struct PaintBrushStroke: View {
                     }
                 }
             }
+        }
+        .onAppear { restingVisitor = meloEggRestingPresence(Self.cycle) }
+        .onChange(of: isVisible) { _, nowVisible in
+            if nowVisible { restingVisitor = meloEggRestingPresence(Self.cycle) }
         }
     }
 
