@@ -110,3 +110,73 @@ wasted one.
 must describe what is *visible*, not what the model is doing. This is the same
 class as `stop-the-slop`'s process-files-are-in-scope rule
 (`SKILL.md:42`), one level more specific.
+
+---
+
+## 2026-08-09 — a critic that built nothing found what eleven builders and eighteen scripts missed
+
+The Cutting Room run. `setAnalysis` had zero callers, so `document.analysis` was
+nil for the life of every document and "Fix it for me" was permanently disabled
+in any shipping build. Eleven builders, ~45 executed DSP assertions, and every
+verify script were green. A fresh adversarial critic with no stake found it in
+an hour, and the same critic found `revertToOriginal()` documented twice in the
+indexed Guide with no caller, and two of four entry points dying after the first
+file opened.
+
+**Cost:** none, because it was caught. It would have been the whole feature.
+
+**How to apply:** `gauntlet-loop` says a fresh-context critic beats an agent
+checking itself, and it is right, but the sharper point is *which* critic. The
+per-piece critics this run never ran — there was nothing rendered to judge until
+very late. What paid was the two whole-artifact critics spawned at the end, one
+adversarial and one for coherence. If a run can only afford two critics, those
+two beat six per-piece ones.
+
+## 2026-08-09 — every frame showing the feature working came from dev-only seeding
+
+Directly downstream of the above, and worse. The harness seeds state with
+`#if MELO_DEV` initialisers so a frame can show a populated view. That means a
+rendered frame proves the *view* draws state correctly and says nothing about
+whether the app can ever produce that state. I looked at a frame captioned
+"the file measured, the full proposal on the stack — the state the feature
+exists to produce", called the analysis panel the best thing in the feature, and
+it could never appear.
+
+**Cost:** two hours of confidence in the wrong thing.
+
+**How to apply:** seeded frames and wiring checks answer different questions and
+neither substitutes for the other. `verify-editor-wiring.py` — open a real file
+through the real store, assert a measurement lands — is the shape that closes
+it. A caller-existence grep is not: it passes the moment a symbol is named
+anywhere, including from dead code.
+
+## 2026-08-09 — three checks in one run were blind to the configuration that ships
+
+`swiftc -parse` was green for hours on a missing `import SwiftUI`. `-typecheck`
+is blind to Swift 6 isolation errors inside a `deinit`. And `-typecheck` without
+`-D MELO_DEV` never parses the harness fixtures at all — which is where a
+waveform fixture sat producing plausible-looking wrong output.
+
+**Cost:** roughly an hour across three separate discoveries, each found by the
+next tool up rather than the one before it.
+
+**How to apply:** not "use a stronger tool" — a check has to run in the
+configuration the code ships in. Now in `CLAUDE.md`.
+
+## 2026-08-09 — the lead cited an instrument reading that was not evidence
+
+I told a builder its window clipped, citing the harness's own `CLIPPED?` warning
+on the provenance band. The overflow was real; the citation was worthless. The
+builder replicated `featurelessRows` and showed Melo's *own* Settings frames
+score 11 and 15 distinct colours on the last row against the Cutting Room's 6 —
+any window using `meloThemeBackground` paints a gradient to every edge, so that
+warning can never be cleared and never distinguishes anything.
+
+**Cost:** near zero, because the builder checked instead of complying.
+
+**How to apply:** `agent-briefs.md`'s "ask rather than correct" earned its place
+three times this run — on the window class, on this, and on a crash where all
+three of my hypotheses were refuted with evidence. The form that works is
+naming the doubt, saying explicitly that you are not supplying the answer, and
+closing with *go look*. Worth noting the failure mode it prevents is the lead's,
+not the builder's.
