@@ -39,13 +39,13 @@ final class DockPresence {
     enum Reason: Hashable {
         case firstRunSetup
         case guidedTour
-        /// The Cutting Room. Unlike the other two this is not a flow that ends on
+        /// Melo Edit. Unlike the other two this is not a flow that ends on
         /// its own — the window stays open for as long as someone is working, and
         /// the whole time it is the task. It is also the only claim a user can
         /// hold while switching to another app on purpose, to drag a file in or
         /// copy a link, which is exactly the case a menu-bar-only route serves
         /// worst.
-        case cuttingRoom
+        case editor
     }
 
     private var claims: Set<Reason> = []

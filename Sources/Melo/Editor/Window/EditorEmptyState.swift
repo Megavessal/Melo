@@ -11,14 +11,14 @@ import SwiftUI
 ///
 /// Knows nothing about how any of it works: five closures and a list.
 @MainActor
-struct CuttingRoomEmptyState: View {
+struct EditorEmptyState: View {
     let onOpenFile: () -> Void
     let onPasteLink: () -> Void
     let onRecord: () -> Void
     let onRemixTheme: () -> Void
-    let onOpenRecent: (CuttingRoomRecent) -> Void
+    let onOpenRecent: (EditorRecent) -> Void
 
-    @ObservedObject private var recents: CuttingRoomRecents
+    @ObservedObject private var recents: EditorRecents
 
     /// `onOpenRecent` and `recents` are defaulted so existing four-closure call
     /// sites still compile unchanged.
@@ -27,8 +27,8 @@ struct CuttingRoomEmptyState: View {
         onPasteLink: @escaping () -> Void,
         onRecord: @escaping () -> Void,
         onRemixTheme: @escaping () -> Void,
-        onOpenRecent: @escaping (CuttingRoomRecent) -> Void = { _ in },
-        recents: CuttingRoomRecents = .shared
+        onOpenRecent: @escaping (EditorRecent) -> Void = { _ in },
+        recents: EditorRecents = .shared
     ) {
         self.onOpenFile = onOpenFile
         self.onPasteLink = onPasteLink
@@ -62,7 +62,7 @@ struct CuttingRoomEmptyState: View {
 
     private var content: some View {
         VStack(spacing: DesignTokens.Spacing.xl) {
-            CuttingRoomMark(size: 68)
+            EditorMark(size: 68)
                 .meloElevation(DesignTokens.Elevation.card)
 
             VStack(spacing: DesignTokens.Spacing.xs2) {
@@ -183,7 +183,7 @@ struct CuttingRoomEmptyState: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func detail(for recent: CuttingRoomRecent) -> String {
+    private func detail(for recent: EditorRecent) -> String {
         "\(recent.formatDescription) · \(EditorFormat.timecode(recent.duration))"
     }
 

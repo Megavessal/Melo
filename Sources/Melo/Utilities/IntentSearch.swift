@@ -54,7 +54,7 @@ nonisolated enum IntentSearch {
         ["battery", "power", "energy", "unplugged"],
         ["theme", "appearance", "look", "color", "colour"],
         ["menu bar", "status bar", "top bar"],
-        // The Cutting Room brought a whole vocabulary — trim, fade, export,
+        // Melo Edit brought a whole vocabulary — trim, fade, export,
         // loudness, record, download — and exactly one word of it earns a
         // group; the rest are aliases on the topic that owns them. Five
         // candidate groups were measured and four dropped — see CLAUDE.md,

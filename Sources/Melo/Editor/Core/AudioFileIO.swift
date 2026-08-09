@@ -1,6 +1,6 @@
 // Melo/Editor/Core/AudioFileIO.swift
 //
-// Decode, probe, encode. The whole of audio file I/O for the Cutting Room —
+// Decode, probe, encode. The whole of audio file I/O for Melo Edit —
 // nothing in Melo read or wrote an audio file before this except the onboarding
 // theme, so there is nothing here to reuse and nothing here to duplicate.
 //
@@ -72,7 +72,7 @@ enum AudioFileIO {
             case let .noAudioTrack(url):
                 "\(url.lastPathComponent) has no audio in it."
             case let .tooLong(duration):
-                "That file is \(EditorFormat.timecode(duration)) long, and the Cutting Room works up to two hours."
+                "That file is \(EditorFormat.timecode(duration)) long, and Melo Edit works up to two hours."
             case let .encodeFailed(reason):
                 "Melo couldn't finish writing the file. \(reason)"
             case let .toolMissing(tool):

@@ -118,7 +118,7 @@ extension ChannelMode {
 
 // MARK: - Formatting
 
-/// The Cutting Room's number and time formatting, in one place so a dB in the
+/// Melo Edit's number and time formatting, in one place so a dB in the
 /// stack, a dB in the inspector and a dB in a progress line are the same
 /// string. Everything here is pure and synchronous.
 enum EditorFormat {

@@ -14,7 +14,7 @@ import SwiftUI
 @MainActor
 struct EditorTransportBar: View {
 
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
     @ObservedObject private var timeline = EditorTimeline.shared
     @ObservedObject private var playback = EditorPlayback.shared
 
@@ -28,7 +28,7 @@ struct EditorTransportBar: View {
     private var forcedBypass: Bool?
     private var forcedPreparing: Bool?
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
     }
 
@@ -111,7 +111,7 @@ struct EditorTransportBar: View {
                 help: isPreparing ? "Getting it ready" : (isPlaying ? "Pause" : "Play from the playhead"),
                 isEnabled: hasSound && !isPreparing
             ) {
-                // Through the store, which is what `CuttingRoomCommands` calls
+                // Through the store, which is what `EditorCommands` calls
                 // for the Space key. One route, so the button cannot work while
                 // the shortcut is severed.
                 store.togglePlayback()
@@ -348,11 +348,11 @@ private struct TransportButton: View {
 extension EditorTransportBar {
     /// Seeds the states that only exist behind an audio device.
     ///
-    /// `CuttingRoomStore.setForSnapshot` gives the bar a document, a duration
+    /// `EditorStore.setForSnapshot` gives the bar a document, a duration
     /// and a selection; nothing gives it a running `AVAudioEngine`, so playing,
     /// looping, bypassed and preparing are reachable only from here.
     init(
-        store: CuttingRoomStore,
+        store: EditorStore,
         playing: Bool? = nil,
         looping: Bool? = nil,
         bypassed: Bool? = nil,

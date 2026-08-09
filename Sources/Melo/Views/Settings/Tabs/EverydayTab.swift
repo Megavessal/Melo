@@ -21,15 +21,20 @@ struct EverydayTab: View {
     @State private var compareA: UUID?
     @State private var compareB: UUID?
     /// Whether Melo is holding any recordings or link audio. Read on appear —
-    /// see `cuttingRoomSection`.
+    /// see `editorSection`.
     @State private var hasKeptSources = false
+    /// The same key `EditorWaveformView` reads. Melo Edit keeps its own
+    /// defaults rather than fields on `AppSettings` — `ExportSheet` does the
+    /// same with its two — so the picker and the drawing meet in `UserDefaults`
+    /// rather than in a `SettingsManager` the editor window does not hold.
+    @AppStorage(EditorWaveformStyle.storageKey) private var waveformStyle = EditorWaveformStyle.fallback
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 intro
                 scenesSection
-                cuttingRoomSection
+                editorSection
                 compareSection
                 automationsSection
                 focusAndShortcutsSection
@@ -129,25 +134,31 @@ struct EverydayTab: View {
         .settingsSectionAnchor("Scenes", target: sectionTarget)
     }
 
-    /// In Everyday rather than Sound: this tab is the things you *do*, and the
-    /// Cutting Room is a tool rather than a preference. The anchor string has
+    /// In Everyday rather than Sound: this tab is the things you *do*, and
+    /// Melo Edit is a tool rather than a preference. The anchor string has
     /// to match what the Guide registers as its location, or a search result
     /// opens the tab and highlights nothing.
-    private var cuttingRoomSection: some View {
-        SettingsSection("Cutting Room") {
+    private var editorSection: some View {
+        SettingsSection("Melo Edit") {
             SettingsRow(
                 "Edit a sound",
                 description: "Trim it, clean it up, and save it in another format. "
                     + "Melo can also pull audio off a link or record what this Mac is playing."
             ) {
                 Button("Open") {
-                    CuttingRoomWindowController.shared.show()
+                    EditorWindowController.shared.show()
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
             }
 
-            // A recording is the one thing the Cutting Room holds that exists
+            SettingsRowDivider()
+
+            SettingsRow("Waveform", description: "How the sound is drawn.") {
+                EditorWaveformStylePicker(selection: $waveformStyle)
+            }
+
+            // A recording is the one thing Melo Edit holds that exists
             // nowhere else, and the empty state — which also offers this — is
             // only on screen when no sound is open. Someone hunting for audio
             // they made is not reliably there; Settings always is.
@@ -163,7 +174,7 @@ struct EverydayTab: View {
                     description: "Melo keeps these files for you. Nothing here is deleted automatically."
                 ) {
                     Button("Show in Finder") {
-                        CuttingRoomRecents.shared.revealKeptSources()
+                        EditorRecents.shared.revealKeptSources()
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -173,8 +184,8 @@ struct EverydayTab: View {
         // Read once when the tab appears rather than observed: a Settings tab
         // has no reason to hold a recents list, and the folder does not change
         // while someone is looking at this page.
-        .onAppear { hasKeptSources = CuttingRoomRecents.keptSourcesExist }
-        .settingsSectionAnchor("Cutting Room", target: sectionTarget)
+        .onAppear { hasKeptSources = EditorRecents.keptSourcesExist }
+        .settingsSectionAnchor("Melo Edit", target: sectionTarget)
     }
 
     private func sceneCard(_ scene: ConsumerScene) -> some View {

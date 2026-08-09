@@ -74,7 +74,7 @@ struct SystemRecordSeed {
 /// here and impossible in every other audio editor on the Mac.
 @MainActor
 struct SystemRecordSheet: View {
-    @ObservedObject var store: CuttingRoomStore
+    @ObservedObject var store: EditorStore
     @Binding var isPresented: Bool
 
     @StateObject private var recorder: SystemAudioRecorder
@@ -85,16 +85,16 @@ struct SystemRecordSheet: View {
     /// Non-nil replaces the live engine's app list and switches every action off.
     private let seed: SystemRecordSeed?
 
-    init(store: CuttingRoomStore, isPresented: Binding<Bool>) {
+    init(store: EditorStore, isPresented: Binding<Bool>) {
         self.init(store: store, isPresented: isPresented, seed: nil)
     }
 
     /// Renders one fixed state: no tap, no permission call, no process list.
-    init(store: CuttingRoomStore, isPresented: Binding<Bool>, seed: SystemRecordSeed) {
+    init(store: EditorStore, isPresented: Binding<Bool>, seed: SystemRecordSeed) {
         self.init(store: store, isPresented: isPresented, seed: .some(seed))
     }
 
-    private init(store: CuttingRoomStore, isPresented: Binding<Bool>, seed: SystemRecordSeed?) {
+    private init(store: EditorStore, isPresented: Binding<Bool>, seed: SystemRecordSeed?) {
         self.store = store
         self._isPresented = isPresented
         self.seed = seed

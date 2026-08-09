@@ -1,6 +1,5 @@
 // Melo/Editor/Sources/ToolProcessRunner.swift
 import Foundation
-import os
 
 // MARK: - Output
 
@@ -73,8 +72,6 @@ protocol ToolProcessRunning: Sendable {
 // MARK: - The real one
 
 struct SystemToolProcessRunner: ToolProcessRunning {
-    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "ToolProcess")
-
     init() {}
 
     func run(

@@ -510,7 +510,7 @@ struct MenuBarPopupView: View {
 
             Spacer(minLength: 4)
             commandPaletteButton
-            cuttingRoomButton
+            editorButton
             editPriorityButton
             settingsButton
         }
@@ -559,12 +559,12 @@ struct MenuBarPopupView: View {
         .guidedTourTarget(.search)
     }
 
-    /// Opens the Cutting Room. No explicit dismiss: the popup closes itself
+    /// Opens Melo Edit. No explicit dismiss: the popup closes itself
     /// when it resigns key, which the new window taking focus does.
-    private var cuttingRoomButton: some View {
-        Button("Cutting Room", systemImage: "scissors") {
+    private var editorButton: some View {
+        Button("Melo Edit", systemImage: "scissors") {
             exitEditModeSaving()
-            CuttingRoomWindowController.shared.show()
+            EditorWindowController.shared.show()
         }
         .labelStyle(.iconOnly)
         .buttonStyle(.meloHover)
@@ -576,8 +576,8 @@ struct MenuBarPopupView: View {
             minHeight: DesignTokens.Dimensions.minTouchTarget
         )
         .contentShape(Rectangle())
-        .help("Open the Cutting Room")
-        .accessibilityLabel("Open the Cutting Room")
+        .help("Open Melo Edit")
+        .accessibilityLabel("Open Melo Edit")
     }
 
     private var editPriorityButton: some View {

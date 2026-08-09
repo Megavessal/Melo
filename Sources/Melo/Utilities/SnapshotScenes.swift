@@ -1632,28 +1632,28 @@ enum SnapshotScenes {
             ) { popup() }
         )
 
-        // MARK: - The Cutting Room
+        // MARK: - Melo Edit
         //
         // These frames are the only look anyone gets at this window without
         // running it, and they are deliberately unflattering: the empty stack,
         // the move with no rationale, the format that needs a tool this Mac
         // does not have.
         //
-        // The seeding seam is `CuttingRoomStore.setForSnapshot(document:waveform:)`,
+        // The seeding seam is `EditorStore.setForSnapshot(document:waveform:)`,
         // which pins the fixture so the debounced re-render cannot reach a
         // `RenderEngine` for a file that does not exist and blank the frame. Every
-        // editor view binds to `CuttingRoomStore.shared`, so without it every
-        // Cutting Room frame would be the empty state. A few views add their own
+        // editor view binds to `EditorStore.shared`, so without it every
+        // Melo Edit frame would be the empty state. A few views add their own
         // seeding on top, for state the store does not hold: an expanded row, a
         // drop target, a zoom, a playing transport, an in-flight job.
         //
         // **These frames appear last in the list on purpose.** `setForSnapshot`
-        // pins the store for the rest of the process, `CuttingRoomRecents.setForSnapshot`
+        // pins the store for the rest of the process, `EditorRecents.setForSnapshot`
         // pins the recents list, and `JobStripTuning.seedSnapshotJobs` drops the
         // strip's quiet delay to zero. None of that may reach a popup or Settings
         // frame above this line.
 
-        let cuttingRoom = CuttingRoomStore.shared
+        let editor = EditorStore.shared
 
         // A fixed instant, so nothing in these frames is a function of when they
         // were rendered. Nothing draws `measuredAt` or `openedAt` today; a frame
@@ -1781,8 +1781,8 @@ enum SnapshotScenes {
         // apart using the same three symbols as the entry cards below them, and a
         // fixture of three `.file` rows would render a screen that cannot show the
         // only thing the field is for.
-        let editorRecents: [CuttingRoomRecent] = [
-            CuttingRoomRecent(
+        let editorRecents: [EditorRecent] = [
+            EditorRecent(
                 url: editorAudioURL,
                 displayName: "morning-show-ep41",
                 formatDescription: "WAV · 48 kHz stereo",
@@ -1790,7 +1790,7 @@ enum SnapshotScenes {
                 openedAt: editorInstant,
                 kind: .file
             ),
-            CuttingRoomRecent(
+            EditorRecent(
                 url: URL(
                     fileURLWithPath:
                         "/Users/you/Library/Application Support/Melo/Extractions/interview-clip.m4a"
@@ -1801,7 +1801,7 @@ enum SnapshotScenes {
                 openedAt: editorInstant.addingTimeInterval(-3_600),
                 kind: .link
             ),
-            CuttingRoomRecent(
+            EditorRecent(
                 url: URL(
                     fileURLWithPath:
                         "/Users/you/Library/Application Support/Melo/Recordings/take-2.caf"
@@ -1826,27 +1826,122 @@ enum SnapshotScenes {
         /// the bucket layout is the defect class `CLAUDE.md:138` already records,
         /// so there is one, here, next to the scenes that read it.
         ///
-        /// The channels get a different tremor rate and a different level on
-        /// purpose: two identical lanes in a frame then read as a defect rather
-        /// than as an artefact of the fixture.
+        /// The channels get different content on purpose: two identical lanes in
+        /// a frame then read as a defect rather than as an artefact of the
+        /// fixture.
+        ///
+        /// ## Why it is shaped like this
+        ///
+        /// **A fixture that flatters the drawing is worse than no fixture.**
+        /// Until 2026-08-09 this was `sin(position * .pi) * 0.85` times a
+        /// 37-cycle tremor over 900 buckets — about twenty-four buckets per
+        /// wobble — with `rms` pinned to a constant `peak * 0.62`. Every frame
+        /// anyone had ever judged the waveform from was therefore a smooth
+        /// synthetic hump, symmetric about zero, with a crest factor that never
+        /// moved: no transients, no quiet passages, no bucket-to-bucket change
+        /// at all. The owner looked at one and called the waveform ugly, and a
+        /// good half of what they were looking at was this function.
+        ///
+        /// So it now generates something with the properties real audio has and
+        /// that one did not:
+        ///
+        /// - **Passages.** A programme of eight sections at different levels,
+        ///   including two near-silent ones, rather than one arch.
+        /// - **Transients.** A hit on a per-passage spacing with a fast decay
+        ///   off it, every fourth one louder, which is what makes a drawing look
+        ///   like music rather than like a signal generator.
+        /// - **Bucket-to-bucket grain** from an integer hash, not a slow sine.
+        /// - **Asymmetry.** `minimum` is not `-maximum`. Real waveforms are not
+        ///   symmetric about zero and a drawing that is looks manufactured.
+        /// - **A crest factor that moves.** The RMS-to-peak ratio is low in the
+        ///   percussive passages, high in the sustained ones, and collapses on
+        ///   each transient — which is the whole reason the drawing carries two
+        ///   weights instead of one.
+        ///
+        /// **Deterministic**, from an integer hash rather than `Double.random`:
+        /// `SnapshotHarness.negativeControl` renders a scene twice and requires
+        /// the two frames to be near-identical, so a fixture that varied per
+        /// call would make every waveform control fail and every transition
+        /// pass.
+        ///
+        /// 2048 buckets because that is what `EditorStore.waveformBuckets`
+        /// really asks for. The old 900 sat close enough to
+        /// `EditorWaveformView.isDense`'s threshold at Melo's window widths that
+        /// a display scale of 3 would have silently dropped the RMS core out of
+        /// every fit-zoom frame.
         @MainActor func editorWaveform(
             duration: TimeInterval,
             channels: Int,
-            buckets: Int = 900
+            buckets: Int = 2_048
         ) -> WaveformData {
             let lanes = max(channels, 1)
+            let span = max(duration, 0.001)
+            let bucketsPerSecond = Double(buckets) / span
+
+            // The integer hash `MeloVisualTheme`'s star field uses, which is
+            // already this project's answer to "deterministic noise".
+            func noise(_ index: Int, _ salt: Int) -> Double {
+                var value = UInt64(truncatingIfNeeded: index &* 1_103_515_245 &+ salt &* 12_345)
+                value ^= value >> 16
+                value &*= 0x7FEB_352D
+                value ^= value >> 15
+                return Double(value % 10_000) / 10_000
+            }
+
+            // The take: where each passage ends as a fraction of the file, how
+            // loud it is, its RMS-to-peak ratio, and how often it hits — in
+            // seconds, so the shape survives a different bucket count or a
+            // different fixture duration.
+            let programme: [(until: Double, level: Double, crest: Double, hit: Double)] = [
+                (0.035, 0.05, 0.78, 1.30),   // room tone before it starts
+                (0.230, 0.88, 0.40, 0.42),   // in loud, and percussive
+                (0.310, 0.24, 0.70, 0.63),   // it drops away
+                (0.520, 0.66, 0.60, 0.47),   // the body of it
+                (0.560, 0.03, 0.62, 1.10),   // a near-silent gap
+                (0.775, 0.95, 0.35, 0.31),   // the loudest passage, the peakiest
+                (0.900, 0.42, 0.72, 0.55),   // settling
+                (2.000, 0.13, 0.80, 0.90),   // the tail. Past 1 so nothing falls off the end.
+            ]
+
             var data: [WaveformData.Bucket] = []
             data.reserveCapacity(buckets * lanes)
             for index in 0..<buckets {
                 let position = Double(index) / Double(max(buckets - 1, 1))
-                let envelope = sin(position * .pi) * 0.85
+                let passage = programme.first { position < $0.until } ?? programme[programme.count - 1]
+
                 for lane in 0..<lanes {
-                    let tremorRate = 37.0 + Double(lane) * 11.0
-                    let tremor = 0.55 + 0.45 * sin(position * tremorRate + Double(lane) * 1.7)
-                    let level = lane == 0 ? 1.0 : 0.72
-                    let peak = Float(envelope * tremor * level)
+                    let salt = 1 + lane * 7_919
+                    // A transient every `hit` seconds, decaying over the two or
+                    // three buckets after it, with every fourth one louder so
+                    // the pattern reads as a bar rather than as a metronome.
+                    let period = max(2, Int((passage.hit * bucketsPerSecond).rounded()) + lane)
+                    let attack = exp(-Double(index % period) / 2.4)
+                        * ((index / period) % 4 == 0 ? 1.0 : 0.66)
+                    // Two incommensurate drifts, so nothing in the picture
+                    // repeats on a period the eye can find.
+                    let drift = 0.82
+                        + 0.11 * sin(position * 23.7 + Double(lane) * 2.1)
+                        + 0.07 * sin(position * 61.3)
+                    let grain = 0.66 + 0.42 * noise(index, salt)
+                    let tilt = lane == 0 ? 1.0 : 0.78
+                    // 0.42 between hits rather than 0.30, measured: the lower
+                    // floor left the mean peak at 0.17 against a maximum of
+                    // 0.88, which draws as isolated spikes over an empty lane
+                    // rather than as a passage of music with transients in it.
+                    let peak = min(passage.level * (0.42 + 0.58 * attack) * grain * drift * tilt, 0.98)
+                    let trough = peak * (0.62 + 0.34 * noise(index, salt + 1))
+                    // The crest factor moves: a transient is all peak and little
+                    // energy, and the ratio recovers between them.
+                    let ratio = min(
+                        max(passage.crest * (1 - 0.42 * attack) * (0.86 + 0.28 * noise(index, salt + 2)), 0.06),
+                        0.94
+                    )
                     data.append(
-                        WaveformData.Bucket(minimum: -peak, maximum: peak, rms: peak * 0.62)
+                        WaveformData.Bucket(
+                            minimum: Float(-trough),
+                            maximum: Float(peak),
+                            rms: Float(peak * ratio)
+                        )
                     )
                 }
             }
@@ -1858,7 +1953,7 @@ enum SnapshotScenes {
         /// the job strip would carry a progress strip nobody asked for, and the
         /// window's negative control would move as a job's clock ticked.
         @MainActor func clearEditorJobs() {
-            JobStripTuning.clearSnapshotSeeding(in: cuttingRoom)
+            JobStripTuning.clearSnapshotSeeding(in: editor)
             // `clearSnapshotSeeding` leaves the two timings where a seeded strip
             // needs them — no quiet delay, no automatic retirement. Every scene
             // that is not about the strip wants the shipping numbers back, so a
@@ -1867,7 +1962,7 @@ enum SnapshotScenes {
             JobStripTuning.settledLinger = 3
         }
 
-        @MainActor func seedCuttingRoom(
+        @MainActor func seedEditor(
             moves: [Move] = [],
             destination: Destination? = nil,
             analysis: AnalysisReport? = nil,
@@ -1877,13 +1972,13 @@ enum SnapshotScenes {
             source: EditorSource? = nil
         ) {
             clearEditorJobs()
-            CuttingRoomRecents.shared.setForSnapshot(editorRecents)
+            EditorRecents.shared.setForSnapshot(editorRecents)
             let resolved = source ?? editorSource
             var document = EditorDocument(source: resolved)
             document.moves = moves
             document.destination = destination
             document.analysis = analysis
-            cuttingRoom.setForSnapshot(
+            editor.setForSnapshot(
                 document: document,
                 waveform: editorWaveform(
                     duration: resolved.duration,
@@ -1891,37 +1986,37 @@ enum SnapshotScenes {
                 )
             )
             // After `setForSnapshot`, which resets both of these.
-            cuttingRoom.selection = selection
-            cuttingRoom.playhead = playhead
-            cuttingRoom.selectedMoveID = selectedMove
+            editor.selection = selection
+            editor.playhead = playhead
+            editor.selectedMoveID = selectedMove
             // `setForSnapshot` clears `lastError` today, and the two error frames
             // below rely on it not leaking into the thirty scenes after them.
             // Said here as well, so the two scenes do not depend on a line in
             // someone else's file staying where it is.
-            cuttingRoom.setErrorForSnapshot(nil)
+            editor.setErrorForSnapshot(nil)
         }
 
         /// The window with nothing open. Pinned first and closed second: `close()`
         /// alone would leave the store unpinned, and an unpinned store is one a
         /// later debounced re-render can reach.
-        @MainActor func emptyCuttingRoom() {
-            seedCuttingRoom()
-            cuttingRoom.close()
+        @MainActor func emptyEditor() {
+            seedEditor()
+            editor.close()
         }
 
-        let cuttingRoomSize = CGSize(width: 1000, height: 640)
+        let editorSize = CGSize(width: 1000, height: 640)
         let stackPaneSize = CGSize(width: 320, height: 520)
         let sidebarPaneSize = CGSize(width: 320, height: 420)
         let waveformSize = CGSize(width: 660, height: 320)
         let eqCurveSize = CGSize(width: 480, height: 150)
 
-        @MainActor func cuttingRoomWindow(dropTargeted: Bool = false) -> AnyView {
+        @MainActor func editorWindow(dropTargeted: Bool = false) -> AnyView {
             AnyView(
-                CuttingRoomRootView(
-                    store: cuttingRoom,
+                EditorRootView(
+                    store: editor,
                     settings: settings,
                     dropTargeted: dropTargeted,
-                    recents: CuttingRoomRecents.shared
+                    recents: EditorRecents.shared
                 )
             )
         }
@@ -1954,7 +2049,7 @@ enum SnapshotScenes {
                 // frame of a pane composed differently from the window is a frame
                 // of something the app never draws.
                 MoveStackView(
-                    store: cuttingRoom,
+                    store: editor,
                     expandedMoveID: expanded,
                     settings: settings,
                     dropTargetIndex: dropTarget
@@ -1963,11 +2058,11 @@ enum SnapshotScenes {
         }
 
         @MainActor func destinationPane() -> AnyView {
-            sidebarPane("Where’s it going?") { DestinationPicker(store: cuttingRoom) }
+            sidebarPane("Where’s it going?") { DestinationPicker(store: editor) }
         }
 
         @MainActor func analysisPane() -> AnyView {
-            sidebarPane("What I found") { AnalysisSummaryView(store: cuttingRoom) }
+            sidebarPane("What I found") { AnalysisSummaryView(store: editor) }
         }
 
         let glassNote = "The theme card puts its glass in a `.background`, not around its "
@@ -2026,7 +2121,7 @@ enum SnapshotScenes {
         // A judgeable frame that is missing is a gap someone notices. A missing
         // assertion is a gap that reports itself as nothing being wrong.
 
-        // MARK: Cutting Room transitions
+        // MARK: Melo Edit transitions
         //
         // Four wires, each of which would compile, render and look plausible if
         // it were cut. All four act through the store rather than by pressing the
@@ -2043,7 +2138,7 @@ enum SnapshotScenes {
                 note: "Podcast, on a file measured at −22.4 LUFS. The caption under the button "
                     + "is a count of moves the proposer produced from THIS measurement.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
                     )
@@ -2059,7 +2154,7 @@ enum SnapshotScenes {
                     + "scripts/verify-cutting-room.py: identical frames mean the button stopped "
                     + "reading the measurement.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         destination: DestinationCatalogue.podcast,
                         analysis: compliantReport
                     )
@@ -2070,7 +2165,7 @@ enum SnapshotScenes {
         scenes.append(
             scene("cutting-room-eqcurve-flat", eqCurveSize, .light,
                   note: "Flat reference for the probe below. The canvas is the first 108pt.",
-                  prepare: { seedCuttingRoom() }) {
+                  prepare: { seedEditor() }) {
                 eqCurveOnly(EQResponseCurve.flatGraphicBands)
             }
         )
@@ -2079,7 +2174,7 @@ enum SnapshotScenes {
                   note: "One peaking band: 1 kHz, +9 dB, Q 1.4, no preamp. Subtracted from "
                       + "cutting-room-eqcurve-flat, the highest remaining pixel is the peak of "
                       + "the drawn response and must land at 1 kHz and +9 dB.",
-                  prepare: { seedCuttingRoom() }) {
+                  prepare: { seedEditor() }) {
                 eqCurveOnly([probeBand])
             }
         )
@@ -2095,13 +2190,13 @@ enum SnapshotScenes {
                 + "would render these two identically. " + SnapshotHarness.bindingCaveat,
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(
+                seedEditor(
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
                 )
             },
             act: {
-                seedCuttingRoom(
+                seedEditor(
                     destination: DestinationCatalogue.podcast,
                     analysis: compliantReport
                 )
@@ -2116,12 +2211,12 @@ enum SnapshotScenes {
                 + "AFTER is \(proposedMoves.count) rows. " + SnapshotHarness.bindingCaveat,
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(
+                seedEditor(
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
                 )
             },
-            act: { cuttingRoom.replaceMoves(proposedMoves) }
+            act: { editor.replaceMoves(proposedMoves) }
         ) { stackPane() }
 
         scenes += SnapshotHarness.transition(
@@ -2136,7 +2231,7 @@ enum SnapshotScenes {
                 + SnapshotHarness.bindingCaveat,
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(
+                seedEditor(
                     moves: proposedMoves,
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
@@ -2144,7 +2239,7 @@ enum SnapshotScenes {
             },
             act: {
                 if let moveToDisable {
-                    cuttingRoom.setEnabled(false, for: moveToDisable.id)
+                    editor.setEnabled(false, for: moveToDisable.id)
                 }
             }
         ) { stackPane() }
@@ -2162,17 +2257,17 @@ enum SnapshotScenes {
                 + "of itself. " + SnapshotHarness.bindingCaveat,
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(playhead: 58)
+                seedEditor(playhead: 58)
             },
-            act: { cuttingRoom.selection = 42...96 }
-        ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+            act: { editor.selection = 42...96 }
+        ) { AnyView(EditorWaveformView(store: editor)) }
 
-        // MARK: Cutting Room negative controls
+        // MARK: Melo Edit negative controls
         //
         // One per new family, all on the harness's default 1% ceiling.
         //
-        // That number was reasoned before it was measured — nothing in the
-        // Cutting Room animates at rest, the themed backdrop draws nothing into
+        // That number was reasoned before it was measured — nothing in
+        // Melo Edit animates at rest, the themed backdrop draws nothing into
         // a layer capture, the `.systemAccent` visitor is pinned out of frame for
         // the one ImageRenderer control, and the job strip's indeterminate sweep
         // is a 3pt capsule over 28% of a 668pt row and so bounded at 0.8% of a
@@ -2199,37 +2294,37 @@ enum SnapshotScenes {
 
         scenes += SnapshotHarness.negativeControl(
             name: "control-cutting-room",
-            size: cuttingRoomSize,
+            size: editorSize,
             colorScheme: .dark,
-            note: "Cutting Room window family, layer capture.",
+            note: "Melo Edit window family, layer capture.",
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(
+                seedEditor(
                     moves: proposedMoves,
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
                 )
             }
-        ) { cuttingRoomWindow() }
+        ) { editorWindow() }
 
         scenes += SnapshotHarness.negativeControl(
             name: "control-cutting-room-render",
-            size: cuttingRoomSize,
+            size: editorSize,
             colorScheme: .dark,
             capture: .imageRenderer,
-            note: "Cutting Room window family, ImageRenderer. The clock is forced to t=40, "
+            note: "Melo Edit window family, ImageRenderer. The clock is forced to t=40, "
                 + "which is outside the `.systemAccent` visitor's 4…10.2s appearance window, so "
                 + "the one animated element in this capture path is off screen by construction.",
             prepare: {
                 applyAppearance(.dark)
                 MeloEasterEggClock.forcedTime = 40
-                seedCuttingRoom(
+                seedEditor(
                     moves: proposedMoves,
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
                 )
             }
-        ) { cuttingRoomWindow() }
+        ) { editorWindow() }
 
         scenes += SnapshotHarness.negativeControl(
             name: "control-move-stack",
@@ -2239,7 +2334,7 @@ enum SnapshotScenes {
             prepare: {
                 applyAppearance(.dark)
                 MeloEasterEggClock.forcedTime = nil
-                seedCuttingRoom(
+                seedEditor(
                     moves: proposedMoves,
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
@@ -2255,7 +2350,7 @@ enum SnapshotScenes {
                 + "cutting-room-destination-quiet and -compliant must differ.",
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(
+                seedEditor(
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
                 )
@@ -2269,9 +2364,9 @@ enum SnapshotScenes {
             note: "Waveform family.",
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(selection: 42...96, playhead: 58)
+                seedEditor(selection: 42...96, playhead: 58)
             }
-        ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+        ) { AnyView(EditorWaveformView(store: editor)) }
 
         scenes += SnapshotHarness.negativeControl(
             name: "control-eq-curve",
@@ -2282,7 +2377,7 @@ enum SnapshotScenes {
                 + "that subtraction meaningless.",
             prepare: {
                 applyAppearance(.light)
-                seedCuttingRoom()
+                seedEditor()
             }
         ) { eqCurveOnly([probeBand]) }
 
@@ -2291,18 +2386,18 @@ enum SnapshotScenes {
             size: jobStripSize,
             colorScheme: .dark,
             note: "Job strip family, including the indeterminate sweep — the noisiest surface "
-                + "in the Cutting Room. Seeded identically in both frames, so the elapsed "
+                + "in Melo Edit. Seeded identically in both frames, so the elapsed "
                 + "readouts are anchored to each frame's own prepare rather than drifting apart.",
             prepare: {
                 applyAppearance(.dark)
-                seedCuttingRoom(
+                seedEditor(
                     moves: proposedMoves,
                     destination: DestinationCatalogue.podcast,
                     analysis: quietReport
                 )
-                JobStripTuning.seedSnapshotJobs(in: cuttingRoom)
+                JobStripTuning.seedSnapshotJobs(in: editor)
             }
-        ) { AnyView(JobProgressStrip(store: cuttingRoom)) }
+        ) { AnyView(JobProgressStrip(store: editor)) }
 
         // MARK: The whole window
 
@@ -2312,27 +2407,27 @@ enum SnapshotScenes {
 
         scenes.append(
             scene(
-                "cutting-room-empty-dark", cuttingRoomSize, .dark,
+                "cutting-room-empty-dark", editorSize, .dark,
                 note: windowNote + " Recents are a fixture, not this Mac's history: one file, "
                     + "one link extraction and one recording, so the three leading glyphs can "
                     + "be told apart against the three entry cards below them.",
-                prepare: { emptyCuttingRoom() }
-            ) { cuttingRoomWindow() }
+                prepare: { emptyEditor() }
+            ) { editorWindow() }
         )
         scenes.append(
             scene(
-                "cutting-room-empty-light", cuttingRoomSize, .light,
+                "cutting-room-empty-light", editorSize, .light,
                 note: windowNote,
-                prepare: { emptyCuttingRoom() }
-            ) { cuttingRoomWindow() }
+                prepare: { emptyEditor() }
+            ) { editorWindow() }
         )
         scenes.append(
             scene(
-                "cutting-room-loaded-dark", cuttingRoomSize, .dark,
+                "cutting-room-loaded-dark", editorSize, .dark,
                 note: windowNote + " Podcast chosen, the file measured, the full proposal on "
                     + "the stack — the state the feature exists to produce.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport,
@@ -2340,14 +2435,14 @@ enum SnapshotScenes {
                         playhead: 58
                     )
                 }
-            ) { cuttingRoomWindow() }
+            ) { editorWindow() }
         )
         scenes.append(
             scene(
-                "cutting-room-loaded-light", cuttingRoomSize, .light,
+                "cutting-room-loaded-light", editorSize, .light,
                 note: windowNote,
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport,
@@ -2355,7 +2450,7 @@ enum SnapshotScenes {
                         playhead: 58
                     )
                 }
-            ) { cuttingRoomWindow() }
+            ) { editorWindow() }
         )
         // The drop affordance exists only while a drag is over the window and the
         // harness cannot drag, so `dropTargeted:` is the only way this is ever
@@ -2363,10 +2458,10 @@ enum SnapshotScenes {
         // a file feels invited or merely tolerated.
         scenes.append(
             scene(
-                "cutting-room-drop-target", cuttingRoomSize, .dark,
+                "cutting-room-drop-target", editorSize, .dark,
                 note: windowNote + " Seeded drop state.",
-                prepare: { emptyCuttingRoom() }
-            ) { cuttingRoomWindow(dropTargeted: true) }
+                prepare: { emptyEditor() }
+            ) { editorWindow(dropTargeted: true) }
         )
         // The sentence a user reads at the worst moment they will have with this
         // feature: they dropped something in and it did not open.
@@ -2386,18 +2481,18 @@ enum SnapshotScenes {
 
         scenes.append(
             scene(
-                "cutting-room-error-empty", cuttingRoomSize, .dark,
+                "cutting-room-error-empty", editorSize, .dark,
                 note: windowNote + " A file that would not open, over the empty state — the "
                     + "state a bad drop actually lands in. The banner shows `errorDescription` "
                     + "only; `AudioFileIO.Failure` also writes a `recoverySuggestion` and "
                     + "nothing on this surface reads it.",
                 prepare: {
-                    emptyCuttingRoom()
-                    cuttingRoom.setErrorForSnapshot(
+                    emptyEditor()
+                    editor.setErrorForSnapshot(
                         unreadableFailure.errorDescription ?? "Melo couldn’t read that."
                     )
                 }
-            ) { cuttingRoomWindow() }
+            ) { editorWindow() }
         )
         scenes.append(
             scene(
@@ -2407,16 +2502,16 @@ enum SnapshotScenes {
                     + "header's name and format chip, and the sidebar's three sections are all "
                     + "competing for the same room.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
                     )
-                    cuttingRoom.setErrorForSnapshot(
+                    editor.setErrorForSnapshot(
                         tooLongFailure.errorDescription ?? "That file is too long."
                     )
                 }
-            ) { cuttingRoomWindow() }
+            ) { editorWindow() }
         )
 
         // The one path that draws the themed backdrop and the glass. It also
@@ -2424,20 +2519,20 @@ enum SnapshotScenes {
         // material behind everything comes back as a placeholder.
         scenes.append(
             scene(
-                "cutting-room-loaded-render", cuttingRoomSize, .dark,
+                "cutting-room-loaded-render", editorSize, .dark,
                 capture: .imageRenderer,
                 note: "ImageRenderer. The themed gradient and any easter-egg visitor are real "
                     + "here and invisible in every layer capture; the `.popover` material inside "
                     + "MeloThemeBackdrop is an NSViewRepresentable and cannot be drawn on this "
                     + "path at all. Judge the theme, not the material.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
                     )
                 }
-            ) { cuttingRoomWindow() }
+            ) { editorWindow() }
         )
 
         // MARK: The move stack
@@ -2446,13 +2541,13 @@ enum SnapshotScenes {
             scene(
                 "cutting-room-stack-empty-dark", stackPaneSize, .dark,
                 note: "No destination chosen, so the empty state points at the picker.",
-                prepare: { seedCuttingRoom() }
+                prepare: { seedEditor() }
             ) { stackPane() }
         )
         scenes.append(
             scene(
                 "cutting-room-stack-empty-light", stackPaneSize, .light,
-                prepare: { seedCuttingRoom() }
+                prepare: { seedEditor() }
             ) { stackPane() }
         )
         scenes.append(
@@ -2462,7 +2557,7 @@ enum SnapshotScenes {
                     + "must carry a sentence naming the number that caused it; a row with no "
                     + "third line is a move nothing measured.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
@@ -2474,7 +2569,7 @@ enum SnapshotScenes {
             scene(
                 "cutting-room-stack-proposed-light", stackPaneSize, .light,
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
@@ -2489,7 +2584,7 @@ enum SnapshotScenes {
                     + "and row 2 switched off rather than deleted. Both are inside the four rows "
                     + "this pane can hold. The count of disabled moves sits in the control strip.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: mixedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport,
@@ -2504,7 +2599,7 @@ enum SnapshotScenes {
                 note: "Mid-reorder, with the insertion line at index 3. Reachable only by "
                     + "dragging, which the harness cannot do.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         moves: proposedMoves,
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
@@ -2525,7 +2620,7 @@ enum SnapshotScenes {
                         + "row's own chevron, so this frame is evidence the row opens onto it "
                         + "rather than evidence that MoveInspector renders.",
                     prepare: {
-                        seedCuttingRoom(
+                        seedEditor(
                             moves: inspectorMoves,
                             destination: DestinationCatalogue.podcast,
                             analysis: quietReport,
@@ -2543,7 +2638,7 @@ enum SnapshotScenes {
                 "cutting-room-destination-unchosen", sidebarPaneSize, .dark,
                 note: "Nothing picked. The button must say what it needs rather than being "
                     + "enabled and doing nothing.",
-                prepare: { seedCuttingRoom(analysis: quietReport) }
+                prepare: { seedEditor(analysis: quietReport) }
             ) { destinationPane() }
         )
         scenes.append(
@@ -2553,7 +2648,7 @@ enum SnapshotScenes {
                     + "−12 LUFS is Melo's own choice and the catalogue says so in a comment; the "
                     + "row says the number either way.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         destination: DestinationCatalogue.ringtone,
                         analysis: quietReport
                     )
@@ -2566,7 +2661,7 @@ enum SnapshotScenes {
                 "cutting-room-analysis-quiet", sidebarPaneSize, .dark,
                 note: "Every measured fact with the sentence that says what it is.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         destination: DestinationCatalogue.podcast,
                         analysis: quietReport
                     )
@@ -2579,7 +2674,7 @@ enum SnapshotScenes {
                 note: "Already at the target. The verdict line has to say that in fewer words "
                     + "than it takes to say it is not.",
                 prepare: {
-                    seedCuttingRoom(
+                    seedEditor(
                         destination: DestinationCatalogue.podcast,
                         analysis: compliantReport
                     )
@@ -2590,14 +2685,14 @@ enum SnapshotScenes {
             scene(
                 "cutting-room-analysis-nodestination", sidebarPaneSize, .dark,
                 note: "Measured, but nowhere to compare it against.",
-                prepare: { seedCuttingRoom(analysis: quietReport) }
+                prepare: { seedEditor(analysis: quietReport) }
             ) { analysisPane() }
         )
         scenes.append(
             scene(
                 "cutting-room-analysis-measuring", sidebarPaneSize, .dark,
                 note: "Before the measurement lands. One line, not a skeleton.",
-                prepare: { seedCuttingRoom(destination: DestinationCatalogue.podcast) }
+                prepare: { seedEditor(destination: DestinationCatalogue.podcast) }
             ) { analysisPane() }
         )
 
@@ -2611,24 +2706,24 @@ enum SnapshotScenes {
         scenes.append(
             scene(
                 "cutting-room-waveform-fit", waveformSize, .dark, note: waveformNote,
-                prepare: { seedCuttingRoom(playhead: 58) }
-            ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+                prepare: { seedEditor(playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
         )
         scenes.append(
             scene(
                 "cutting-room-waveform-selection", waveformSize, .dark,
                 note: waveformNote + " A selection with both handles in view.",
-                prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }
-            ) { AnyView(EditorWaveformView(store: cuttingRoom)) }
+                prepare: { seedEditor(selection: 42...96, playhead: 58) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
         )
         scenes.append(
             scene(
                 "cutting-room-waveform-zoomed", waveformSize, .light,
                 note: waveformNote + " Zoomed in with the scroll bar showing, which only appears "
                     + "once the view is no longer fit to the window.",
-                prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }
+                prepare: { seedEditor(selection: 42...96, playhead: 58) }
             ) {
-                AnyView(EditorWaveformView(store: cuttingRoom, zoom: 0.62, windowStart: 38))
+                AnyView(EditorWaveformView(store: editor, zoom: 0.62, windowStart: 38))
             }
         )
         scenes.append(
@@ -2639,16 +2734,106 @@ enum SnapshotScenes {
                     + "with one, the seeded window did not contain the seeded selection and the "
                     + "frame had no chrome in it at all. `applySeeds` centres the seeded edge "
                     + "when the window is left to it, so the handle frames itself.",
-                prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }
+                prepare: { seedEditor(selection: 42...96, playhead: 58) }
             ) {
                 AnyView(
                     EditorWaveformView(
-                        store: cuttingRoom,
+                        store: editor,
                         zoom: 0.4,
                         hoveredEdge: .upper
                     )
                 )
             }
+        )
+
+        // MARK: The four waveform styles
+        //
+        // One frame each at fit zoom, all four seeded identically, so they are a
+        // comparison rather than four separate pictures. The style is passed to
+        // the view rather than written to `UserDefaults`, so nothing here
+        // changes what the frames after it render.
+        //
+        // Then the two that aggregate. `.bars` and `.pixel` each combine several
+        // columns into one shape, and the invariant they have to keep is the one
+        // `EditorWaveformView` states next to `drawsCore`: when the buckets are
+        // coarser than the pixels, the RMS core is not drawn at all, because one
+        // bucket stretched across forty columns paints as a solid slab of
+        // constant level that is not a measurement of anything. In those two
+        // frames the bars and the blocks must be **outlines only** — one weight
+        // of colour, no denser core inside them. A second, stronger shape inside
+        // the envelope there is the defect.
+
+        let styleNote = waveformNote + " Style comparison: the same fixture, the same "
+            + "selection, the same playhead, drawn four ways."
+
+        for style in EditorWaveformStyle.allCases {
+            scenes.append(
+                scene(
+                    "cutting-room-waveform-style-\(style.rawValue)", waveformSize, .dark,
+                    note: styleNote + " This one is \(style.label).",
+                    prepare: { seedEditor(selection: 42...96, playhead: 58) }
+                ) {
+                    AnyView(EditorWaveformView(store: editor, style: style))
+                }
+            )
+        }
+
+        for style in [EditorWaveformStyle.bars, .pixel] {
+            scenes.append(
+                scene(
+                    "cutting-room-waveform-coarse-\(style.rawValue)", waveformSize, .dark,
+                    note: "Zoomed to about three seconds, where the fixture has far fewer "
+                        + "buckets than the surface has pixels. \(style.label) has to drop its "
+                        + "RMS core here and draw the peak extent alone. A denser second shape "
+                        + "inside the envelope in this frame is one number stretched across "
+                        + "forty columns and drawn as if it were measured.",
+                    prepare: { seedEditor(playhead: 31) }
+                ) {
+                    AnyView(
+                        EditorWaveformView(
+                            store: editor,
+                            zoom: 0.27,
+                            windowStart: 30,
+                            style: style
+                        )
+                    )
+                }
+            )
+        }
+
+        // The row that chooses between them, exactly as `EverydayTab` builds it.
+        // Its four thumbnails are drawn by `EditorWaveformLanesCanvas` — the
+        // same routine the pane above uses — so a thumbnail that does not match
+        // its style's frame in this same run means the picker is lying about
+        // what it selects.
+        let stylePickerSize = CGSize(width: 540, height: 130)
+        @MainActor func stylePickerRow(_ selected: EditorWaveformStyle) -> AnyView {
+            AnyView(
+                SettingsSection("Melo Edit") {
+                    SettingsRow("Waveform", description: "How the sound is drawn.") {
+                        EditorWaveformStylePicker(selection: .constant(selected))
+                    }
+                }
+                .padding(20)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .background(Color(nsColor: .windowBackgroundColor))
+            )
+        }
+
+        scenes.append(
+            scene(
+                "cutting-room-waveform-style-picker", stylePickerSize, .dark,
+                note: "Settings › Everyday › Melo Edit. Bars selected, which is the default.",
+                prepare: { seedEditor() }
+            ) { stylePickerRow(.bars) }
+        )
+        scenes.append(
+            scene(
+                "cutting-room-waveform-style-picker-light", stylePickerSize, .light,
+                note: "The same row in light, with Pixel chosen. The thumbnails use the "
+                    + "waveform's own dynamic palette, so both appearances need looking at.",
+                prepare: { seedEditor() }
+            ) { stylePickerRow(.pixel) }
         )
 
         let transportSize = CGSize(width: 700, height: 72)
@@ -2662,7 +2847,7 @@ enum SnapshotScenes {
                 VStack(spacing: 0) {
                     Divider()
                     EditorTransportBar(
-                        store: cuttingRoom,
+                        store: editor,
                         playing: playing,
                         looping: looping,
                         bypassed: bypassed,
@@ -2681,23 +2866,23 @@ enum SnapshotScenes {
             + "from this frame; what they look like when they are on is not."
         scenes.append(
             scene("cutting-room-transport-idle", transportSize, .dark, note: transportNote,
-                  prepare: { seedCuttingRoom(playhead: 58) }) { transportStrip() }
+                  prepare: { seedEditor(playhead: 58) }) { transportStrip() }
         )
         scenes.append(
             scene("cutting-room-transport-playing", transportSize, .dark, note: transportNote,
-                  prepare: { seedCuttingRoom(selection: 42...96, playhead: 58) }) {
+                  prepare: { seedEditor(selection: 42...96, playhead: 58) }) {
                 transportStrip(playing: true, looping: true)
             }
         )
         scenes.append(
             scene("cutting-room-transport-bypassed", transportSize, .light, note: transportNote,
-                  prepare: { seedCuttingRoom(playhead: 58) }) {
+                  prepare: { seedEditor(playhead: 58) }) {
                 transportStrip(playing: true, bypassed: true)
             }
         )
         scenes.append(
             scene("cutting-room-transport-preparing", transportSize, .dark, note: transportNote,
-                  prepare: { seedCuttingRoom(playhead: 58) }) {
+                  prepare: { seedEditor(playhead: 58) }) {
                 transportStrip(preparing: true)
             }
         )
@@ -2724,17 +2909,17 @@ enum SnapshotScenes {
                   note: "Ten bands — the panel that already ships in the popup, writing "
                       + "AutoEQFilters at Melo's own frequencies. The preamp readout is derived "
                       + "from the curve, not typed.",
-                  prepare: { seedCuttingRoom() }) { eqPanel(depth: .graphic) }
+                  prepare: { seedEditor() }) { eqPanel(depth: .graphic) }
         )
         scenes.append(
             scene("cutting-room-eq-parametric", eqPanelSize, .dark,
                   note: "The same array with frequency and Q unlocked, and grabbable handles on "
                       + "the curve. Switching depth must not change the sound.",
-                  prepare: { seedCuttingRoom() }) { eqPanel(depth: .parametric) }
+                  prepare: { seedEditor() }) { eqPanel(depth: .parametric) }
         )
         scenes.append(
             scene("cutting-room-eq-graphic-light", eqPanelSize, .light,
-                  prepare: { seedCuttingRoom() }) { eqPanel(depth: .graphic) }
+                  prepare: { seedEditor() }) { eqPanel(depth: .graphic) }
         )
 
 
@@ -2743,7 +2928,7 @@ enum SnapshotScenes {
         scenes.append(
             scene("cutting-room-theme-welcome-dark", CGSize(width: 700, height: 340), .dark,
                   note: glassNote,
-                  prepare: { seedCuttingRoom() }) {
+                  prepare: { seedEditor() }) {
                 AnyView(
                     MeloThemeWelcomeCard(
                         themeDuration: MeloThemeRemix.measuredDuration,
@@ -2758,7 +2943,7 @@ enum SnapshotScenes {
         scenes.append(
             scene("cutting-room-theme-welcome-light", CGSize(width: 700, height: 340), .light,
                   note: glassNote,
-                  prepare: { seedCuttingRoom() }) {
+                  prepare: { seedEditor() }) {
                 AnyView(
                     MeloThemeWelcomeCard(
                         themeDuration: MeloThemeRemix.measuredDuration,
@@ -2776,7 +2961,7 @@ enum SnapshotScenes {
                   note: "ImageRenderer, so the glass surface behind the card has a chance of "
                       + "appearing at all. This is the only frame in which the card's finish is "
                       + "judgeable; every other one shows its content on a flat ground.",
-                  prepare: { seedCuttingRoom() }) {
+                  prepare: { seedEditor() }) {
                 AnyView(
                     MeloThemeWelcomeCard(
                         themeDuration: MeloThemeRemix.measuredDuration,
@@ -2794,7 +2979,7 @@ enum SnapshotScenes {
                   note: "Six formats macOS writes natively. Bit depth is fixed per format and "
                       + "is not offered as a choice.",
                   prepare: {
-                      seedCuttingRoom(
+                      seedEditor(
                           moves: proposedMoves,
                           destination: DestinationCatalogue.podcast,
                           analysis: quietReport
@@ -2802,7 +2987,7 @@ enum SnapshotScenes {
                   }) {
                 AnyView(
                     ExportSheet(
-                        store: cuttingRoom,
+                        store: editor,
                         isPresented: .constant(true),
                         format: AudioFormatKind.m4aAAC
                     )
@@ -2816,7 +3001,7 @@ enum SnapshotScenes {
                       + "the list on purpose: a user who cannot find MP3 concludes Melo cannot "
                       + "do it.",
                   prepare: {
-                      seedCuttingRoom(
+                      seedEditor(
                           moves: proposedMoves,
                           destination: DestinationCatalogue.podcast,
                           analysis: quietReport
@@ -2824,7 +3009,7 @@ enum SnapshotScenes {
                   }) {
                 AnyView(
                     ExportSheet(
-                        store: cuttingRoom,
+                        store: editor,
                         isPresented: .constant(true),
                         format: AudioFormatKind.mp3
                     )
@@ -2865,7 +3050,7 @@ enum SnapshotScenes {
 
         @MainActor func linkSheet(_ seed: LinkImportSeed) -> AnyView {
             AnyView(
-                LinkImportSheet(store: cuttingRoom, isPresented: .constant(true), seed: seed)
+                LinkImportSheet(store: editor, isPresented: .constant(true), seed: seed)
                     .frame(width: linkSheetSize.width, alignment: .top)
             )
         }
@@ -2874,7 +3059,7 @@ enum SnapshotScenes {
             scene("cutting-room-link-no-ytdlp", linkSheetSize, .dark,
                   note: "yt-dlp is not installed. Seeded rather than inherited from the render "
                       + "machine, so this frame says the same thing on a Mac that has it.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 linkSheet(LinkImportSeed(phase: .needsTool, toolVersion: nil))
             }
         )
@@ -2883,7 +3068,7 @@ enum SnapshotScenes {
                   note: "The sheet as it opens with nothing pasted. The footer names the "
                       + "yt-dlp it found, which is the only place the second network surface "
                       + "this feature adds is visible.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 linkSheet(LinkImportSeed(phase: .idle))
             }
         )
@@ -2896,7 +3081,7 @@ enum SnapshotScenes {
                       + "placeholder is correct, not a missing image. What to read: whether the "
                       + "title wraps inside the card or forces it wider, and whether the "
                       + "uploader · length · site line survives underneath it.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 linkSheet(
                     LinkImportSeed(
                         phase: .found(foundPreview),
@@ -2910,7 +3095,7 @@ enum SnapshotScenes {
                   note: "Mid-extraction. The bar is determinate because yt-dlp reports a "
                       + "percentage; the stage line is what it is doing and the detail line is "
                       + "how far in.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 linkSheet(
                     LinkImportSeed(
                         phase: .working(
@@ -2931,7 +3116,7 @@ enum SnapshotScenes {
                   note: "The longest failure sentence in the extractor: the download arrived "
                       + "in a container macOS cannot open and the fix needs ffmpeg. This is "
                       + "the copy, from LinkExtractionFailure itself.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 linkSheet(
                     LinkImportSeed(
                         phase: .failed(
@@ -2952,7 +3137,7 @@ enum SnapshotScenes {
 
         @MainActor func recordSheet(_ seed: SystemRecordSeed) -> AnyView {
             AnyView(
-                SystemRecordSheet(store: cuttingRoom, isPresented: .constant(true), seed: seed)
+                SystemRecordSheet(store: editor, isPresented: .constant(true), seed: seed)
                     .frame(width: recordSheetSize.width, alignment: .top)
             )
         }
@@ -2962,7 +3147,7 @@ enum SnapshotScenes {
                   note: "Arming. Recording one app rather than the whole Mac is the headline "
                       + "here and is impossible in every other audio editor on this machine, so "
                       + "the question is whether the list reads as the offer it is.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 recordSheet(SystemRecordSeed(apps: recordApps))
             }
         )
@@ -2971,7 +3156,7 @@ enum SnapshotScenes {
                   note: "Nothing is making sound. The honest empty case, and a state a first "
                       + "run lands in constantly — seeded, so it is not a function of what the "
                       + "render machine had open.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 recordSheet(SystemRecordSeed(apps: []))
             }
         )
@@ -2980,7 +3165,7 @@ enum SnapshotScenes {
                   note: "Before macOS has granted audio capture. Config/Info.plist's "
                       + "NSAudioCaptureUsageDescription is the sentence the system dialog will "
                       + "carry; this is the one Melo writes itself.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 recordSheet(SystemRecordSeed(needsPermission: true, apps: recordApps))
             }
         )
@@ -2988,7 +3173,7 @@ enum SnapshotScenes {
             scene("cutting-room-record-running", recordSheetSize, .dark,
                   note: "Recording one app, 1:18 in, meter at 0.62. The level and the clock are "
                       + "handed in; nothing is being captured.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 recordSheet(
                     SystemRecordSeed(
                         state: .recording,
@@ -3006,7 +3191,7 @@ enum SnapshotScenes {
                   note: "The same recording, losing frames. A recorder that quietly drops audio "
                       + "and says nothing is the worst outcome this sheet has, so whether the "
                       + "count is visible at a glance is the whole of this frame.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 recordSheet(
                     SystemRecordSeed(
                         state: .recording,
@@ -3022,7 +3207,7 @@ enum SnapshotScenes {
             scene("cutting-room-record-failed", recordSheetSize, .light,
                   note: "The tap could not be set up. The sentence is the only thing the user "
                       + "gets, so it has to say what to do next.",
-                  prepare: { emptyCuttingRoom() }) {
+                  prepare: { emptyEditor() }) {
                 recordSheet(
                     SystemRecordSeed(
                         state: .failed(
@@ -3042,26 +3227,26 @@ enum SnapshotScenes {
                       + "its own, and a cancellation. Start times are backdated, so the elapsed "
                       + "and remaining readouts have something to say.",
                   prepare: {
-                      seedCuttingRoom(
+                      seedEditor(
                           moves: proposedMoves,
                           destination: DestinationCatalogue.podcast,
                           analysis: quietReport
                       )
-                      JobStripTuning.seedSnapshotJobs(in: cuttingRoom)
-                  }) { AnyView(JobProgressStrip(store: cuttingRoom)) }
+                      JobStripTuning.seedSnapshotJobs(in: editor)
+                  }) { AnyView(JobProgressStrip(store: editor)) }
         )
         scenes.append(
             scene("cutting-room-jobs-finished", CGSize(width: 700, height: 260), .dark,
                   note: "The finished-export card, with the before-and-after it measured. No "
                       + "click can reach this state in a rendered frame.",
                   prepare: {
-                      seedCuttingRoom(
+                      seedEditor(
                           moves: proposedMoves,
                           destination: DestinationCatalogue.podcast,
                           analysis: quietReport
                       )
-                      JobStripTuning.seedSnapshotOutcome(in: cuttingRoom)
-                  }) { AnyView(JobProgressStrip(store: cuttingRoom)) }
+                      JobStripTuning.seedSnapshotOutcome(in: editor)
+                  }) { AnyView(JobProgressStrip(store: editor)) }
         )
 
 

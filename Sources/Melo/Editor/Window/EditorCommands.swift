@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// The Cutting Room's key equivalents, as a value that can be tested without a
+/// Melo Edit's key equivalents, as a value that can be tested without a
 /// window.
 ///
 /// Separated from the monitor that delivers them on purpose. A check that
@@ -9,7 +9,7 @@ import SwiftUI
 /// that watches `perform` fire proves the rule is connected. Both are cheap, and
 /// this project's anchor records a run where four wiring points were severed at
 /// once and every rule-only assertion still passed.
-enum CuttingRoomShortcut: String, CaseIterable, Sendable {
+enum EditorShortcut: String, CaseIterable, Sendable {
     case playPause
     case export
     case undo
@@ -63,7 +63,7 @@ enum CuttingRoomShortcut: String, CaseIterable, Sendable {
         characters: String,
         modifiers: NSEvent.ModifierFlags,
         phase: Phase
-    ) -> CuttingRoomShortcut? {
+    ) -> EditorShortcut? {
         let flags = modifiers
             .intersection(.deviceIndependentFlagsMask)
             .subtracting([.capsLock, .numericPad, .function])
@@ -127,7 +127,7 @@ enum CuttingRoomShortcut: String, CaseIterable, Sendable {
 }
 
 extension View {
-    /// Installs the Cutting Room's key equivalents for as long as this view is
+    /// Installs Melo Edit's key equivalents for as long as this view is
     /// in a window.
     ///
     /// - Parameters:
@@ -138,15 +138,15 @@ extension View {
     ///   - onExport: presenting `ExportSheet` is the window's own state, not the
     ///     store's, so ⌘E comes back out rather than going in.
     ///   - onOpenFile: likewise — the file picker is a window affordance.
-    func cuttingRoomKeyCommands(
-        store: CuttingRoomStore,
+    func editorKeyCommands(
+        store: EditorStore,
         onExport: @escaping () -> Void,
         onOpenFile: @escaping () -> Void,
         onPasteLink: @escaping () -> Void,
         onRecord: @escaping () -> Void
     ) -> some View {
         background(
-            CuttingRoomKeyCommands(
+            EditorKeyCommands(
                 store: store,
                 onExport: onExport,
                 onOpenFile: onOpenFile,
@@ -179,18 +179,18 @@ extension View {
 ///
 /// One mechanism for all of them, uniformly guarded, is also why every shortcut
 /// goes through here rather than splitting the modified ones off into buttons.
-private struct CuttingRoomKeyCommands: NSViewRepresentable {
-    let store: CuttingRoomStore
+private struct EditorKeyCommands: NSViewRepresentable {
+    let store: EditorStore
     let onExport: () -> Void
     let onOpenFile: () -> Void
     let onPasteLink: () -> Void
     let onRecord: () -> Void
 
-    func makeNSView(context: Context) -> CuttingRoomKeyCommandView {
-        CuttingRoomKeyCommandView()
+    func makeNSView(context: Context) -> EditorKeyCommandView {
+        EditorKeyCommandView()
     }
 
-    func updateNSView(_ nsView: CuttingRoomKeyCommandView, context: Context) {
+    func updateNSView(_ nsView: EditorKeyCommandView, context: Context) {
         nsView.perform = { shortcut, phase in
             switch shortcut {
             case .bypassHold:
@@ -226,8 +226,8 @@ private struct CuttingRoomKeyCommands: NSViewRepresentable {
 /// Holds the monitor and tears it down when the view leaves its window, the same
 /// shape `WindowAppearanceTrackerView` uses to hang behaviour off a window a
 /// SwiftUI view cannot otherwise see.
-final class CuttingRoomKeyCommandView: NSView {
-    var perform: ((CuttingRoomShortcut, CuttingRoomShortcut.Phase) -> Void)?
+final class EditorKeyCommandView: NSView {
+    var perform: ((EditorShortcut, EditorShortcut.Phase) -> Void)?
 
     /// Tracked so the hold can be broken by something other than the key coming
     /// back up. See `releaseBypassIfHeld()`.
@@ -308,7 +308,7 @@ final class CuttingRoomKeyCommandView: NSView {
     /// - Returns: `nil` to swallow the event, or the event to pass it along.
     private func handle(_ event: NSEvent) -> NSEvent? {
         // The monitor is application-wide, so the window check is what keeps
-        // Space from pausing the Cutting Room while someone is in Settings. It
+        // Space from pausing Melo Edit while someone is in Settings. It
         // also covers sheets for free: an attached sheet is its own window, so
         // the export sheet's own keys never reach here.
         guard let window, event.window === window else { return event }
@@ -320,11 +320,11 @@ final class CuttingRoomKeyCommandView: NSView {
             return event
         }
 
-        let phase: CuttingRoomShortcut.Phase = event.type == .keyUp ? .up : .down
+        let phase: EditorShortcut.Phase = event.type == .keyUp ? .up : .down
 
         guard
             let characters = event.charactersIgnoringModifiers,
-            let shortcut = CuttingRoomShortcut.match(
+            let shortcut = EditorShortcut.match(
                 characters: characters,
                 modifiers: event.modifierFlags,
                 phase: phase

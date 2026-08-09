@@ -75,10 +75,10 @@ final class AppSupportCoordinator {
         // released before it was configured would take away a tile the user had
         // asked to keep.
         DockPresence.shared.configure(settings: settings)
-        // Same reason, one window along: without the settings reference the
-        // Cutting Room opens in the system appearance with the system accent
+        // Same reason, one window along: without the settings reference
+        // Melo Edit opens in the system appearance with the system accent
         // instead of the user's chosen Melo theme.
-        CuttingRoomWindowController.shared.configure(settings: settings)
+        EditorWindowController.shared.configure(settings: settings)
     }
 
     func applyDockPreferenceAtLaunch() {

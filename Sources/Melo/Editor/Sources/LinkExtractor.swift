@@ -1,6 +1,5 @@
 // Melo/Editor/Sources/LinkExtractor.swift
 import Foundation
-import os
 
 // MARK: - What we learned about the page
 
@@ -96,8 +95,6 @@ enum LinkExtractionFailure: LocalizedError, Equatable {
 /// and is always preceded by `--`, so a link that begins with a dash cannot be read
 /// as a flag. There is no shell anywhere in this file.
 struct LinkExtractor: Sendable {
-    private static let logger = Logger(subsystem: "io.github.megavessal.Melo", category: "LinkExtractor")
-
     let runner: any ToolProcessRunning
     let locate: @Sendable (ExternalTool) -> URL?
 
@@ -583,7 +580,7 @@ extension LinkExtractor {
 
     static func makeScratchDirectory(prefix: String) throws -> URL {
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("MeloCuttingRoom", isDirectory: true)
+            .appendingPathComponent("MeloEditor", isDirectory: true)
             .appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.resolvingSymlinksInPath()

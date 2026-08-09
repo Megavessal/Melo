@@ -20,7 +20,7 @@ import AppKit
 /// held. A readout that rounds a value it did not change is how a UI ends up
 /// claiming 4.0 dB while rendering 4.037.
 ///
-/// The numeral comes from `EditorFormat.number`, which is the Cutting Room's
+/// The numeral comes from `EditorFormat.number`, which is Melo Edit's
 /// only number formatter, at a **fixed** number of places. An inspector value
 /// that gains and loses a decimal under a moving slider is unreadable, and a
 /// readout whose unit changes with magnitude — "1000 ms" becoming "1 s" — can
@@ -275,7 +275,7 @@ struct MoveNumberField: View {
         return min(max(stepped, range.lowerBound), range.upperBound)
     }
 
-    /// `EditorFormat.number` is the Cutting Room's only numeral, so a dB here
+    /// `EditorFormat.number` is Melo Edit's only numeral, so a dB here
     /// and the same dB in the stack row above are the same string.
     nonisolated static func text(_ value: Double, unit: String, places: Int) -> String {
         let numeral = EditorFormat.number(value, places: places)

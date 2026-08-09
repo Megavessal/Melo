@@ -1,6 +1,6 @@
-// Melo/Editor/Core/CuttingRoomStore.swift
+// Melo/Editor/Core/EditorStore.swift
 //
-// The Cutting Room's one piece of state. Reached as `CuttingRoomStore.shared`,
+// Melo Edit's one piece of state. Reached as `EditorStore.shared`,
 // matching how the rest of Melo reaches its coordinators.
 //
 // Undo here is an array of `EditorDocument`s and an index into it. That is the
@@ -12,9 +12,9 @@ import SwiftUI
 import os
 
 @MainActor
-final class CuttingRoomStore: ObservableObject {
+final class EditorStore: ObservableObject {
 
-    static let shared = CuttingRoomStore()
+    static let shared = EditorStore()
 
     // MARK: - Published state
 
@@ -32,8 +32,6 @@ final class CuttingRoomStore: ObservableObject {
     /// already records.
     @Published var selectedMoveID: Move.ID?
 
-    @Published private(set) var canUndo = false
-    @Published private(set) var canRedo = false
     /// The last thing that went wrong, as one sentence for the user. Cleared
     /// when the next operation starts.
     @Published private(set) var lastError: String?
@@ -81,7 +79,7 @@ final class CuttingRoomStore: ObservableObject {
 
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "Melo",
-        category: "CuttingRoomStore"
+        category: "EditorStore"
     )
 
     private init() {}
@@ -188,7 +186,7 @@ final class CuttingRoomStore: ObservableObject {
         }
     }
 
-    /// **The window controller must call this when the Cutting Room closes.**
+    /// **The window controller must call this when Melo Edit closes.**
     /// Nothing else frees `RenderEngine`'s decoded source, and the store is a
     /// singleton with no deinit to fall back on — a two-hour file left resident
     /// is about 1.4 GB held for the rest of the session.
@@ -209,7 +207,6 @@ final class CuttingRoomStore: ObservableObject {
         playhead = 0
         history = []
         historyIndex = -1
-        refreshUndoFlags()
     }
 
     // MARK: - Measurement
@@ -324,7 +321,6 @@ final class CuttingRoomStore: ObservableObject {
         historyIndex -= 1
         endCoalescing()
         document = history[historyIndex]
-        refreshUndoFlags()
         scheduleQuiescentWork()
     }
 
@@ -333,7 +329,6 @@ final class CuttingRoomStore: ObservableObject {
         historyIndex += 1
         endCoalescing()
         document = history[historyIndex]
-        refreshUndoFlags()
         scheduleQuiescentWork()
     }
 
@@ -410,24 +405,17 @@ final class CuttingRoomStore: ObservableObject {
 
         coalesceKey = key
         coalesceDeadline = now.addingTimeInterval(Self.coalescingWindow)
-        refreshUndoFlags()
     }
 
     private func resetHistory(with document: EditorDocument) {
         history = [document]
         historyIndex = 0
         endCoalescing()
-        refreshUndoFlags()
     }
 
     private func endCoalescing() {
         coalesceKey = nil
         coalesceDeadline = .distantPast
-    }
-
-    private func refreshUndoFlags() {
-        canUndo = historyIndex > 0
-        canRedo = historyIndex >= 0 && historyIndex < history.count - 1
     }
 
     // MARK: - Debounced re-render
@@ -529,7 +517,7 @@ final class CuttingRoomStore: ObservableObject {
     private var snapshotPinned = false
 
     /// Seeds the store for a snapshot scene, with no file, no decode and no
-    /// render actor. Every editor root view binds to `CuttingRoomStore.shared`,
+    /// render actor. Every editor root view binds to `EditorStore.shared`,
     /// so without this every editor frame is the empty state.
     func setForSnapshot(document: EditorDocument, waveform: WaveformData?) {
         snapshotPinned = true

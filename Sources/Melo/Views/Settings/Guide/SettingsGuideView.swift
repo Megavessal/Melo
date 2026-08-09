@@ -320,12 +320,12 @@ struct SettingsGuideView: View {
                         locationLine(location)
                     }
                     // Three routes, and no entry carries two — see
-                    // `SettingsGuideEntry.opensCuttingRoom`. The order below is
+                    // `SettingsGuideEntry.opensEditor`. The order below is
                     // therefore a reading order, not a precedence rule.
                     if entry.showsInPopup {
                         showInPopupButton(entry)
-                    } else if entry.opensCuttingRoom {
-                        openCuttingRoomButton()
+                    } else if entry.opensEditor {
+                        openEditorButton()
                     } else if let destination = entry.destination {
                         showMeButton(destination, location: entry.location)
                     }
@@ -419,7 +419,7 @@ struct SettingsGuideView: View {
     /// Melo's own.
     ///
     /// The other two both had somewhere to send a reader: a Settings tab, or
-    /// the menu bar popup through the tour overlay. The Cutting Room is neither,
+    /// the menu bar popup through the tour overlay. Melo Edit is neither,
     /// and `SettingsDestination` maps one-to-one by raw value onto
     /// `SettingsRootView.Section`, so it cannot be reached by inventing a
     /// destination without inventing a Settings tab to go with it. Sixteen
@@ -429,23 +429,23 @@ struct SettingsGuideView: View {
     /// A direct call rather than the notification `showInPopupButton` posts.
     /// That one has to be posted because `SettingsRootView` is built by
     /// `FineTuneApp` and cannot be handed the popup controller or the tour
-    /// coordinator; `CuttingRoomWindowController` is a singleton, so the call
+    /// coordinator; `EditorWindowController` is a singleton, so the call
     /// is available here and is checked by the compiler. A notification would
     /// need an observer registered somewhere at launch, and a button whose
     /// wiring can go missing without the build noticing is the failure mode
     /// this route exists to avoid.
     ///
-    /// "Open the Cutting Room", not "Take Me There" — that label belongs to
+    /// "Open Melo Edit", not "Take Me There" — that label belongs to
     /// moving the Settings window, and this opens a different window — and not
     /// "Show Me", which is the tour overlay's, verbatim, in three places.
-    private func openCuttingRoomButton() -> some View {
+    private func openEditorButton() -> some View {
         actionChip(
-            title: "Open the \(SettingsGuideEntry.cuttingRoomTitle)",
+            title: "Open \(SettingsGuideEntry.editorTitle)",
             symbol: "scissors",
-            accessibilityLabel: "Open the \(SettingsGuideEntry.cuttingRoomTitle)",
+            accessibilityLabel: "Open \(SettingsGuideEntry.editorTitle)",
             help: "Open Melo’s audio editor"
         ) {
-            CuttingRoomWindowController.shared.show()
+            EditorWindowController.shared.show()
         }
     }
 
@@ -504,15 +504,15 @@ struct SettingsGuideView: View {
         // stating. `square.stack.3d.up` was refused because it would have
         // meant two *unrelated* things — a saved setup and the app list —
         // in surfaces a reader meets together. `scissors` already means two
-        // things, but they are a container and its contents: the Cutting Room
+        // things, but they are a container and its contents: Melo Edit
         // (the popup's button at `MenuBarPopupView:565`, the palette's
-        // "Open the Cutting Room", the Everyday section) and the trim move
+        // "Open Melo Edit", the Everyday section) and the trim move
         // inside it (`MoveKindDisplay:36`, `AddMoveMenu:29`). The two are never
         // on screen together, and every door into the window already wears
         // this glyph, so a different one here would be the inconsistency.
         // Nothing else in this sidebar uses it, and `waveform` — the obvious
         // alternative — is Sound's, one row above.
-        case .cuttingRoom: return "scissors"
+        case .editor: return "scissors"
         case .shortcuts: return "command"
         case .privacy: return "hand.raised"
         }

@@ -116,7 +116,7 @@ struct MoveStackEmptyState: View {
     /// ever stops carrying its own punctuation, this supplies the terminator
     /// instead of leaving the sentence hanging.
     private static var destinationPane: String {
-        let title = CuttingRoomRootView.SidebarSection.destination.title
+        let title = EditorRootView.SidebarSection.destination.title
         let alreadyTerminated = title.hasSuffix("?") || title.hasSuffix(".") || title.hasSuffix("!")
         return alreadyTerminated ? title : title + "."
     }

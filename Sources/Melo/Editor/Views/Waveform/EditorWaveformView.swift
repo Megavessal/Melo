@@ -11,7 +11,7 @@
 //    would be blank in every frame anyone ever looked at.
 //
 // 2. **The timeline is output time — what the render engine produces, and what
-//    export will write.** `CuttingRoomStore.refreshWaveform` renders the whole
+//    export will write.** `EditorStore.refreshWaveform` renders the whole
 //    document and `clampTimeline(to:)` clamps the playhead and the selection to
 //    *that* duration, so a view drawing source time would disagree with the
 //    store about where the end of the sound is the moment a trim was applied.
@@ -33,8 +33,8 @@ import SwiftUI
 /// transport's zoom control because they are siblings in the window and neither
 /// owns the other.
 ///
-/// A singleton for the same reason `CuttingRoomStore` is: there is one Cutting
-/// Room window, and `CuttingRoomWindowController.shared` is the only thing that
+/// A singleton for the same reason `EditorStore` is: there is one Melo Edit
+/// window, and `EditorWindowController.shared` is the only thing that
 /// opens it.
 @MainActor
 final class EditorTimeline: ObservableObject {
@@ -422,6 +422,25 @@ enum EditorWaveformMetrics {
     static let laneGap: CGFloat = 6
     /// How close a dragged edge has to come to a landmark before it snaps.
     static let snapPoints: CGFloat = 4
+
+    /// `.bars`: 2pt of ink and 1pt of air. Below about 2pt a bar stops reading
+    /// as an object and becomes a texture, which is the filled style with extra
+    /// steps; above about 4pt the picture starts throwing away detail the
+    /// buckets actually have.
+    static let barWidth: CGFloat = 2
+    static let barGap: CGFloat = 1
+
+    /// `.pixel`: the edge of one block, before it is rounded so a whole number
+    /// of them fills half a lane exactly. Five points at Melo's window sizes is
+    /// roughly fourteen blocks from the centre line to the top — the same order
+    /// as the 18×9 and 20×11 grids the app icon and the menu-bar mark are drawn
+    /// on, which is what makes this read as the same drawing technique rather
+    /// than as a coarse bar chart.
+    static let pixelCell: CGFloat = 5
+    /// The air around each block. Half a point at a five-point cell is a tenth
+    /// of the grid: enough that the blocks are countable, little enough that a
+    /// solid passage still reads as solid.
+    static let pixelInset: CGFloat = 0.5
 }
 
 // MARK: - Columns
@@ -656,13 +675,18 @@ enum EditorCutMap {
 @MainActor
 struct EditorWaveformView: View {
 
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
     @ObservedObject private var timeline = EditorTimeline.shared
     @ObservedObject private var playback = EditorPlayback.shared
     @StateObject private var detail = EditorWaveformDetail()
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.displayScale) private var displayScale
+
+    /// How the lanes are drawn. Read straight from defaults rather than from
+    /// `SettingsManager`, so this view stays constructible from nothing but the
+    /// store — see `EditorWaveformStyle` for why that property matters.
+    @AppStorage(EditorWaveformStyle.storageKey) private var storedStyle = EditorWaveformStyle.fallback
 
     @State private var drag: DragState?
     @State private var lastClick: ClickRecord?
@@ -674,12 +698,17 @@ struct EditorWaveformView: View {
     private var seededZoom: Double?
     private var seededWindowStart: TimeInterval?
     private var seededHoveredEdge: SelectionEdge?
+    /// A style the harness asked for, which wins over the stored preference.
+    /// Seeded rather than written to defaults so rendering one style's scene
+    /// cannot leak into the next scene's frame.
+    private var seededStyle: EditorWaveformStyle?
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
         seededZoom = nil
         seededWindowStart = nil
         seededHoveredEdge = nil
+        seededStyle = nil
     }
 
     // MARK: Body
@@ -712,6 +741,7 @@ struct EditorWaveformView: View {
                     selection: store.selection,
                     isBypassed: playback.isBypassed,
                     isDense: isDense(window: window, count: columns),
+                    style: seededStyle ?? storedStyle,
                     scheme: colorScheme
                 )
                 .equatable()
@@ -737,7 +767,7 @@ struct EditorWaveformView: View {
                 )
                 .allowsHitTesting(false)
             }
-            // No inset and no rounded corners: `CuttingRoomRootView` gives this
+            // No inset and no rounded corners: `EditorRootView` gives this
             // pane the full width between two dividers on purpose, and a
             // drawing of the whole sound that stops short of the edge is a
             // drawing of most of it.
@@ -1186,13 +1216,18 @@ struct EditorWaveformView: View {
 /// The waveform itself. `Equatable` and used through `.equatable()` so a
 /// playhead moving at sixty hertz does not rebuild two thousand rectangles it
 /// did not change — the chrome above redraws instead, and it is four shapes.
-private struct EditorWaveformLanesCanvas: View, Equatable {
+///
+/// Internal rather than private so `EditorWaveformStylePicker` can draw its
+/// thumbnails with it. A picker that hand-drew four little waveforms would be a
+/// second implementation of every style, and the first thing to go stale.
+struct EditorWaveformLanesCanvas: View, Equatable {
 
     let lanes: [[EditorWaveformColumn]]
     let window: ClosedRange<TimeInterval>
     let selection: ClosedRange<TimeInterval>?
     let isBypassed: Bool
     let isDense: Bool
+    let style: EditorWaveformStyle
     /// Not read directly — the palette is dynamic — but a colour scheme change
     /// has to invalidate the cached drawing, and equality is what decides that.
     let scheme: ColorScheme
@@ -1204,6 +1239,7 @@ private struct EditorWaveformLanesCanvas: View, Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.isBypassed == rhs.isBypassed
             && lhs.isDense == rhs.isDense
+            && lhs.style == rhs.style
             && lhs.scheme == rhs.scheme
             && lhs.selection == rhs.selection
             && lhs.window == rhs.window
@@ -1250,10 +1286,41 @@ private struct EditorWaveformLanesCanvas: View, Equatable {
         drawZeroLine(&context, rect: rect)
         guard !columns.isEmpty else { return }
 
-        let half = max(rect.height / 2 - 1, 1)
-        let midY = rect.midY
+        switch style {
+        case .bars: drawBars(&context, rect: rect, columns: columns)
+        case .pixel: drawPixel(&context, rect: rect, columns: columns)
+        case .filled: drawFilled(&context, rect: rect, columns: columns)
+        case .line: drawLine(&context, rect: rect, columns: columns)
+        }
+    }
+
+    // MARK: The one rule every style obeys
+    //
+    // **The RMS core is only ever drawn when `isDense`.** Below that there are
+    // fewer buckets than columns — either genuinely past sample resolution, or
+    // a detail render that has not landed yet — and one bucket repeated across
+    // forty columns paints as a solid slab of constant level. That slab is the
+    // most confident-looking thing on the screen and it is not a measurement of
+    // anything: it is one number stretched. The peak extent is true at every
+    // scale, because a bucket really does assert that the signal ranged between
+    // those two values over the span it covers, however many columns that span
+    // is drawn across. So the envelope survives the zoom and the core does not.
+    //
+    // `.line` never draws a core at all, which is why it is the only style that
+    // looks the same coarse as it does dense.
+
+    /// Whether the core may be drawn at all, in the one place all four styles
+    /// read it from.
+    private var drawsCore: Bool { isDense }
+
+    // MARK: Filled
+
+    /// What Melo Edit shipped with: the peak envelope as a filled silhouette,
+    /// the RMS core filled inside it, and — when the data is coarser than the
+    /// pixels — a line through the bucket midpoints in place of the core.
+    private func drawFilled(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
+        let geometry = LaneGeometry(rect: rect)
         let columnWidth = rect.width / CGFloat(columns.count)
-        let span = window.upperBound - window.lowerBound
 
         var peakOutside = Path()
         var peakInside = Path()
@@ -1264,35 +1331,30 @@ private struct EditorWaveformLanesCanvas: View, Equatable {
 
         for (index, column) in columns.enumerated() {
             let x = rect.minX + CGFloat(index) * columnWidth
-            let centre = window.lowerBound + span * (Double(index) + 0.5) / Double(columns.count)
-            let selected = selection.map { $0.contains(centre) } ?? false
+            let selected = isSelected(from: index, to: index + 1, of: columns.count)
 
-            // The peak envelope is true at every scale: a bucket really does
-            // assert that the signal ranged between these two values over the
-            // span it covers, however many columns that span is drawn across.
-            let top = midY - CGFloat(min(max(column.maximum, 0), 1)) * half
-            let bottom = midY - CGFloat(min(max(column.minimum, -1), 0)) * half
             // A hairline for silence: nothing at all reads as missing data
             // rather than as quiet.
-            let peakRect = CGRect(x: x, y: top, width: columnWidth, height: max(bottom - top, 1))
+            let peakRect = CGRect(
+                x: x,
+                y: geometry.y(column.maximum),
+                width: columnWidth,
+                height: max(geometry.y(column.minimum) - geometry.y(column.maximum), 1)
+            )
             if selected { peakInside.addRect(peakRect) } else { peakOutside.addRect(peakRect) }
 
-            if isDense {
-                let rms = CGFloat(min(max(column.rms, 0), 1)) * half
-                let bodyRect = CGRect(x: x, y: midY - rms, width: columnWidth, height: max(rms * 2, 1))
+            if drawsCore {
+                let rms = geometry.length(column.rms)
+                let bodyRect = CGRect(
+                    x: x,
+                    y: geometry.midY - rms,
+                    width: columnWidth,
+                    height: max(rms * 2, 1)
+                )
                 if selected { bodyInside.addRect(bodyRect) } else { bodyOutside.addRect(bodyRect) }
             } else {
-                // Fewer buckets than columns — either genuinely past sample
-                // resolution, or a detail render that has not landed yet.
-                //
-                // **The RMS core is deliberately not drawn here.** One bucket
-                // repeated across forty columns paints as a solid slab of
-                // constant level, which is the most confident-looking thing on
-                // screen and is not a measurement of anything: it is one number
-                // stretched. The envelope plus a line through the bucket
-                // midpoints says what is actually known and no more.
-                let value = CGFloat(min(max((column.maximum + column.minimum) / 2, -1), 1))
-                let point = CGPoint(x: x + columnWidth / 2, y: midY - value * half)
+                let value = (column.maximum + column.minimum) / 2
+                let point = CGPoint(x: x + columnWidth / 2, y: geometry.y(value))
                 if lineStarted {
                     linePath.addLine(to: point)
                 } else {
@@ -1309,6 +1371,245 @@ private struct EditorWaveformLanesCanvas: View, Equatable {
         }
         context.fill(bodyOutside, with: .color(bodyColor(selected: false)))
         context.fill(bodyInside, with: .color(bodyColor(selected: true)))
+    }
+
+    // MARK: Bars
+
+    /// Discrete bars on a fixed pitch, each one the peak extent of the audio
+    /// under it, with the RMS core as a second bar inside.
+    ///
+    /// The columns are *not* resampled to the bar pitch upstream. Sampling stays
+    /// at one column per physical pixel and the bars aggregate what lands under
+    /// them, so a transient two pixels wide still raises the bar it falls in
+    /// rather than being missed by a coarser sample grid.
+    private func drawBars(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
+        let geometry = LaneGeometry(rect: rect)
+        let columnWidth = rect.width / CGFloat(columns.count)
+        let pitch = EditorWaveformMetrics.barWidth + EditorWaveformMetrics.barGap
+        let perBar = max(1, Int((pitch / columnWidth).rounded()))
+
+        var peakOutside = Path()
+        var peakInside = Path()
+        var bodyOutside = Path()
+        var bodyInside = Path()
+
+        var start = 0
+        while start < columns.count {
+            let end = min(start + perBar, columns.count)
+            let column = Self.aggregate(columns[start..<end])
+            let selected = isSelected(from: start, to: end, of: columns.count)
+            let x = rect.minX + CGFloat(start) * columnWidth
+            // The gap comes out of the right of every bar, including the last,
+            // so the pitch is constant and the bars do not shuffle by a
+            // half-pixel as the window scrolls.
+            let width = max(CGFloat(end - start) * columnWidth - EditorWaveformMetrics.barGap, 1)
+
+            let top = geometry.y(column.maximum)
+            let bar = CGRect(x: x, y: top, width: width, height: max(geometry.y(column.minimum) - top, 1))
+            if selected { peakInside.addRect(bar) } else { peakOutside.addRect(bar) }
+
+            if drawsCore {
+                let rms = geometry.length(column.rms)
+                let core = CGRect(x: x, y: geometry.midY - rms, width: width, height: max(rms * 2, 1))
+                if selected { bodyInside.addRect(core) } else { bodyOutside.addRect(core) }
+            }
+            start = end
+        }
+
+        context.fill(peakOutside, with: .color(peakColor(selected: false)))
+        context.fill(peakInside, with: .color(peakColor(selected: true)))
+        context.fill(bodyOutside, with: .color(bodyColor(selected: false)))
+        context.fill(bodyInside, with: .color(bodyColor(selected: true)))
+    }
+
+    // MARK: Pixel
+
+    /// Blocks on a square grid, the technique the app icon is drawn in.
+    ///
+    /// The grid is derived from the lane rather than fixed in absolute points:
+    /// a whole number of rows has to fit between the centre line and full scale
+    /// or a peak of 1.0 would stop short of the top by up to one block, and the
+    /// cell is squared off that row height so the blocks are blocks.
+    ///
+    /// Peak blocks and core blocks are drawn in disjoint row ranges rather than
+    /// stacked. Both palette colours carry alpha, and overlapping them would
+    /// make the core a third colour that is in no palette.
+    private func drawPixel(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
+        let geometry = LaneGeometry(rect: rect)
+        let rows = max(2, Int((geometry.half / EditorWaveformMetrics.pixelCell).rounded()))
+        let cell = geometry.half / CGFloat(rows)
+        let gridColumns = max(1, Int((rect.width / cell).rounded()))
+        let cellWidth = rect.width / CGFloat(gridColumns)
+        let inset = min(EditorWaveformMetrics.pixelInset, min(cellWidth, cell) / 4)
+
+        var peakOutside = Path()
+        var peakInside = Path()
+        var bodyOutside = Path()
+        var bodyInside = Path()
+
+        for gridIndex in 0..<gridColumns {
+            let low = columns.count * gridIndex / gridColumns
+            let high = max(low + 1, columns.count * (gridIndex + 1) / gridColumns)
+            guard low < columns.count else { break }
+            let column = Self.aggregate(columns[low..<min(high, columns.count)])
+            let selected = isSelected(from: low, to: min(high, columns.count), of: columns.count)
+            let x = rect.minX + CGFloat(gridIndex) * cellWidth + inset
+            let width = max(cellWidth - inset * 2, 0.5)
+
+            let up = Self.blocks(column.maximum, rows: rows)
+            let down = Self.blocks(-column.minimum, rows: rows)
+            // The core can never poke out of the envelope it is inside.
+            let core = drawsCore ? min(Self.blocks(column.rms, rows: rows), min(up, down)) : 0
+
+            func block(_ row: Int, above: Bool) -> CGRect {
+                let y = above
+                    ? geometry.midY - CGFloat(row + 1) * cell
+                    : geometry.midY + CGFloat(row) * cell
+                return CGRect(x: x, y: y + inset, width: width, height: max(cell - inset * 2, 0.5))
+            }
+
+            for row in core..<up {
+                let blockRect = block(row, above: true)
+                if selected { peakInside.addRect(blockRect) } else { peakOutside.addRect(blockRect) }
+            }
+            for row in core..<down {
+                let blockRect = block(row, above: false)
+                if selected { peakInside.addRect(blockRect) } else { peakOutside.addRect(blockRect) }
+            }
+            for row in 0..<core {
+                let above = block(row, above: true)
+                let below = block(row, above: false)
+                if selected {
+                    bodyInside.addRect(above)
+                    bodyInside.addRect(below)
+                } else {
+                    bodyOutside.addRect(above)
+                    bodyOutside.addRect(below)
+                }
+            }
+        }
+
+        context.fill(peakOutside, with: .color(peakColor(selected: false)))
+        context.fill(peakInside, with: .color(peakColor(selected: true)))
+        context.fill(bodyOutside, with: .color(bodyColor(selected: false)))
+        context.fill(bodyInside, with: .color(bodyColor(selected: true)))
+    }
+
+    /// How many whole blocks a level of `0...1` reaches, floored at one for
+    /// anything audible. Rounding alone would draw quiet audio as nothing at
+    /// all, which on a grid this coarse is indistinguishable from silence.
+    private static func blocks(_ level: Float, rows: Int) -> Int {
+        guard level > 0 else { return 0 }
+        return max(1, min(rows, Int((Double(min(level, 1)) * Double(rows)).rounded())))
+    }
+
+    // MARK: Line
+
+    /// The peak outline, stroked, with nothing inside it.
+    ///
+    /// Two polylines rather than one closed shape, because the top and the
+    /// bottom of a real waveform are not mirror images and drawing one from the
+    /// other would be inventing half the picture.
+    private func drawLine(_ context: inout GraphicsContext, rect: CGRect, columns: [EditorWaveformColumn]) {
+        let geometry = LaneGeometry(rect: rect)
+        let columnWidth = rect.width / CGFloat(columns.count)
+
+        var top = SplitPolyline()
+        var bottom = SplitPolyline()
+
+        for (index, column) in columns.enumerated() {
+            let x = rect.minX + (CGFloat(index) + 0.5) * columnWidth
+            let selected = isSelected(from: index, to: index + 1, of: columns.count)
+            top.add(CGPoint(x: x, y: geometry.y(column.maximum)), selected: selected)
+            bottom.add(CGPoint(x: x, y: geometry.y(column.minimum)), selected: selected)
+        }
+
+        for polyline in [top, bottom] {
+            context.stroke(polyline.outside, with: .color(bodyColor(selected: false)), lineWidth: 1)
+            context.stroke(polyline.inside, with: .color(bodyColor(selected: true)), lineWidth: 1)
+        }
+    }
+
+    // MARK: Shared
+
+    /// Where the centre line is and how far full scale is from it, so four draw
+    /// routines cannot disagree about it.
+    private struct LaneGeometry {
+        let midY: CGFloat
+        let half: CGFloat
+
+        init(rect: CGRect) {
+            midY = rect.midY
+            half = max(rect.height / 2 - 1, 1)
+        }
+
+        /// The y of a signed sample value, clamped to the lane.
+        func y(_ value: Float) -> CGFloat {
+            midY - CGFloat(min(max(value, -1), 1)) * half
+        }
+
+        /// How far an unsigned level reaches from the centre line.
+        func length(_ value: Float) -> CGFloat {
+            CGFloat(min(max(value, 0), 1)) * half
+        }
+    }
+
+    /// Combines the columns under one bar or one block into the column that bar
+    /// or block draws: the widest excursion either of them saw, and the
+    /// root-mean-square of their squares — not the mean of their roots, which is
+    /// wrong and looks it, because quiet passages inflate.
+    private static func aggregate(_ columns: ArraySlice<EditorWaveformColumn>) -> EditorWaveformColumn {
+        guard !columns.isEmpty else { return .silent }
+        var minimum = Float.greatestFiniteMagnitude
+        var maximum = -Float.greatestFiniteMagnitude
+        var meanSquare = 0.0
+        for column in columns {
+            minimum = min(minimum, column.minimum)
+            maximum = max(maximum, column.maximum)
+            meanSquare += Double(column.rms) * Double(column.rms)
+        }
+        return EditorWaveformColumn(
+            minimum: minimum,
+            maximum: maximum,
+            rms: Float((meanSquare / Double(columns.count)).squareRoot())
+        )
+    }
+
+    /// Whether the midpoint of the columns in `start..<end` falls in the
+    /// selection. The midpoint rather than either edge, so a bar straddling a
+    /// selection boundary belongs to whichever side most of it is on.
+    private func isSelected(from start: Int, to end: Int, of count: Int) -> Bool {
+        guard let selection, count > 0 else { return false }
+        let span = window.upperBound - window.lowerBound
+        let centre = window.lowerBound + span * ((Double(start) + Double(end)) / 2 / Double(count))
+        return selection.contains(centre)
+    }
+
+    /// A polyline that changes colour partway along, kept as two paths.
+    ///
+    /// The point at which the run changes is added to *both* paths. Without
+    /// that the stroke would have a one-column hole at every selection edge,
+    /// which at a 1pt line width reads as a rendering defect rather than as a
+    /// boundary.
+    private struct SplitPolyline {
+        var outside = Path()
+        var inside = Path()
+        private var started = false
+        private var wasSelected = false
+
+        mutating func add(_ point: CGPoint, selected: Bool) {
+            guard started else {
+                if selected { inside.move(to: point) } else { outside.move(to: point) }
+                started = true
+                wasSelected = selected
+                return
+            }
+            if wasSelected { inside.addLine(to: point) } else { outside.addLine(to: point) }
+            if selected != wasSelected {
+                if selected { inside.move(to: point) } else { outside.move(to: point) }
+                wasSelected = selected
+            }
+        }
     }
 
     private func peakColor(selected: Bool) -> Color {
@@ -1477,7 +1778,7 @@ private struct EditorWaveformScrollBar: View {
 #if MELO_DEV
 extension EditorWaveformView {
     /// Seeds the state the store does not hold, so the harness can render a
-    /// zoomed view and a grabbed handle. `CuttingRoomStore.setForSnapshot`
+    /// zoomed view and a grabbed handle. `EditorStore.setForSnapshot`
     /// covers the document and the waveform, and a scene sets `selection` and
     /// `playhead` on the store directly — those are published properties, not
     /// this view's `@State`.
@@ -1492,16 +1793,21 @@ extension EditorWaveformView {
     ///   - windowStart: Left edge in seconds, applied after `zoom`.
     ///   - hoveredEdge: Draws a selection handle in its grabbed state, which is
     ///     otherwise reachable only by putting a pointer on it.
+    ///   - style: Overrides the stored preference for this view only. A scene
+    ///     that wrote the preference instead would change what every later
+    ///     scene rendered, and the harness renders them in one process.
     init(
-        store: CuttingRoomStore,
+        store: EditorStore,
         zoom: Double? = nil,
         windowStart: TimeInterval? = nil,
-        hoveredEdge: SelectionEdge? = nil
+        hoveredEdge: SelectionEdge? = nil,
+        style: EditorWaveformStyle? = nil
     ) {
         _store = ObservedObject(wrappedValue: store)
         seededZoom = zoom
         seededWindowStart = windowStart
         seededHoveredEdge = hoveredEdge
+        seededStyle = style
     }
 }
 #endif

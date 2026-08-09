@@ -15,12 +15,12 @@ import SwiftUI
 /// when there is something to do. Pressing it lands the proposal as a single
 /// undo step, so changing your mind is one keystroke.
 ///
-/// The section header ("Where's it going?") belongs to `CuttingRoomRootView`.
+/// The section header ("Where's it going?") belongs to `EditorRootView`.
 @MainActor
 struct DestinationPicker: View {
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
     }
 

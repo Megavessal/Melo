@@ -30,11 +30,11 @@ enum MeloThemeRemix {
     /// to within half a millisecond. So: 32 bars of 4/4 at 86 BPM, one bar
     /// every 2.7907 s.
     ///
-    /// Nothing below hardcodes this. It is the sanity value for
-    /// `looksLikeTheTheme(_:)` and the fallback when a duration is not
-    /// available yet; every real position is derived from the duration the
-    /// decoder actually reports, so re-rendering the track at a different
-    /// length moves the cuts with it instead of leaving them behind.
+    /// Nothing below hardcodes this. It is the fallback for a caller that has
+    /// no decoded duration yet — the starter previews in `MeloThemeWelcome`;
+    /// every real position is derived from the duration the decoder actually
+    /// reports, so re-rendering the track at a different length moves the cuts
+    /// with it instead of leaving them behind.
     static let measuredDuration: TimeInterval = 89.3023
 
     /// One bar of a theme that is `duration` long.
@@ -53,14 +53,6 @@ enum MeloThemeRemix {
         return barLength(in: duration) * Double(clamped)
     }
 
-    /// Whether a duration is close enough to the bundled theme that the bar
-    /// arithmetic above means what it says. Two percent either way covers an
-    /// encoder's priming and remainder frames without covering a different song.
-    nonisolated static func looksLikeTheTheme(_ duration: TimeInterval) -> Bool {
-        guard duration.isFinite, duration > 0 else { return false }
-        return abs(duration - measuredDuration) / measuredDuration <= 0.02
-    }
-
     // MARK: - Getting at it
 
     private static let logger = Logger(
@@ -76,6 +68,9 @@ enum MeloThemeRemix {
 
     /// `~/Library/Application Support/Melo/Cutting Room`, alongside the
     /// `Melo/AutoEQ` directory the profile loader already writes into.
+    ///
+    /// Still the 3.1.0 spelling. It holds the user's own remix of the theme,
+    /// so renaming the directory would lose it.
     nonisolated static var workingDirectory: URL {
         let support = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -95,7 +90,7 @@ enum MeloThemeRemix {
     /// display name.
     ///
     /// Call this rather than `bundledURL` from anything that opens the theme —
-    /// this is the seam `CuttingRoomStore.openMeloTheme()` is meant to use.
+    /// this is the seam `EditorStore.openMeloTheme()` is meant to use.
     nonisolated static func preparedSourceURL() throws -> URL {
         guard let bundled = bundledURL else { throw Failure.themeMissingFromBundle }
 
@@ -125,16 +120,16 @@ enum MeloThemeRemix {
         return destination
     }
 
-    /// Opens the Cutting Room on the theme.
+    /// Opens Melo Edit on the theme.
     ///
     /// The window comes up first and the store reports its own failure through
     /// the same path every other open uses — a button that shows nothing when
     /// staging fails is the dead-button signature this project has already
     /// measured once.
     @MainActor
-    static func openInCuttingRoom() {
-        CuttingRoomWindowController.shared.show()
-        Task { await CuttingRoomStore.shared.openMeloTheme() }
+    static func openInEditor() {
+        EditorWindowController.shared.show()
+        Task { await EditorStore.shared.openMeloTheme() }
     }
 
     // MARK: - Failures

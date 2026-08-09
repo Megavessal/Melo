@@ -14,9 +14,9 @@ import SwiftUI
 /// inventing a reason for a human's decision.
 @MainActor
 struct AddMoveMenu: View {
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
     }
 

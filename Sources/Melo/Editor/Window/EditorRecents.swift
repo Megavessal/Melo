@@ -2,12 +2,12 @@ import AppKit
 import Foundation
 import OSLog
 
-/// One thing the Cutting Room opened before.
+/// One thing Melo Edit opened before.
 ///
 /// Everything needed to draw the row is stored, rather than re-probed on load:
 /// five `AudioFileIO.probe` calls on a window that is being put on screen is
 /// disk work in the one place the user is watching for the window to appear.
-struct CuttingRoomRecent: Codable, Equatable, Identifiable, Sendable {
+struct EditorRecent: Codable, Equatable, Identifiable, Sendable {
     var url: URL
     var displayName: String
     var formatDescription: String
@@ -45,7 +45,7 @@ struct CuttingRoomRecent: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// The last five files the Cutting Room opened.
+/// The last five files Melo Edit opened.
 ///
 /// ## Why this is its own file on disk
 ///
@@ -64,7 +64,7 @@ struct CuttingRoomRecent: Codable, Equatable, Identifiable, Sendable {
 /// This list originally held `.file` sources only, and the reason was that a
 /// link extraction and a recording both lived in `FileManager.temporaryDirectory`
 /// — offering to reopen one was offering to reopen something macOS was entitled
-/// to have deleted. That premise is gone: `CuttingRoomStore.openSource` now
+/// to have deleted. That premise is gone: `EditorStore.openSource` now
 /// moves both into `EditorSourceStore.directory` before anything reads the path,
 /// and `document.source.url` is where the audio actually lives.
 ///
@@ -87,8 +87,8 @@ struct CuttingRoomRecent: Codable, Equatable, Identifiable, Sendable {
 /// an external drive is not gone, it is unplugged, and pruning it on the one
 /// launch where the drive was detached would lose it for good.
 @MainActor
-final class CuttingRoomRecents: ObservableObject {
-    static let shared = CuttingRoomRecents()
+final class EditorRecents: ObservableObject {
+    static let shared = EditorRecents()
 
     /// Five. Enough to hold a working session, few enough that the list stays a
     /// glance rather than a thing to read.
@@ -96,11 +96,11 @@ final class CuttingRoomRecents: ObservableObject {
 
     /// Everything remembered, newest first, including anything currently
     /// unreachable.
-    @Published private(set) var all: [CuttingRoomRecent] = []
+    @Published private(set) var all: [EditorRecent] = []
 
     /// What the empty state draws: the remembered entries whose files were on
     /// disk the last time `refreshAvailability()` ran.
-    @Published private(set) var visible: [CuttingRoomRecent] = []
+    @Published private(set) var visible: [EditorRecent] = []
 
     /// Whether `EditorSourceStore.directory` holds anything.
     ///
@@ -113,7 +113,7 @@ final class CuttingRoomRecents: ObservableObject {
     private let storeURL: URL
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "Melo",
-        category: "CuttingRoomRecents"
+        category: "EditorRecents"
     )
 
     /// - Parameter directory: overridable so the snapshot harness and tests can
@@ -139,7 +139,7 @@ final class CuttingRoomRecents: ObservableObject {
     /// Records a source, if it is one that can be reopened. Re-opening something
     /// already in the list moves it to the front rather than duplicating it.
     func remember(_ source: EditorSource) {
-        let kind: CuttingRoomRecent.Kind
+        let kind: EditorRecent.Kind
         let url: URL
 
         switch source.origin {
@@ -158,7 +158,7 @@ final class CuttingRoomRecents: ObservableObject {
             return
         }
 
-        let entry = CuttingRoomRecent(
+        let entry = EditorRecent(
             url: url,
             displayName: source.displayName,
             formatDescription: source.formatDescription,
@@ -178,14 +178,14 @@ final class CuttingRoomRecents: ObservableObject {
     /// was opened, and forgetting is not deleting. Nothing in this type removes
     /// audio from disk, deliberately: see the standing decision recorded in
     /// `EditorSourceStore`.
-    func forget(_ recent: CuttingRoomRecent) {
+    func forget(_ recent: EditorRecent) {
         all.removeAll { $0.url == recent.url }
         refreshAvailability()
         save()
     }
 
     /// Shows one remembered file in Finder.
-    func reveal(_ recent: CuttingRoomRecent) {
+    func reveal(_ recent: EditorRecent) {
         NSWorkspace.shared.activateFileViewerSelecting([recent.url])
     }
 
@@ -226,7 +226,7 @@ final class CuttingRoomRecents: ObservableObject {
         // A pinned fixture outranks everything. The root view calls this on
         // appear, and the seeded entries name files that do not exist, so
         // without this the harness would blank its own fixture — the same
-        // failure `CuttingRoomStore.setForSnapshot` guards against.
+        // failure `EditorStore.setForSnapshot` guards against.
         if snapshotPinned { return }
         #endif
         let manager = FileManager.default
@@ -246,7 +246,7 @@ final class CuttingRoomRecents: ObservableObject {
             refreshAvailability()
             return
         }
-        guard let decoded = try? JSONDecoder().decode([CuttingRoomRecent].self, from: data) else {
+        guard let decoded = try? JSONDecoder().decode([EditorRecent].self, from: data) else {
             // A list that will not decode is a list worth throwing away. It is a
             // cache; the alternative is refusing to remember anything again
             // until someone deletes a file by hand.
@@ -271,7 +271,7 @@ final class CuttingRoomRecents: ObservableObject {
     ///   bare `false` default made the seeded state contradict itself — the
     ///   first empty-state frame listed a recording above a line saying nothing
     ///   was being kept, so the line did not draw at all.
-    func setForSnapshot(_ entries: [CuttingRoomRecent], hasKeptSources: Bool? = nil) {
+    func setForSnapshot(_ entries: [EditorRecent], hasKeptSources: Bool? = nil) {
         snapshotPinned = true
         all = Array(entries.prefix(Self.limit))
         visible = all

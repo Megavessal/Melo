@@ -56,8 +56,11 @@ final class URLHandler {
             handleSetDevice(queryItems: queryItems)
         case "reset":
             handleReset(queryItems: queryItems)
-        case "cutting-room":
-            handleCuttingRoom(queryItems: queryItems)
+        // `cutting-room` is the spelling 3.1.0 shipped and is kept forever: a
+        // URL is somebody else's saved shortcut, and breaking it is the one
+        // consequence of this rename the user cannot work around.
+        case "melo-edit", "cutting-room":
+            handleEditor(queryItems: queryItems)
         default:
             logger.warning("Unknown URL action: \(host ?? "nil")")
         }
@@ -262,8 +265,9 @@ final class URLHandler {
 
     /// Reset apps to 100% volume and unmute
     /// URL format: melo://reset?app=com.a&app=com.b or melo://reset (all apps)
-    /// `melo://cutting-room` opens the window. `melo://cutting-room?url=…`
-    /// also prefills the link sheet.
+    /// `melo://melo-edit` opens the window. `melo://melo-edit?url=…`
+    /// also prefills the link sheet. `melo://cutting-room` is the 3.1.0
+    /// spelling of both and still works.
     ///
     /// Three deliberate limits, because a `melo://` URL can be handed over by
     /// any web page and this is the only route into Melo that something other
@@ -276,12 +280,12 @@ final class URLHandler {
     /// the paste path uses, rather than a second one that could drift from it.
     /// And it only ever *prefills*: a page handing Melo a link is not the user
     /// pressing "Get the audio", so the download still needs a deliberate press.
-    private func handleCuttingRoom(queryItems: [URLQueryItem]) {
+    private func handleEditor(queryItems: [URLQueryItem]) {
         if let raw = queryItems.first(where: { $0.name == "url" })?.value,
            let link = LinkExtractor.webLink(fromPastedText: raw) {
             LinkImportModel.pendingLink = link
         }
-        CuttingRoomWindowController.shared.show()
+        EditorWindowController.shared.show()
     }
 
     private func handleReset(queryItems: [URLQueryItem]) {

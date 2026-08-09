@@ -100,7 +100,7 @@ final class OnboardingVolumeDemo {
         // volume and the EQ without the track restarting under you, which a
         // two-second loop did on roughly every third drag.
         // `MeloThemePlayback.currentURL` rather than the bundle directly: someone
-        // who remixed the theme in the Cutting Room and adopted their version
+        // who remixed the theme in Melo Edit and adopted their version
         // hears theirs here, and everyone else falls back to the bundled
         // `MeloTheme.m4a`. This is the only sound that indirection covers —
         // `FirstRunAudioPrimer` keeps the bundled `MeloJingle.m4a`, because that

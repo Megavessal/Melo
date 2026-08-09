@@ -38,14 +38,38 @@ enum MeloReleaseNotes {
     /// entry ships with no items — so a release cannot go out silent.
     static let all: [MeloReleaseNote] = [
         MeloReleaseNote(
+            id: "3.1.1",
+            version: "3.1.1",
+            build: 311,
+            headline: "The editor has a plainer name",
+            items: [
+                MeloReleaseNote.Item(
+                    id: "3.1.1-rename",
+                    title: "The Cutting Room is now Melo Edit",
+                    // The only item in this release, and it is here rather than
+                    // silent because 3.1.0 shipped a week's worth of copy under
+                    // the old name — a reader who saw it and cannot find it
+                    // again deserves the sentence. "Cutting room" is kept as a
+                    // search alias for the same reason.
+                    detail: "Same window, same everything inside it. Searching for the old name still finds it.",
+                    target: nil
+                )
+            ]
+        ),
+        MeloReleaseNote(
             id: "3.1.0",
             version: "3.1.0",
             build: 310,
-            headline: "Melo can cut a sound now",
+            // The prose below deliberately says "Melo Edit" rather than the
+            // name this release actually shipped under. What's New is read as
+            // in-app history, so naming a thing the reader can no longer find
+            // is worse than a small inaccuracy about what it was called at the
+            // time. The 3.1.1 note above carries the rename itself.
+            headline: "Melo can edit a sound now",
             items: [
                 MeloReleaseNote.Item(
                     id: "3.1.0-cutting-room",
-                    title: "The Cutting Room",
+                    title: "Melo Edit",
                     // First because everything else in this release is inside
                     // it. Names the three ways in that an existing install can
                     // use today, which is what turns the notes below from news
@@ -85,7 +109,7 @@ enum MeloReleaseNotes {
                     title: "An editor curve can become a Melo preset",
                     // The one thing here no other audio editor can do, and the
                     // reason the equalizer is Melo's rather than a generic one.
-                    detail: "Save what you build in the Cutting Room's equalizer and use it on live apps.",
+                    detail: "Save what you build in Melo Edit's equalizer and use it on live apps.",
                     target: .equalizer
                 ),
                 MeloReleaseNote.Item(

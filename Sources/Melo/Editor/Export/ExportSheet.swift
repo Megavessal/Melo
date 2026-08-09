@@ -15,16 +15,16 @@ import SwiftUI
 @MainActor
 struct ExportSheet: View {
 
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
     @Binding private var isPresented: Bool
     private let initialFormat: AudioFormatKind?
 
-    init(store: CuttingRoomStore, isPresented: Binding<Bool>) {
+    init(store: EditorStore, isPresented: Binding<Bool>) {
         self.init(store: store, isPresented: isPresented, initialFormat: nil)
     }
 
     private init(
-        store: CuttingRoomStore,
+        store: EditorStore,
         isPresented: Binding<Bool>,
         initialFormat: AudioFormatKind?
     ) {
@@ -56,7 +56,7 @@ struct ExportSheet: View {
     #if MELO_DEV
     /// Snapshot seam: starts the sheet on a chosen format, so the frame that
     /// has to show the missing-`ffmpeg` state can be rendered without a click.
-    init(store: CuttingRoomStore, isPresented: Binding<Bool>, format: AudioFormatKind) {
+    init(store: EditorStore, isPresented: Binding<Bool>, format: AudioFormatKind) {
         self.init(store: store, isPresented: isPresented, initialFormat: format)
     }
     #endif
@@ -68,7 +68,7 @@ struct ExportSheet: View {
 private struct ExportSheetContent: View {
 
     let document: EditorDocument
-    @ObservedObject var store: CuttingRoomStore
+    @ObservedObject var store: EditorStore
     @Binding var isPresented: Bool
 
     @State private var format: AudioFormatKind
@@ -92,7 +92,7 @@ private struct ExportSheetContent: View {
 
     init(
         document: EditorDocument,
-        store: CuttingRoomStore,
+        store: EditorStore,
         isPresented: Binding<Bool>,
         initialFormat: AudioFormatKind?
     ) {

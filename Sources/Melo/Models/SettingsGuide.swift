@@ -8,7 +8,7 @@ enum SettingsGuideCategory: String, CaseIterable, Identifiable, Sendable {
     case apps = "Apps"
     case devices = "Devices"
     case sound = "Sound"
-    case cuttingRoom = "Cutting Room"
+    case editor = "Melo Edit"
     case shortcuts = "Shortcuts"
     case privacy = "Privacy & Data"
 
@@ -90,7 +90,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
     /// The third route out of a search result, and the reason it exists.
     ///
     /// `destination` reaches a Settings tab and `showsInPopup` reaches the menu
-    /// bar popup. The Cutting Room is neither: it is a window of its own, and
+    /// bar popup. Melo Edit is neither: it is a window of its own, and
     /// `SettingsDestination` maps one-to-one by raw value onto
     /// `SettingsRootView.Section`, so giving it a destination would mean
     /// inventing a Settings tab that does not exist. Without a third route these
@@ -100,7 +100,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
     /// Deliberately a `Bool` rather than a second destination enum: there is one
     /// such window and one thing to do with it. When there are two, this becomes
     /// an enum and the two call sites below switch on it.
-    let opensCuttingRoom: Bool
+    let opensEditor: Bool
     /// Set when the control is in the menu bar popup. "Show me" then opens the
     /// popup and spotlights it, which is the only way most of Melo's controls
     /// can be shown at all: two thirds of this catalog describes the popup, and
@@ -120,7 +120,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
         keywords: [String] = [],
         location: String? = nil,
         destination: SettingsDestination? = nil,
-        opensCuttingRoom: Bool = false,
+        opensEditor: Bool = false,
         showsInPopup: Bool = false,
         popupTarget: GuidedTourTarget? = nil
     ) {
@@ -132,7 +132,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
         self.keywords = keywords
         self.location = location
         self.destination = destination
-        self.opensCuttingRoom = opensCuttingRoom
+        self.opensEditor = opensEditor
         self.showsInPopup = showsInPopup
         self.popupTarget = popupTarget
     }
@@ -142,12 +142,12 @@ struct SettingsGuideEntry: Identifiable, Sendable {
     /// find it; an entry with neither is a paragraph in a catalog of buttons.
     /// Read by the Guide and by the Settings search row so a new route has one
     /// place to be added rather than three.
-    var hasRoute: Bool { destination != nil || opensCuttingRoom || showsInPopup }
+    var hasRoute: Bool { destination != nil || opensEditor || showsInPopup }
 
     /// What a search result row prints on its right where it would otherwise
     /// print a Settings tab name. One spelling, because the row, the Guide's
     /// chip and the ⌘K subtitle all name the same window.
-    static let cuttingRoomTitle = "Cutting Room"
+    static let editorTitle = "Melo Edit"
 
     /// The spotlight this entry asks for. The message is the summary the reader
     /// has just read, trimmed of the detail paragraph — the card is small.
@@ -211,7 +211,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
     /// previously blown the release-mode type checker in this project.
     static let all: [SettingsGuideEntry] =
         gettingStarted + everyday + general + volumeAndCalls + apps + devices + sound
-            + cuttingRoom + shortcuts + privacy
+            + editor + shortcuts + privacy
 
     // MARK: - Getting Started
 
@@ -1082,37 +1082,37 @@ struct SettingsGuideEntry: Identifiable, Sendable {
         )
     ]
 
-    // MARK: - Cutting Room
+    // MARK: - Melo Edit
 
-    // Every entry here carries `opensCuttingRoom: true` rather than a
-    // `destination`, and their location lines start "Cutting Room" rather than
-    // "Settings". Both are on purpose: the Cutting Room is its own window, so
+    // Every entry here carries `opensEditor: true` rather than a
+    // `destination`, and their location lines start "Melo Edit" rather than
+    // "Settings". Both are on purpose: Melo Edit is its own window, so
     // there is no tab to send anyone to and no section for a tab to scroll to.
     // `verify-2.8.3-refinement.py` only inspects entries that name a Settings
     // tab, so these are outside its rule rather than exceptions to it.
-    private static let cuttingRoom: [SettingsGuideEntry] = [
+    private static let editor: [SettingsGuideEntry] = [
         .init(
-            "cutting-room",
-            category: .cuttingRoom,
-            title: "The Cutting Room",
+            "editor",
+            category: .editor,
+            title: "Melo Edit",
             summary: "Melo’s audio editor. One sound, one waveform, and a stack of moves you can reorder, switch off, or throw away.",
             details: "It opens as a window of its own and gives Melo a Dock icon while it is up. Your original file is never written to — everything you do is held as the stack until you export.",
             keywords: ["audio editor", "edit audio", "edit a sound", "open the editor", "editing", "editor", "cut audio", "how do i edit a file", "cutting room", "audio editing"],
             // The one entry in this section that takes the *Settings* route
             // rather than the third one, because it is the only one about the
             // window rather than about something inside it, and Everyday holds
-            // a Cutting Room section with an Open button. Deliberately not both
+            // a Melo Edit section with an Open button. Deliberately not both
             // routes at once: an entry carrying a destination and a window would
             // need a precedence rule, and a button whose behaviour depends on a
             // rule nobody can see is how "Take Me There" stops meaning anything.
-            location: "Settings › Everyday › Cutting Room",
+            location: "Settings › Everyday › Melo Edit",
             destination: .everyday
         ),
         .init(
             "editor-open",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Open a Sound to Edit",
-            summary: "Drop a file on the Cutting Room or pick one: WAV, AIFF, CAF, MP3, M4A, AAC, ALAC and FLAC all open.",
+            summary: "Drop a file on Melo Edit or pick one: WAV, AIFF, CAF, MP3, M4A, AAC, ALAC and FLAC all open.",
             // "…and Melo offers to work on a selection instead" was here and
             // named no control, because there is none: `AudioFileIO.Failure`'s
             // recovery suggestion for `.tooLong` reads "Trim it down first, or
@@ -1120,22 +1120,39 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // promising an offer is a search result that ends in a button hunt.
             details: "Anything your Mac can already play will open. A file longer than two hours is refused rather than quietly filling memory, and Melo says so instead of grinding.",
             keywords: ["open a file", "import audio", "which formats can i open", "what files does it accept", "drag a file in", "edit an mp3", "edit a wav", "load a song", "flac"],
-            location: "Cutting Room › the opening screen",
-            opensCuttingRoom: true
+            location: "Melo Edit › the opening screen",
+            opensEditor: true
         ),
         .init(
             "editor-trim",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Trim a Sound",
             summary: "Drag across the waveform to pick a stretch, then trim to it — the quickest way to take the dead air off the front and back of a recording.",
             details: "Trim is a move like any other, so the audio outside it is still there. Adjust the ends later, or switch the move off to hear the whole thing again.",
             keywords: ["trim", "trim audio", "cut audio", "crop", "cut the beginning", "cut the end", "shorten a clip", "cut a piece out", "select part of a sound", "waveform"],
-            location: "Cutting Room › Waveform",
-            opensCuttingRoom: true
+            location: "Melo Edit › Waveform",
+            opensEditor: true
+        ),
+        .init(
+            "editor-waveform-style",
+            category: .editor,
+            title: "Change How the Waveform Looks",
+            summary: "Bars, pixels, a filled shape or a plain outline. It changes the drawing only — nothing about the sound or the moves.",
+            details: "Bars is the default. Pixel draws on a grid, matching Melo's own mark, and trades a little fine detail for it. Filled is the shape Melo Edit shipped with.",
+            // This one is a *setting*, so it takes the Settings route rather
+            // than `opensEditor` — the picker lives in Settings and there is
+            // nothing to open a window for. Three levels, because
+            // `verify-2.8.3-refinement.py` fails a two-level location on a tab
+            // that can be marked, and the third level has to match
+            // `EverydayTab`'s anchor exactly or the tab opens and highlights
+            // nothing.
+            keywords: ["waveform style", "waveform looks", "change the waveform", "bars", "pixel waveform", "ugly waveform", "how the audio looks"],
+            location: "Settings › Everyday › Melo Edit",
+            destination: .everyday
         ),
         .init(
             "editor-silence",
-            category: .cuttingRoom,
+            category: .editor,
             // "Remove Dead Air", not "Remove Silence". Measured: a title
             // containing "silence" scored 860 for the bare query "silence" and
             // took the top row off "Mute an App", which is what that word has
@@ -1145,31 +1162,31 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Remove Dead Air",
             summary: "Finds the gaps and takes them out, leaving a short tail on each so speech does not sound spliced.",
             keywords: ["remove silence", "cut the gaps", "remove dead air", "remove pauses", "tighten up a recording", "long silences", "gaps between words"],
-            location: "Cutting Room › The stack",
-            opensCuttingRoom: true
+            location: "Melo Edit › The stack",
+            opensEditor: true
         ),
         .init(
             "editor-fade",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Fade In and Fade Out",
             summary: "Eases a sound up at the start or down at the end over a length you set, with a linear, equal-power, or exponential curve.",
             keywords: ["fade", "fade in", "fade out", "fade the ending", "smooth start", "soft ending", "ease it in", "abrupt ending"],
-            location: "Cutting Room › The stack",
-            opensCuttingRoom: true
+            location: "Melo Edit › The stack",
+            opensEditor: true
         ),
         .init(
             "editor-level",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Make a File Louder or Quieter",
             summary: "Gain moves the whole thing by a number of decibels. Normalize measures the file and lands it on a loudness target instead of guessing.",
             details: "Melo measures in LUFS, the unit streaming services publish their targets in, and a limiter holds the peaks under the ceiling so nothing clips on the way up.",
             keywords: ["make it louder", "make it quieter", "make my podcast louder", "this recording is too quiet", "turn up a recording", "gain", "normalize", "normalise", "lufs", "limiter", "amplify a file", "decibels"],
-            location: "Cutting Room › The stack",
-            opensCuttingRoom: true
+            location: "Melo Edit › The stack",
+            opensEditor: true
         ),
         .init(
             "editor-eq",
-            category: .cuttingRoom,
+            category: .editor,
             // "File Equaliser", not "Equaliser for a File". Measured: a title
             // that *starts* with the query earns 600 where one that merely
             // contains it earns 400, so the leading word put this entry above
@@ -1184,12 +1201,12 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // through the same `EQPresetPicker` the popup uses.
             details: "Melo’s twenty presets and your own saved ones are in the picker, and a curve you build here can be saved back as one.",
             keywords: ["eq a file", "eq an mp3", "change the tone of a recording", "more bass in a file", "cut the boom", "brighten a recording", "parametric eq", "high pass", "rumble"],
-            location: "Cutting Room › The stack",
-            opensCuttingRoom: true
+            location: "Melo Edit › The stack",
+            opensEditor: true
         ),
         .init(
             "editor-speed",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Speed and Reverse",
             summary: "Plays a sound faster or slower without turning the voices into chipmunks, and reverse turns it back to front.",
             // No "reverse" alias: the title already carries the word, and the
@@ -1197,78 +1214,78 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // enough to cut "Undo a Change" — which is what "reverse" meant in
             // this app before there was a reverse — out of the results entirely.
             keywords: ["speed up", "slow down", "half speed", "double speed", "tempo", "faster", "slower", "play it backwards"],
-            location: "Cutting Room › The stack",
-            opensCuttingRoom: true
+            location: "Melo Edit › The stack",
+            opensEditor: true
         ),
         .init(
             "editor-destination",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Where’s This Going?",
             summary: "Say the sound is for a podcast, music, a video, a ringtone, a voice memo, or just better, and Melo measures the file and proposes the exact moves to get it there.",
             details: "Each proposal says in a sentence what it does to this file, every number stays editable, and nothing is applied until you say so.",
             keywords: ["make it sound good", "i dont know what to do", "fix my audio automatically", "do it for me", "podcast", "ringtone", "voice memo", "master my track", "make it ready to publish"],
-            location: "Cutting Room › Where’s it going?",
-            opensCuttingRoom: true
+            location: "Melo Edit › Where’s it going?",
+            opensEditor: true
         ),
         .init(
             "editor-analysis",
-            category: .cuttingRoom,
+            category: .editor,
             title: "What Melo Found in the File",
             summary: "Loudness, true peak, noise floor, DC offset, clipped samples and where the silence is — measured from the audio itself, not read off the format.",
             keywords: ["how loud is my file", "is it clipping", "true peak", "noise floor", "analyse my audio", "analyze my audio", "measure loudness", "what is wrong with this recording", "dc offset"],
-            location: "Cutting Room › What I found",
-            opensCuttingRoom: true
+            location: "Melo Edit › What I found",
+            opensEditor: true
         ),
         .init(
             "editor-stack",
-            category: .cuttingRoom,
+            category: .editor,
             title: "The Stack",
             summary: "Every move is a row you can reorder, switch off, edit, or delete. The sound is rendered from the original plus the stack, so nothing is ever destroyed.",
             details: "Order changes the result — a limiter before an equaliser is not the same as one after it. Revert to Original empties the stack and leaves the file exactly as it arrived.",
             keywords: ["undo an edit", "change an edit i made", "non destructive", "remove a change", "reorder my edits", "edit history", "start this edit over", "revert"],
-            location: "Cutting Room › The stack",
-            opensCuttingRoom: true
+            location: "Melo Edit › The stack",
+            opensEditor: true
         ),
         .init(
             "editor-export",
-            category: .cuttingRoom,
-            title: "Export from the Cutting Room",
+            category: .editor,
+            title: "Export from Melo Edit",
             summary: "Writes the finished sound as WAV, AIFF, CAF, M4A, FLAC, MP3 or Opus, at the sample rate, bit rate and channel count you pick.",
             details: "Melo shows the loudness and true peak of what it just wrote, so the number you were aiming at is a measurement rather than a promise.",
             keywords: ["export", "mp3", "wav", "m4a", "export mp3", "save as wav", "convert to mp3", "convert audio", "change the format", "save my edit", "render", "bounce", "encode", "which formats can i save", "ringtone file"],
-            location: "Cutting Room › Export",
-            opensCuttingRoom: true
+            location: "Melo Edit › Export",
+            opensEditor: true
         ),
         .init(
             "editor-link",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Take Audio from a Link",
-            summary: "Paste a YouTube or other page address and Melo pulls just the audio into the Cutting Room.",
+            summary: "Paste a YouTube or other page address and Melo pulls just the audio into Melo Edit.",
             details: "This is the second thing in Melo that touches the network, it happens once per link you paste, and it runs through a yt-dlp you already have installed rather than one Melo ships.",
             keywords: ["youtube", "download audio from youtube", "download a song", "get audio from a video", "paste a link", "rip audio", "extract audio from a url", "soundcloud", "vimeo"],
-            location: "Cutting Room › the opening screen",
-            opensCuttingRoom: true
+            location: "Melo Edit › the opening screen",
+            opensEditor: true
         ),
         .init(
             "editor-record",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Record What Your Mac Is Playing",
-            summary: "Captures the sound coming out of your Mac — or out of one app — straight into the Cutting Room to edit.",
+            summary: "Captures the sound coming out of your Mac — or out of one app — straight into Melo Edit.",
             details: "You start it and you stop it. Melo never records on its own, and nothing about the recording leaves your Mac.",
             keywords: ["record system audio", "record what is playing", "capture audio", "record my computer", "record a stream", "record one app", "internal recording", "record"],
-            location: "Cutting Room › the opening screen",
-            opensCuttingRoom: true
+            location: "Melo Edit › the opening screen",
+            opensEditor: true
         ),
         .init(
             "editor-theme",
-            category: .cuttingRoom,
+            category: .editor,
             title: "Remix the Melo Theme",
             // "…becomes the one setup plays" read as automatic; adopting is a
             // press, and the button is called "Use it"
             // (`MeloThemeExport.swift:239`). The entry named the control that
             // undoes adoption and never the one that does it, which is the same
             // defect in the other direction.
-            summary: "Opens Melo’s own theme in the Cutting Room. Cut it about, then Use it to make your version the one setup plays.",
+            summary: "Opens Melo’s own theme in Melo Edit. Cut it about, then Use it to make your version the one setup plays.",
             // Not "Revert to Original", which this line said and which was
             // false twice over: nothing called `revertToOriginal()` at all when
             // it was written, and the control that exists now empties the move
@@ -1285,23 +1302,23 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // query that found the wrong one is the reason this entry exists in
             // this shape.
             keywords: ["melo theme", "edit the melo theme", "the startup sound", "remix the theme", "change melo’s music", "theme song", "the sound melo makes", "revert theme", "put the original back", "undo my theme remix", "use it as the theme"],
-            location: "Cutting Room › the opening screen",
-            opensCuttingRoom: true
+            location: "Melo Edit › the opening screen",
+            opensEditor: true
         ),
         .init(
             "editor-tools",
-            category: .cuttingRoom,
+            category: .editor,
             // Not "Why MP3 …". Measured: a title carrying "MP3" put this entry
-            // 980 to 560 above "Export from the Cutting Room" for the bare
+            // 980 to 560 above "Export from Melo Edit" for the bare
             // query "mp3", which answers "how do I make one" with "here is why
             // you cannot". The word is still an alias, so the greyed-out case
             // is one phrase away.
             title: "When a Format or a Link Is Unavailable",
             summary: "MP3 and Opus are written by ffmpeg, and links are read by yt-dlp. Melo looks for both on your Mac rather than bundling them, and names the one that is missing.",
-            details: "Homebrew is the usual way to get them: brew install ffmpeg, brew install yt-dlp. Everything else in the Cutting Room works without either.",
+            details: "Homebrew is the usual way to get them: brew install ffmpeg, brew install yt-dlp. Everything else in Melo Edit works without either.",
             keywords: ["ffmpeg", "yt-dlp", "mp3 is greyed out", "mp3 is grayed out", "cannot export mp3", "install ffmpeg", "missing tool", "the link did nothing", "opus"],
-            location: "Cutting Room › Export",
-            opensCuttingRoom: true
+            location: "Melo Edit › Export",
+            opensEditor: true
         )
     ]
 

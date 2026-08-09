@@ -1,13 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Closing the Cutting Room gives back the Dock tile it borrowed. In the window
+/// Closing Melo Edit gives back the Dock tile it borrowed. In the window
 /// delegate rather than in whatever code called `close()`, for the same reason
 /// `OnboardingWindowCloseObserver` is: the title-bar close button is a way out
 /// that no call site sees, and a claim released only by the other ways out is a
 /// Dock tile that stays up for the rest of the session.
 @MainActor
-private final class CuttingRoomWindowCloseObserver: NSObject, NSWindowDelegate {
+private final class EditorWindowCloseObserver: NSObject, NSWindowDelegate {
     let onClose: () -> Void
 
     init(onClose: @escaping () -> Void) {
@@ -19,7 +19,7 @@ private final class CuttingRoomWindowCloseObserver: NSObject, NSWindowDelegate {
     }
 }
 
-/// The Cutting Room's window.
+/// Melo Edit's window.
 ///
 /// ## Why this is a plain `NSWindow` and not `UnpromptedWindowPanel`
 ///
@@ -50,7 +50,7 @@ private final class CuttingRoomWindowCloseObserver: NSObject, NSWindowDelegate {
 ///   harmless, because that class sets the value explicitly, but the comment is
 ///   stale.)
 /// - **It would not block `DockPresence`.** `windowThatWouldLoseKey()` matches
-///   panels only, so a key Cutting Room panel looks like a deferral blocker. It
+///   panels only, so a key Melo Edit panel looks like a deferral blocker. It
 ///   is not one: this window holds a Dock claim for its whole life, so any other
 ///   claim being released still leaves `wanted == true`, and `evaluate` returns
 ///   at its `guard NSApp.activationPolicy() != policy` before it ever asks what
@@ -80,21 +80,24 @@ private final class CuttingRoomWindowCloseObserver: NSObject, NSWindowDelegate {
 /// `isFloatingPanel` and `hidesOnDeactivate` values are measured; the claim that
 /// this window comes up key on the first try is not.
 @MainActor
-final class CuttingRoomWindowController {
-    static let shared = CuttingRoomWindowController()
+final class EditorWindowController {
+    static let shared = EditorWindowController()
 
     /// Kept alive across a close so the window's frame, and the cost of building
     /// its content, survive being dismissed and reopened. The document does not
-    /// live here — `CuttingRoomStore` is the state — so a reopened window is the
+    /// live here — `EditorStore` is the state — so a reopened window is the
     /// same window showing the same work.
     private var window: NSWindow?
-    private var closeObserver: CuttingRoomWindowCloseObserver?
+    private var closeObserver: EditorWindowCloseObserver?
 
     /// Read on every present so the window matches whatever theme and appearance
     /// the user has chosen, including one they changed while it was closed. Held
     /// weakly and configured once at startup, exactly as `DockPresence` does.
     private weak var settings: SettingsManager?
 
+    /// Deliberately still the 3.1.0 spelling. This is a UserDefaults key, and
+    /// renaming it would silently forget the window position of every install
+    /// that has ever opened the editor.
     private static let frameAutosaveName = "MeloCuttingRoomWindow"
 
     private init() {}
@@ -107,7 +110,7 @@ final class CuttingRoomWindowController {
         self.settings = settings
     }
 
-    /// Whether the Cutting Room is on screen. Read by
+    /// Whether Melo Edit is on screen. Read by
     /// `applicationShouldHandleReopen` so a click on the Dock tile brings this
     /// window forward rather than toggling the menu-bar popup.
     var isOpen: Bool {
@@ -126,7 +129,7 @@ final class CuttingRoomWindowController {
         // same reason, as `OnboardingWindowController.show()`. The policy switch
         // is the thing most likely to disturb key status, so doing it first
         // means the present below is the last word on which window is key.
-        DockPresence.shared.claim(.cuttingRoom)
+        DockPresence.shared.claim(.editor)
 
         if let window {
             present(window)
@@ -139,7 +142,7 @@ final class CuttingRoomWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Melo Cutting Room"
+        window.title = "Melo Edit"
         window.titlebarAppearsTransparent = true
         // Deliberately off, and this is not a preference. With background
         // dragging on, AppKit claims any drag a subview does not consume — which
@@ -156,7 +159,7 @@ final class CuttingRoomWindowController {
         // would be the single worst behaviour this window could have, and that
         // is not a property to leave to a default.
         window.hidesOnDeactivate = false
-        // There is exactly one Cutting Room, so native tabbing has nothing to
+        // There is exactly one Melo Edit window, so native tabbing has nothing to
         // group it with — all it can do is offer a "Show Tab Bar" item that does
         // nothing and let Settings merge itself in.
         window.tabbingMode = .disallowed
@@ -174,11 +177,11 @@ final class CuttingRoomWindowController {
         }
 
         window.contentViewController = NSHostingController(
-            rootView: CuttingRoomRootView(store: .shared, settings: settings)
+            rootView: EditorRootView(store: .shared, settings: settings)
         )
 
-        let observer = CuttingRoomWindowCloseObserver {
-            DockPresence.shared.release(.cuttingRoom)
+        let observer = EditorWindowCloseObserver {
+            DockPresence.shared.release(.editor)
         }
         window.delegate = observer
         closeObserver = observer

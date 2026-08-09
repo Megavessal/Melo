@@ -233,7 +233,7 @@
 		62165AC10BFC49509343C23F /* DestinationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172F944D91D744D089962853 /* DestinationPicker.swift */; };
 		3221B0D6C0744F9D80FA0132 /* MoveProposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8978C1EFF441BA96C94175 /* MoveProposer.swift */; };
 		B12038FC4A84400483E40F15 /* AudioFileIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6682BCD7A9034751A6FAE431 /* AudioFileIO.swift */; };
-		33112267269F4A4088BAC92A /* CuttingRoomStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8B88C4677451EA8F4CBF8 /* CuttingRoomStore.swift */; };
+		33112267269F4A4088BAC92A /* EditorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98F8B88C4677451EA8F4CBF8 /* EditorStore.swift */; };
 		CAD53F93B0EA40BFB97E9D38 /* EditorJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B02319A3A2A47E596B763EA /* EditorJob.swift */; };
 		C423283FD3E445C9968153E2 /* EditorSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397E439656E5496B8CE7D855 /* EditorSession.swift */; };
 		D68D09111B5A4274A55E4CB4 /* EditorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35DA11D23D14704986ED8E7 /* EditorTypes.swift */; };
@@ -269,11 +269,11 @@
 		A84647F137174068A78DE243 /* MoveStackEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3909710C0FB1496F9E2F6907 /* MoveStackEmptyState.swift */; };
 		13AA4A5448524C509D3EDDEA /* MoveStackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8EFCD83CD74E489C39F084 /* MoveStackView.swift */; };
 		209C5525A0CB4CCC8D3644A7 /* EditorFormat+Precision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 146CEF6B603A4DF8871E73EE /* EditorFormat+Precision.swift */; };
-		43F41F6DAE764F38833CDF87 /* CuttingRoomCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68E940F7C54043A73A64E7 /* CuttingRoomCommands.swift */; };
-		24E42902D7334ED0AE7C5D90 /* CuttingRoomEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651FCE0F49FA445286DDDDE8 /* CuttingRoomEmptyState.swift */; };
-		23F18F04EDA940239D39C176 /* CuttingRoomRecents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA210461B44B4C19BB5FD9CE /* CuttingRoomRecents.swift */; };
-		4E99F965ABD3425FA89DD2AA /* CuttingRoomRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A13A1B1779E4866B94BC38C /* CuttingRoomRootView.swift */; };
-		17C1FEDBE16744AC9C57E8F5 /* CuttingRoomWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1248135978354103808175EE /* CuttingRoomWindowController.swift */; };
+		43F41F6DAE764F38833CDF87 /* EditorCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB68E940F7C54043A73A64E7 /* EditorCommands.swift */; };
+		24E42902D7334ED0AE7C5D90 /* EditorEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 651FCE0F49FA445286DDDDE8 /* EditorEmptyState.swift */; };
+		23F18F04EDA940239D39C176 /* EditorRecents.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA210461B44B4C19BB5FD9CE /* EditorRecents.swift */; };
+		4E99F965ABD3425FA89DD2AA /* EditorRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A13A1B1779E4866B94BC38C /* EditorRootView.swift */; };
+		17C1FEDBE16744AC9C57E8F5 /* EditorWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1248135978354103808175EE /* EditorWindowController.swift */; };
 		0FF654BD11F143BABC24BE5E /* EQCurveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51D65D537F334A23B7A6DFF3 /* EQCurveView.swift */; };
 		79F2B66B95EB4D87B31FF3C3 /* EQResponseCurve.swift in Sources */ = {isa = PBXBuildFile; fileRef = E989E9D0C1EE4B8B9FCA1516 /* EQResponseCurve.swift */; };
 		3A3116BD67E6499585B50CED /* EditorEQPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2101B9C264E246BC9E096B86 /* EditorEQPanel.swift */; };
@@ -283,6 +283,7 @@
 		C7F489F454E1497C8550E84F /* EditorTransportBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFDC2EFC4934765AF814B55 /* EditorTransportBar.swift */; };
 		2641458ECFF64334B7080F5A /* EditorTransportCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */; };
 		9E1E8FA2A16B4A8E89A67A88 /* EditorWaveformView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD5A8A2431544674BC371624 /* EditorWaveformView.swift */; };
+		8D8E8B8119154680930A0D0E /* EditorWaveformStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A656AB1C3BFF420BB44E56A1 /* EditorWaveformStyle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -514,7 +515,7 @@
 		172F944D91D744D089962853 /* DestinationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/DestinationPicker.swift; sourceTree = SOURCE_ROOT; };
 		CA8978C1EFF441BA96C94175 /* MoveProposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/MoveProposer.swift; sourceTree = SOURCE_ROOT; };
 		6682BCD7A9034751A6FAE431 /* AudioFileIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/AudioFileIO.swift; sourceTree = SOURCE_ROOT; };
-		98F8B88C4677451EA8F4CBF8 /* CuttingRoomStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/CuttingRoomStore.swift; sourceTree = SOURCE_ROOT; };
+		98F8B88C4677451EA8F4CBF8 /* EditorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorStore.swift; sourceTree = SOURCE_ROOT; };
 		1B02319A3A2A47E596B763EA /* EditorJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorJob.swift; sourceTree = SOURCE_ROOT; };
 		397E439656E5496B8CE7D855 /* EditorSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorSession.swift; sourceTree = SOURCE_ROOT; };
 		C35DA11D23D14704986ED8E7 /* EditorTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorTypes.swift; sourceTree = SOURCE_ROOT; };
@@ -550,11 +551,11 @@
 		3909710C0FB1496F9E2F6907 /* MoveStackEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveStackEmptyState.swift; sourceTree = SOURCE_ROOT; };
 		DA8EFCD83CD74E489C39F084 /* MoveStackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Stack/MoveStackView.swift; sourceTree = SOURCE_ROOT; };
 		146CEF6B603A4DF8871E73EE /* EditorFormat+Precision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Sources/Melo/Editor/Views/Waveform/EditorFormat+Precision.swift"; sourceTree = SOURCE_ROOT; };
-		EB68E940F7C54043A73A64E7 /* CuttingRoomCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomCommands.swift; sourceTree = SOURCE_ROOT; };
-		651FCE0F49FA445286DDDDE8 /* CuttingRoomEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomEmptyState.swift; sourceTree = SOURCE_ROOT; };
-		BA210461B44B4C19BB5FD9CE /* CuttingRoomRecents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomRecents.swift; sourceTree = SOURCE_ROOT; };
-		9A13A1B1779E4866B94BC38C /* CuttingRoomRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomRootView.swift; sourceTree = SOURCE_ROOT; };
-		1248135978354103808175EE /* CuttingRoomWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/CuttingRoomWindowController.swift; sourceTree = SOURCE_ROOT; };
+		EB68E940F7C54043A73A64E7 /* EditorCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/EditorCommands.swift; sourceTree = SOURCE_ROOT; };
+		651FCE0F49FA445286DDDDE8 /* EditorEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/EditorEmptyState.swift; sourceTree = SOURCE_ROOT; };
+		BA210461B44B4C19BB5FD9CE /* EditorRecents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/EditorRecents.swift; sourceTree = SOURCE_ROOT; };
+		9A13A1B1779E4866B94BC38C /* EditorRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/EditorRootView.swift; sourceTree = SOURCE_ROOT; };
+		1248135978354103808175EE /* EditorWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/EditorWindowController.swift; sourceTree = SOURCE_ROOT; };
 		51D65D537F334A23B7A6DFF3 /* EQCurveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/EQCurveView.swift; sourceTree = SOURCE_ROOT; };
 		E989E9D0C1EE4B8B9FCA1516 /* EQResponseCurve.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/EQResponseCurve.swift; sourceTree = SOURCE_ROOT; };
 		2101B9C264E246BC9E096B86 /* EditorEQPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Analysis/EditorEQPanel.swift; sourceTree = SOURCE_ROOT; };
@@ -564,6 +565,7 @@
 		0BFDC2EFC4934765AF814B55 /* EditorTransportBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTransportBar.swift; sourceTree = SOURCE_ROOT; };
 		E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorTransportCommands.swift; sourceTree = SOURCE_ROOT; };
 		AD5A8A2431544674BC371624 /* EditorWaveformView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformView.swift; sourceTree = SOURCE_ROOT; };
+		A656AB1C3BFF420BB44E56A1 /* EditorWaveformStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Views/Waveform/EditorWaveformStyle.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -588,15 +590,16 @@
 		); sourceTree = "<group>"; };
 		9642F1047C1002A1EE72F0DB /* Sources */ = {isa = PBXGroup; children = (
 			9C0B2EDC33BC496EA9B11B71 /* EditorPlayback.swift */,
+			A656AB1C3BFF420BB44E56A1 /* EditorWaveformStyle.swift */,
 			AD5A8A2431544674BC371624 /* EditorWaveformView.swift */,
 			E068C13F10824D808B90A7B1 /* EditorTransportCommands.swift */,
 			0BFDC2EFC4934765AF814B55 /* EditorTransportBar.swift */,
 			93CED1DF842B4F168197CF67 /* EditorTimeRuler.swift */,
-			EB68E940F7C54043A73A64E7 /* CuttingRoomCommands.swift */,
-			1248135978354103808175EE /* CuttingRoomWindowController.swift */,
-			9A13A1B1779E4866B94BC38C /* CuttingRoomRootView.swift */,
-			BA210461B44B4C19BB5FD9CE /* CuttingRoomRecents.swift */,
-			651FCE0F49FA445286DDDDE8 /* CuttingRoomEmptyState.swift */,
+			EB68E940F7C54043A73A64E7 /* EditorCommands.swift */,
+			1248135978354103808175EE /* EditorWindowController.swift */,
+			9A13A1B1779E4866B94BC38C /* EditorRootView.swift */,
+			BA210461B44B4C19BB5FD9CE /* EditorRecents.swift */,
+			651FCE0F49FA445286DDDDE8 /* EditorEmptyState.swift */,
 			146CEF6B603A4DF8871E73EE /* EditorFormat+Precision.swift */,
 			DF813037746040BEB6AF231F /* AddMoveMenu.swift */,
 			DA8EFCD83CD74E489C39F084 /* MoveStackView.swift */,
@@ -634,7 +637,7 @@
 			C35DA11D23D14704986ED8E7 /* EditorTypes.swift */,
 			397E439656E5496B8CE7D855 /* EditorSession.swift */,
 			1B02319A3A2A47E596B763EA /* EditorJob.swift */,
-			98F8B88C4677451EA8F4CBF8 /* CuttingRoomStore.swift */,
+			98F8B88C4677451EA8F4CBF8 /* EditorStore.swift */,
 			5CD2679BBEF6413E941FFCC9 /* AnalysisSummaryView.swift */,
 			2101B9C264E246BC9E096B86 /* EditorEQPanel.swift */,
 			E989E9D0C1EE4B8B9FCA1516 /* EQResponseCurve.swift */,
@@ -916,6 +919,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			8D8E8B8119154680930A0D0E /* EditorWaveformStyle.swift in Sources */,
 			9E1E8FA2A16B4A8E89A67A88 /* EditorWaveformView.swift in Sources */,
 			2641458ECFF64334B7080F5A /* EditorTransportCommands.swift in Sources */,
 			C7F489F454E1497C8550E84F /* EditorTransportBar.swift in Sources */,
@@ -925,11 +929,11 @@
 			3A3116BD67E6499585B50CED /* EditorEQPanel.swift in Sources */,
 			79F2B66B95EB4D87B31FF3C3 /* EQResponseCurve.swift in Sources */,
 			0FF654BD11F143BABC24BE5E /* EQCurveView.swift in Sources */,
-			17C1FEDBE16744AC9C57E8F5 /* CuttingRoomWindowController.swift in Sources */,
-			4E99F965ABD3425FA89DD2AA /* CuttingRoomRootView.swift in Sources */,
-			23F18F04EDA940239D39C176 /* CuttingRoomRecents.swift in Sources */,
-			24E42902D7334ED0AE7C5D90 /* CuttingRoomEmptyState.swift in Sources */,
-			43F41F6DAE764F38833CDF87 /* CuttingRoomCommands.swift in Sources */,
+			17C1FEDBE16744AC9C57E8F5 /* EditorWindowController.swift in Sources */,
+			4E99F965ABD3425FA89DD2AA /* EditorRootView.swift in Sources */,
+			23F18F04EDA940239D39C176 /* EditorRecents.swift in Sources */,
+			24E42902D7334ED0AE7C5D90 /* EditorEmptyState.swift in Sources */,
+			43F41F6DAE764F38833CDF87 /* EditorCommands.swift in Sources */,
 			209C5525A0CB4CCC8D3644A7 /* EditorFormat+Precision.swift in Sources */,
 			13AA4A5448524C509D3EDDEA /* MoveStackView.swift in Sources */,
 			A84647F137174068A78DE243 /* MoveStackEmptyState.swift in Sources */,
@@ -965,7 +969,7 @@
 			D68D09111B5A4274A55E4CB4 /* EditorTypes.swift in Sources */,
 			C423283FD3E445C9968153E2 /* EditorSession.swift in Sources */,
 			CAD53F93B0EA40BFB97E9D38 /* EditorJob.swift in Sources */,
-			33112267269F4A4088BAC92A /* CuttingRoomStore.swift in Sources */,
+			33112267269F4A4088BAC92A /* EditorStore.swift in Sources */,
 			B12038FC4A84400483E40F15 /* AudioFileIO.swift in Sources */,
 			3221B0D6C0744F9D80FA0132 /* MoveProposer.swift in Sources */,
 			62165AC10BFC49509343C23F /* DestinationPicker.swift in Sources */,
@@ -1218,7 +1222,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 310;
+			CURRENT_PROJECT_VERSION = 311;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1229,7 +1233,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 3.1.0;
+			MARKETING_VERSION = 3.1.1;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;
@@ -1248,7 +1252,7 @@
 			CODE_SIGN_ENTITLEMENTS = Config/Melo.entitlements;
 			ARCHS = arm64;
 			CODE_SIGN_STYLE = Automatic;
-			CURRENT_PROJECT_VERSION = 310;
+			CURRENT_PROJECT_VERSION = 311;
 			EXCLUDED_ARCHS = x86_64;
 			ENABLE_APP_INTENTS_METADATA_EXTRACTION = YES;
 			ENABLE_HARDENED_RUNTIME = YES;
@@ -1259,7 +1263,7 @@
 				"@executable_path/../Frameworks",
 			);
 			MACOSX_DEPLOYMENT_TARGET = 15.4;
-			MARKETING_VERSION = 3.1.0;
+			MARKETING_VERSION = 3.1.1;
 			ONLY_ACTIVE_ARCH = NO;
 			PRODUCT_BUNDLE_IDENTIFIER = io.github.megavessal.Melo;
 			PRODUCT_NAME = Melo;

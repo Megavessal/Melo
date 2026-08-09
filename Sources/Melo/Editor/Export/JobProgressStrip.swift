@@ -1,6 +1,6 @@
 // Melo/Editor/Export/JobProgressStrip.swift
 //
-// The progress surface for every long operation in the Cutting Room, not only
+// The progress surface for every long operation in Melo Edit, not only
 // export: decoding an import, measuring loudness, re-rendering after an edit,
 // extracting from a link, recording. One strip, several jobs, each with its
 // stage, its detail line and a way to stop it.
@@ -61,10 +61,10 @@ enum JobStripTuning {
 @MainActor
 struct JobProgressStrip: View {
 
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
     @ObservedObject private var exports: ExportCoordinator
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
         _exports = ObservedObject(wrappedValue: ExportCoordinator.shared)
     }
@@ -164,7 +164,7 @@ struct JobProgressStrip: View {
         store.jobs.filter { $0.state != .running }.map(\.id)
     }
 
-    /// `CuttingRoomRootView` draws the strip whenever `store.jobs` is not empty
+    /// `EditorRootView` draws the strip whenever `store.jobs` is not empty
     /// and leaves it to this view to decide when a settled row goes. Runs outside
     /// the view update, so retiring a job cannot mutate state mid-render, and
     /// **returns as soon as there is nothing left to retire** — the earlier
@@ -407,7 +407,7 @@ private struct ExportResultRow: View {
 
                 comparison
 
-                // The only place a Cutting Room export has somewhere to go
+                // The only place a Melo Edit export has somewhere to go
                 // inside the app. `MeloThemeAdoptionRow` owns the row; this
                 // decides when it shows.
                 if outcome.isThemeExport {
@@ -564,7 +564,7 @@ extension JobStripTuning {
     /// retirement, because a settled row has to survive long enough to be
     /// photographed. Both seeders start here, so scene order cannot leak one
     /// scene's rows into the next.
-    static func clearSnapshotSeeding(in store: CuttingRoomStore) {
+    static func clearSnapshotSeeding(in store: EditorStore) {
         quietDelay = 0
         settledLinger = .greatestFiniteMagnitude
         freezeMotion = true
@@ -579,7 +579,7 @@ extension JobStripTuning {
     ///
     /// Returns the jobs so a scene can reach one if it wants to.
     @discardableResult
-    static func seedSnapshotJobs(in store: CuttingRoomStore) -> [EditorJob] {
+    static func seedSnapshotJobs(in store: EditorStore) -> [EditorJob] {
         clearSnapshotSeeding(in: store)
 
         let rendering = store.makeJob(
@@ -619,7 +619,7 @@ extension JobStripTuning {
     }
 
     /// The finished-export card, with its before-and-after already measured.
-    static func seedSnapshotOutcome(in store: CuttingRoomStore) {
+    static func seedSnapshotOutcome(in store: EditorStore) {
         clearSnapshotSeeding(in: store)
         let job = store.makeJob(stage: "Saved", detail: "morning-show-ep41.m4a")
         job.finish()

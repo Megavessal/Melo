@@ -781,7 +781,7 @@ enum SnapshotHarness {
         // window something else may have ordered out to still exist — so closing
         // one keeps its `contentView`, and the `NSHostingView` in it stays alive
         // with its whole SwiftUI graph. Those graphs are still subscribed:
-        // `CuttingRoomStore.shared`, `EditorTimeline.shared`, `SettingsManager`,
+        // `EditorStore.shared`, `EditorTimeline.shared`, `SettingsManager`,
         // every coordinator a scene touches. By the hundred and fiftieth frame a
         // single `prepare()` was invalidating around a hundred and fifty stale
         // view graphs at once.

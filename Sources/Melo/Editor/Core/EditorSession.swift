@@ -5,7 +5,9 @@
 // of editing non-destructively at all. If the stack disappears with the window,
 // it is just an undo history with extra steps.
 //
-// Lives in `~/Library/Application Support/Melo/CuttingRoom/`, beside the
+// Lives in `~/Library/Application Support/Melo/CuttingRoom/` — still the 3.1.0
+// spelling, because it holds the user's saved move stacks and renaming the
+// directory would orphan every one of them. Beside the
 // AutoEQ cache, and reaches that directory the same way `AutoEQFetcher` and
 // `AutoEQProfileLoader` do.
 
@@ -24,6 +26,16 @@ struct EditorSession: Codable, Equatable, Sendable {
     /// changed — `fingerprint` is what makes that safe to assume.
     var analysis: AnalysisReport?
     var fingerprint: Fingerprint
+    /// **Written, never read, and kept on purpose.** The sidecar's own file
+    /// modification date carries the same fact, so an unreferenced-declaration
+    /// sweep will keep finding this and proposing it for deletion. Do not take
+    /// it: every Melo release from 2.9.0 on is still attached to the GitHub
+    /// releases page, so downgrade is a path people actually take, and this key
+    /// is not optional. A 3.1.0 install decoding a sidecar written without it
+    /// fails the decode and **silently discards the user's move stack** — no
+    /// crash, no error, just work that does not come back, which is the failure
+    /// mode this project spends the most effort avoiding. Rejected 2026-08-09:
+    /// removing it as a write-only member. One unread `Date` is the whole cost.
     var savedAt: Date
 
     /// Cheap evidence that the file on disk is still the file we measured.
@@ -112,11 +124,11 @@ extension EditorSession {
             // first open after the update erases every move stack the user has.
             // Ignoring it costs one failed decode and the next save overwrites
             // it anyway, because the key is the same.
-            logger.warning("Ignoring an unreadable Cutting Room session")
+            logger.warning("Ignoring an unreadable Melo Edit session")
             return nil
         }
         guard let current = Fingerprint.of(url), current == session.fingerprint else {
-            logger.info("Cutting Room session ignored: the file changed since it was saved")
+            logger.info("Melo Edit session ignored: the file changed since it was saved")
             return nil
         }
         return session
@@ -144,7 +156,7 @@ extension EditorSession {
             let data = try makeEncoder().encode(session)
             try data.write(to: fileURL(for: url), options: .atomic)
         } catch {
-            logger.error("Couldn't write the Cutting Room session: \(error.localizedDescription, privacy: .public)")
+            logger.error("Couldn't write the Melo Edit session: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -167,7 +179,7 @@ extension EditorSession {
 enum EditorSourceStore {
 
     /// A subdirectory of the sidecar folder, so one place in Application
-    /// Support holds everything the Cutting Room owns.
+    /// Support holds everything Melo Edit owns.
     static var directory: URL {
         EditorSession.directory.appendingPathComponent("Sources")
     }

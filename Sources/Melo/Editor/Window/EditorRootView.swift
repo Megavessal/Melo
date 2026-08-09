@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 /// becomes a time string, and the transport reads from it — a second
 /// implementation in this file would let the header and the playhead disagree
 /// about the same sound by a rounding mode.
-enum CuttingRoomFormat {
+enum EditorOriginFormat {
     /// One short line under the file's name, or nothing.
     ///
     /// `nil` for a plain file on purpose: "From a file" is a label that tells the
@@ -33,9 +33,9 @@ enum CuttingRoomFormat {
 ///
 /// The same treatment as the menu-bar popup's header badge, which is where the
 /// user has seen it a hundred times before they ever open this window. That is
-/// the whole point of using it here rather than an SF Symbol: the Cutting Room
+/// the whole point of using it here rather than an SF Symbol: Melo Edit
 /// has to read as part of Melo on the first frame.
-struct CuttingRoomMark: View {
+struct EditorMark: View {
     var size: CGFloat = 30
 
     var body: some View {
@@ -60,7 +60,7 @@ struct CuttingRoomMark: View {
     }
 }
 
-/// The Cutting Room, assembled.
+/// Melo Edit, assembled.
 ///
 /// Owns the header row, the sidebar container, the split between them, and the
 /// window-wide drop target. Owns none of the panes: `EditorWaveformView`,
@@ -71,15 +71,15 @@ struct CuttingRoomMark: View {
 /// Constructible with nothing but a store, so a frame can be rendered without a
 /// window ever existing.
 @MainActor
-struct CuttingRoomRootView: View {
-    @ObservedObject private var store: CuttingRoomStore
+struct EditorRootView: View {
+    @ObservedObject private var store: EditorStore
 
     /// Optional because the contract's pinned initialiser is `init(store:)` and
     /// the snapshot harness uses it. Without a `SettingsManager` the window
     /// still draws — it just wears the system accent and the system appearance
     /// instead of the theme the user picked.
     private let settings: SettingsManager?
-    private let recents: CuttingRoomRecents
+    private let recents: EditorRecents
 
     @State private var showExport = false
     @State private var showLinkImport = false
@@ -106,11 +106,11 @@ struct CuttingRoomRootView: View {
     /// the three panes in it are all fixed-width content.
     private static let sidebarWidth: CGFloat = 320
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         self.init(store: store, settings: nil)
     }
 
-    init(store: CuttingRoomStore, settings: SettingsManager?) {
+    init(store: EditorStore, settings: SettingsManager?) {
         _store = ObservedObject(wrappedValue: store)
         self.settings = settings
         self.recents = .shared
@@ -126,7 +126,7 @@ struct CuttingRoomRootView: View {
     /// which is exactly the kind of dependency that produces a frame nobody can
     /// explain. `onAppear` still calls `syncSidebarSection()`, for a store that
     /// gains a document between construction and appearance.
-    private static func defaultSection(for store: CuttingRoomStore) -> SidebarSection {
+    private static func defaultSection(for store: EditorStore) -> SidebarSection {
         (store.document?.moves.isEmpty == false) ? .stack : .destination
     }
 
@@ -139,11 +139,11 @@ struct CuttingRoomRootView: View {
             }
 
             if isEmpty {
-                CuttingRoomEmptyState(
+                EditorEmptyState(
                     onOpenFile: openFile,
                     onPasteLink: { showLinkImport = true },
                     onRecord: { showSystemRecord = true },
-                    onRemixTheme: { MeloThemeRemix.openInCuttingRoom() },
+                    onRemixTheme: { MeloThemeRemix.openInEditor() },
                     onOpenRecent: { recent in
                         Task { await store.open(recent.url) }
                     },
@@ -192,7 +192,7 @@ struct CuttingRoomRootView: View {
                 isDropTargeted = targeted
             }
         }
-        .cuttingRoomKeyCommands(
+        .editorKeyCommands(
             store: store,
             onExport: { showExport = true },
             onOpenFile: openFile,
@@ -280,10 +280,10 @@ struct CuttingRoomRootView: View {
 
     private var header: some View {
         HStack(spacing: DesignTokens.Spacing.md) {
-            CuttingRoomMark(size: 30)
+            EditorMark(size: 30)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(store.document?.source.displayName ?? "Cutting Room")
+                Text(store.document?.source.displayName ?? "Melo Edit")
                     // Rounded, because that is the house display voice, and the
                     // scale does not carry a design. Same call the popup header
                     // makes for the word "Melo", one step up.
@@ -295,7 +295,7 @@ struct CuttingRoomRootView: View {
                     .accessibilityAddTraits(.isHeader)
 
                 if let source = store.document?.source,
-                   let origin = CuttingRoomFormat.originLine(source.origin) {
+                   let origin = EditorOriginFormat.originLine(source.origin) {
                     Text(origin)
                         .font(DesignTokens.Typography.Scale.caption2(.medium))
                         .foregroundStyle(DesignTokens.Colors.textTertiary)
@@ -332,7 +332,7 @@ struct CuttingRoomRootView: View {
     /// The four ways in, still available once a sound is open.
     ///
     /// This is a correction to a one-way door, and the door was closed on two
-    /// clauses the owner asked for by name. `CuttingRoomEmptyState` draws the
+    /// clauses the owner asked for by name. `EditorEmptyState` draws the
     /// only other Paste-a-link and Record-this-Mac controls in the app, and it
     /// renders only while `store.document == nil` — which, after the first open,
     /// never happens again: `close()` has no caller outside the snapshot
@@ -346,7 +346,7 @@ struct CuttingRoomRootView: View {
     /// so the second time someone looks for "Record this Mac" it is where they
     /// already learned it, wearing what they already recognise.
     ///
-    /// No `keyboardShortcut` on these items on purpose. `cuttingRoomKeyCommands`
+    /// No `keyboardShortcut` on these items on purpose. `editorKeyCommands`
     /// is the single owner of keys in this window, and a menu item carrying the
     /// same equivalent would either double-fire or be silently swallowed by the
     /// local monitor depending on dispatch order. The shortcuts are in `.help`.
@@ -357,7 +357,7 @@ struct CuttingRoomRootView: View {
             Button("Record This Mac…", systemImage: "record.circle") { showSystemRecord = true }
             Divider()
             Button("Remix the Melo Theme", systemImage: "music.quarternote.3") {
-                MeloThemeRemix.openInCuttingRoom()
+                MeloThemeRemix.openInEditor()
             }
             Divider()
             // The same one-way door, one turn further out. `Recent` and the
@@ -518,7 +518,7 @@ struct CuttingRoomRootView: View {
     /// The control the shipped Guide has been describing to people who could not
     /// find it.
     ///
-    /// `CuttingRoomStore.revertToOriginal()` had **no caller anywhere in
+    /// `EditorStore.revertToOriginal()` had **no caller anywhere in
     /// `Sources/`**, while `SettingsGuide.swift:1217` tells readers "Revert to
     /// Original empties the stack and leaves the file exactly as it arrived" —
     /// and the Guide is indexed and searchable, so people go looking for it by
@@ -610,7 +610,7 @@ struct CuttingRoomRootView: View {
 
     // MARK: - When something did not work
 
-    /// `CuttingRoomStore.lastError` had no reader. The store's own comment says a
+    /// `EditorStore.lastError` had no reader. The store's own comment says a
     /// failure's sentence belongs there rather than in a progress row that stays
     /// on screen — and `retire(_:)` pulls the failed job straight back out of
     /// `jobs`, so without this a file that will not open produces a strip that
@@ -704,10 +704,10 @@ struct CuttingRoomRootView: View {
             Task { await store.open(url) }
         }
 
-        // Attached to the Cutting Room when there is one, so the picker belongs
+        // Attached to the Melo Edit window when there is one, so the picker belongs
         // to the window that asked for it. `hostWindow` is nil in the snapshot
         // harness and in a preview, where the free-standing panel is correct.
-        if let window = CuttingRoomWindowController.shared.hostWindow, window.isVisible {
+        if let window = EditorWindowController.shared.hostWindow, window.isVisible {
             panel.beginSheetModal(for: window) { response in
                 MainActor.assumeIsolated { handle(response) }
             }
@@ -739,7 +739,7 @@ struct CuttingRoomRootView: View {
     /// `.preferredColorScheme` only changes how SwiftUI resolves colours. The
     /// window keeps its own `NSAppearance`, which is what decides whether an
     /// `NSVisualEffectView` renders light or dark glass — so without this bridge
-    /// a light-locked Cutting Room would draw light text on dark material.
+    /// a light-locked Melo Edit would draw light text on dark material.
     private var resolvedAppearance: NSAppearance? {
         guard let settings else { return nil }
         return visualTheme.prefersDarkAppearance
@@ -749,11 +749,11 @@ struct CuttingRoomRootView: View {
 }
 
 #if MELO_DEV
-extension CuttingRoomRootView {
+extension EditorRootView {
     /// Seeds the one state of this view that no other seam can reach.
     ///
     /// The loaded and empty screens both come from the store —
-    /// `CuttingRoomStore.setForSnapshot(document:waveform:)` gives one, an
+    /// `EditorStore.setForSnapshot(document:waveform:)` gives one, an
     /// untouched store gives the other — so neither needs an initialiser here.
     /// The drop affordance does: it exists only while a drag is over the window,
     /// the harness cannot drag, and it is the one piece of feedback that decides
@@ -769,10 +769,10 @@ extension CuttingRoomRootView {
     /// from the one loaded scene. Left `nil` it follows `syncSidebarSection()`,
     /// which is what a real window does.
     init(
-        store: CuttingRoomStore,
+        store: EditorStore,
         settings: SettingsManager?,
         dropTargeted: Bool,
-        recents: CuttingRoomRecents = .shared,
+        recents: EditorRecents = .shared,
         sidebarSection: SidebarSection? = nil
     ) {
         _store = ObservedObject(wrappedValue: store)

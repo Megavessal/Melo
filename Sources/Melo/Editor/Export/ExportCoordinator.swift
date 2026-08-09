@@ -4,7 +4,7 @@
 // in words while it happens, cancel cleanly, and never leave a truncated file
 // wearing the right name.
 //
-// The job goes into `CuttingRoomStore.jobs` like every other long operation,
+// The job goes into `EditorStore.jobs` like every other long operation,
 // so one strip shows decode, analysis, re-render, extraction, recording and
 // export together.
 
@@ -139,7 +139,7 @@ final class ExportCoordinator: ObservableObject {
         document: EditorDocument,
         settings: ExportSettings,
         revealWhenDone: Bool,
-        store: CuttingRoomStore
+        store: EditorStore
     ) -> EditorJob {
         let finalURL = ExportDestination.unique(settings.destinationURL)
         var resolved = settings
@@ -207,7 +207,7 @@ final class ExportCoordinator: ObservableObject {
     }
 
     /// Closes the result card and lets its job leave the strip.
-    func dismissOutcome(store: CuttingRoomStore) {
+    func dismissOutcome(store: EditorStore) {
         if let jobID = outcome?.jobID,
            let job = store.jobs.first(where: { $0.id == jobID }) {
             store.retire(job)

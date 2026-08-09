@@ -14,7 +14,7 @@ import SwiftUI
 /// a move that vanished when it was switched off would make that impossible.
 @MainActor
 struct MoveStackView: View {
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
 
     /// Which row is disclosed. Private on purpose: expansion is a reading
     /// state, nothing outside this view acts on it, and nothing outside this
@@ -37,7 +37,7 @@ struct MoveStackView: View {
     /// front of the compiler instead of in front of the user.
     private let settings: SettingsManager?
 
-    init(store: CuttingRoomStore, settings: SettingsManager? = nil) {
+    init(store: EditorStore, settings: SettingsManager? = nil) {
         _store = ObservedObject(wrappedValue: store)
         self.settings = settings
     }
@@ -473,7 +473,7 @@ extension MoveStackView {
     /// `store.selectedMoveID`, so a scene sets that on the store directly and
     /// gets the ring — one fewer thing that can disagree with itself.
     init(
-        store: CuttingRoomStore,
+        store: EditorStore,
         expandedMoveID: Move.ID?,
         settings: SettingsManager? = nil,
         dropTargetIndex: Int? = nil

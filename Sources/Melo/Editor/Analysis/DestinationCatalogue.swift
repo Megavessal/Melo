@@ -284,14 +284,6 @@ extension Destination {
         }
     }
 
-    /// False when the figure is Melo's own choice or an industry measurement
-    /// nobody prints. A surface that is about to call a number a specification
-    /// should ask this first.
-    var isTargetPublished: Bool {
-        if case .published = targetProvenance { return true }
-        return false
-    }
-
     /// A clause that reads as a sentence with a full stop after it.
     ///
     /// "Apple Podcasts asks for −16.0 LUFS" · "YouTube levels everything to

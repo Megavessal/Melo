@@ -25,13 +25,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         let urlHandler = URLHandler(audioEngine: audioEngine)
 
         // `CFBundleDocumentTypes` at `LSHandlerRank = Alternate`: "Open With
-        // Melo" on an audio file, and a file dropped on the Dock tile while the
-        // Cutting Room has one. One sound, not a session — a multi-file open
+        // Melo" on an audio file, and a file dropped on the Dock tile while
+        // Melo Edit has one. One sound, not a session — a multi-file open
         // takes the first and ignores the rest rather than queuing them, which
         // is the honest behaviour for an editor that holds one clip.
         if let file = urls.first(where: \.isFileURL) {
-            CuttingRoomWindowController.shared.show()
-            Task { @MainActor in await CuttingRoomStore.shared.open(file) }
+            EditorWindowController.shared.show()
+            Task { @MainActor in await EditorStore.shared.open(file) }
         }
 
         for url in urls where !url.isFileURL {
@@ -89,17 +89,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
-        // When there is a Dock tile at all it usually belongs to the Cutting
-        // Room, and clicking a Dock tile means "show me that window". The
+        // When there is a Dock tile at all it usually belongs to Melo Edit,
+        // and clicking a Dock tile means "show me that window". The
         // `!flag` branch below only fires when nothing is visible, so with the
         // editor open this used to do nothing whatsoever.
         //
-        // Deliberately not opening the Cutting Room when it is closed: the tile
+        // Deliberately not opening Melo Edit when it is closed: the tile
         // is then there because of the user's own showInDock preference or a
         // setup claim, and opening an editor nobody asked for is the
         // unasked-action class this project guards against.
-        if CuttingRoomWindowController.shared.isOpen {
-            CuttingRoomWindowController.shared.show()
+        if EditorWindowController.shared.isOpen {
+            EditorWindowController.shared.show()
             return true
         }
         if !flag { menuBarPopupController?.toggle() }

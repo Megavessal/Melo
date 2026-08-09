@@ -12,13 +12,13 @@ import SwiftUI
 /// use for a number Melo measured and the user cannot type over. A field that
 /// lets you edit a measurement is a field that lets the app lie about the file.
 ///
-/// The section header ("What I found") belongs to `CuttingRoomRootView`, which
+/// The section header ("What I found") belongs to `EditorRootView`, which
 /// draws it for all three sidebar panes. This view starts at its content.
 @MainActor
 struct AnalysisSummaryView: View {
-    @ObservedObject private var store: CuttingRoomStore
+    @ObservedObject private var store: EditorStore
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         _store = ObservedObject(wrappedValue: store)
     }
 

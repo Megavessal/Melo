@@ -102,7 +102,7 @@ final class EditorPlayback: ObservableObject {
 
     // MARK: - Coordination
 
-    private weak var store: CuttingRoomStore?
+    private weak var store: EditorStore?
     private var renderedDocument: EditorDocument?
     private var renderWork: Task<Void, Never>?
     private var refreshWork: Task<Void, Never>?
@@ -118,9 +118,9 @@ final class EditorPlayback: ObservableObject {
     // MARK: - Wiring
 
     /// Called by the transport bar when it appears. Playback does not reach for
-    /// `CuttingRoomStore.shared` itself so it can be pointed at a different
+    /// `EditorStore.shared` itself so it can be pointed at a different
     /// store in a test without a singleton dance.
-    func attach(_ store: CuttingRoomStore) {
+    func attach(_ store: EditorStore) {
         guard self.store !== store else { return }
         self.store = store
         reset()

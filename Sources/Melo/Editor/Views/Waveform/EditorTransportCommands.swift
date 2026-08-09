@@ -2,7 +2,7 @@
 //
 // The one reach for playback and zoom.
 //
-// `CuttingRoomCommands` calls `store.togglePlayback()`, `store.zoomIn()`,
+// `EditorCommands` calls `store.togglePlayback()`, `store.zoomIn()`,
 // `store.zoomOut()` and `store.zoomToFit()` from a single key monitor, and the
 // transport bar's buttons call exactly the same four methods. That is on
 // purpose and it is the point of this file: a shortcut and a button that reach
@@ -10,7 +10,7 @@
 // project has already measured what happens when a control's rule is tested
 // somewhere its call site is not (`CLAUDE.md:138`).
 //
-// They live in an extension here rather than in `CuttingRoomStore` itself
+// They live in an extension here rather than in `EditorStore` itself
 // because the state they touch is not the store's. The store holds the
 // document, the playhead and the selection; **where you are looking** lives in
 // `EditorTimeline` and **whether it is playing** lives in `EditorPlayback`, and
@@ -48,7 +48,7 @@ extension EditorTimeline {
 
 // MARK: - What the key monitor and the buttons both call
 
-extension CuttingRoomStore {
+extension EditorStore {
 
     func togglePlayback() {
         EditorPlayback.shared.toggle()
@@ -66,9 +66,9 @@ extension CuttingRoomStore {
     /// toggle, so a caller that only sends `true` leaves the stack off.
     ///
     /// Two callers, both of which send both edges: the transport bar's
-    /// press-and-hold chip, and `CuttingRoomKeyCommandView`, whose monitor
+    /// press-and-hold chip, and `EditorKeyCommandView`, whose monitor
     /// matches `[.keyDown, .keyUp]` and carries the edge as
-    /// `CuttingRoomShortcut.Phase`.
+    /// `EditorShortcut.Phase`.
     func setBypassHeld(_ held: Bool) {
         EditorPlayback.shared.setBypassed(held)
     }

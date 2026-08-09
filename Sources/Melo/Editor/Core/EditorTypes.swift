@@ -1,6 +1,6 @@
 // Melo/Editor/Core/EditorTypes.swift
 //
-// The Cutting Room's document model. Every type the editor shares lives here,
+// Melo Edit's document model. Every type the editor shares lives here,
 // and nowhere else. A type that is missing belongs in this file rather than
 // being declared locally — a duplicate `Move` in two files is a build failure
 // that arrives all at once.
@@ -11,7 +11,7 @@ import Foundation
 
 /// One sound and everything we are doing to it.
 ///
-/// A value type on purpose: the undo stack in `CuttingRoomStore` is an array of
+/// A value type on purpose: the undo stack in `EditorStore` is an array of
 /// these, which is the whole reason the simple thing works here. There is no
 /// command pattern and there should not be one.
 struct EditorDocument: Codable, Equatable, Sendable {

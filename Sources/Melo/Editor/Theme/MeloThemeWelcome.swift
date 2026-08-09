@@ -1,6 +1,6 @@
 // Melo/Editor/Theme/MeloThemeWelcome.swift
 //
-// What the Cutting Room says the first time it opens on Melo's own theme, and
+// What Melo Edit says the first time it opens on Melo's own theme, and
 // the four one-tap starts underneath it.
 //
 // Shown once and then never again: it is bound to the stack being empty, so
@@ -13,10 +13,10 @@ import SwiftUI
 /// the theme and nothing has been done to it yet.
 @MainActor
 struct MeloThemeWelcome: View {
-    @ObservedObject var store: CuttingRoomStore
+    @ObservedObject var store: EditorStore
     @State private var isDismissed = false
 
-    init(store: CuttingRoomStore) {
+    init(store: EditorStore) {
         self.store = store
     }
 

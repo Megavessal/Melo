@@ -338,7 +338,7 @@ struct ConsumerCommandPalette: View {
             + inputDeviceCommands
             + appCommands
             + hiddenAppCommands
-            + cuttingRoomCommands
+            + editorCommands
             + generalCommands
     }
 
@@ -557,31 +557,31 @@ struct ConsumerCommandPalette: View {
                     // The location line is the useful half: it names where the
                     // control is, which is the thing the searcher lacked. The
                     // exception is the row whose location and whose action
-                    // disagree — "The Cutting Room" lives at a Settings address
+                    // disagree — "Melo Edit" lives at a Settings address
                     // and this row opens the window instead — and a subtitle
                     // that is not true about pressing the row is worse than a
                     // less informative one.
-                    subtitle: entry.category == .cuttingRoom && entry.destination != nil
-                        ? "Opens the \(SettingsGuideEntry.cuttingRoomTitle)"
+                    subtitle: entry.category == .editor && entry.destination != nil
+                        ? "Opens \(SettingsGuideEntry.editorTitle)"
                         : (entry.location ?? entry.summary),
-                    symbol: entry.category == .cuttingRoom ? "scissors" : "book.fill",
+                    symbol: entry.category == .editor ? "scissors" : "book.fill",
                     category: .help,
                     aliases: entry.keywords,
-                    // A Cutting Room topic reached from ⌘K opens the Cutting
-                    // Room. Every other entry describes a control this palette
+                    // A Melo Edit topic reached from ⌘K opens Melo Edit.
+                    // Every other entry describes a control this palette
                     // cannot operate, so the Guide is the right landing place
                     // for those; these describe a window it can open outright,
                     // and routing through Settings to read a page about a window
                     // is two presses for something that should be none.
                     //
-                    // Keyed on the category rather than on `opensCuttingRoom` so
-                    // it covers the whole section — including "The Cutting Room"
+                    // Keyed on the category rather than on `opensEditor` so
+                    // it covers the whole section — including "Melo Edit"
                     // itself, which takes the Settings route in the Guide because
                     // that is where the window has a permanent address, and which
                     // would otherwise be the one ⌘K row about the editor that
                     // does not open it.
-                    action: entry.category == .cuttingRoom
-                        ? { CuttingRoomWindowController.shared.show() }
+                    action: entry.category == .editor
+                        ? { EditorWindowController.shared.show() }
                         : {
                             onOpenSettings()
                             Task { @MainActor in
@@ -601,7 +601,7 @@ struct ConsumerCommandPalette: View {
             }
     }
 
-    // MARK: - The Cutting Room
+    // MARK: - Melo Edit
 
     /// Every way into Melo's editor that has words of its own.
     ///
@@ -609,11 +609,11 @@ struct ConsumerCommandPalette: View {
     /// the pre-typing list would push the scenes and the devices off the first
     /// screen, and only one of the six — opening the window — is something
     /// anybody opens ⌘K having already decided to do. That one is in
-    /// `generalCommands` below, beside Settings and the Guide, because the
-    /// Cutting Room is a surface of Melo rather than a control inside one.
+    /// `generalCommands` below, beside Settings and the Guide, because
+    /// Melo Edit is a surface of Melo rather than a control inside one.
     ///
     /// They all open the same window. That is the honest thing they can do and
-    /// the subtitles say so: `CuttingRoomWindowController` exposes `show()` and
+    /// the subtitles say so: `EditorWindowController` exposes `show()` and
     /// nothing finer, and the window opens on an empty state whose four buttons
     /// are Open a File, Paste a Link, Record, and Remix the Theme — so a row
     /// named for one of those lands one click away from it. Rejected: a command
@@ -621,38 +621,38 @@ struct ConsumerCommandPalette: View {
     /// contract for one call and would read as a feature while doing nothing
     /// until the window honoured it.
     ///
-    /// `.controls` rather than a `Cutting Room` group of its own: adding a case
+    /// `.controls` rather than a `Melo Edit` group of its own: adding a case
     /// to `ConsumerCommandCategory` means editing a file this piece does not
     /// own, and "Help" — where Settings and the Guide sit — is the wrong word
     /// for editing a sound.
-    private var cuttingRoomCommands: [Command] {
+    private var editorCommands: [Command] {
         [
             Command(
-                id: "cutting-room-open-file",
+                id: "editor-open-file",
                 title: "Edit an Audio File",
-                subtitle: "Opens the Cutting Room. WAV, MP3, M4A, FLAC and more",
+                subtitle: "Opens Melo Edit. WAV, MP3, M4A, FLAC and more",
                 symbol: "waveform",
                 category: .controls,
                 aliases: [
                     "edit audio", "edit a sound", "open a file", "import audio",
                     "edit an mp3", "edit a wav", "audio editor", "editing"
                 ],
-                action: { CuttingRoomWindowController.shared.show() }
+                action: { EditorWindowController.shared.show() }
             ),
             Command(
-                id: "cutting-room-trim",
+                id: "editor-trim",
                 title: "Trim a Sound",
-                subtitle: "Cut the ends off a recording, in the Cutting Room",
+                subtitle: "Cut the ends off a recording, in Melo Edit",
                 symbol: "timeline.selection",
                 category: .controls,
                 aliases: [
                     "trim audio", "crop audio", "cut audio", "cut the beginning",
                     "cut the end", "shorten a clip", "remove silence"
                 ],
-                action: { CuttingRoomWindowController.shared.show() }
+                action: { EditorWindowController.shared.show() }
             ),
             Command(
-                id: "cutting-room-export",
+                id: "editor-export",
                 title: "Export a Sound",
                 subtitle: "Save an edit as WAV, MP3, M4A, FLAC or Opus",
                 symbol: "square.and.arrow.up",
@@ -667,34 +667,34 @@ struct ConsumerCommandPalette: View {
                     "save as wav", "convert audio", "change the format",
                     "export audio", "render", "bounce", "opus", "flac"
                 ],
-                action: { CuttingRoomWindowController.shared.show() }
+                action: { EditorWindowController.shared.show() }
             ),
             Command(
-                id: "cutting-room-link",
+                id: "editor-link",
                 title: "Take Audio from a Link",
-                subtitle: "Paste a YouTube address into the Cutting Room",
+                subtitle: "Paste a YouTube address into Melo Edit",
                 symbol: "link",
                 category: .controls,
                 aliases: [
                     "youtube", "download audio from youtube", "rip audio",
                     "get audio from a video", "paste a link", "soundcloud"
                 ],
-                action: { CuttingRoomWindowController.shared.show() }
+                action: { EditorWindowController.shared.show() }
             ),
             Command(
-                id: "cutting-room-record",
+                id: "editor-record",
                 title: "Record What Your Mac Is Playing",
-                subtitle: "Capture system audio into the Cutting Room",
+                subtitle: "Capture system audio into Melo Edit",
                 symbol: "record.circle",
                 category: .controls,
                 aliases: [
                     "record system audio", "record what is playing",
                     "capture audio", "record my computer", "internal recording"
                 ],
-                action: { CuttingRoomWindowController.shared.show() }
+                action: { EditorWindowController.shared.show() }
             ),
             Command(
-                id: "cutting-room-theme",
+                id: "editor-theme",
                 title: "Remix the Melo Theme",
                 subtitle: "Opens Melo’s own theme, ready to cut about",
                 symbol: "music.note",
@@ -706,7 +706,7 @@ struct ConsumerCommandPalette: View {
                 // The one row here that does more than open the window, because
                 // `MeloThemeRemix` gives it a door of its own. Everything else
                 // would need a second `show()` overload to be honest about.
-                action: { MeloThemeRemix.openInCuttingRoom() }
+                action: { MeloThemeRemix.openInEditor() }
             ),
         ]
     }
@@ -770,8 +770,8 @@ struct ConsumerCommandPalette: View {
                 action: { sparkleUpdateController.checkNow() }
             ),
             Command(
-                id: "cutting-room",
-                title: "Open the Cutting Room",
+                id: "editor",
+                title: "Open Melo Edit",
                 subtitle: "Trim, clean up and export a sound",
                 symbol: "scissors",
                 // `.controls` rather than `.help`, which is where the other
@@ -791,7 +791,7 @@ struct ConsumerCommandPalette: View {
                 // both call it immediately after the action, and every other
                 // command in this file relies on that. Closing twice would
                 // dismiss whatever the popup had reopened onto.
-                action: { CuttingRoomWindowController.shared.show() }
+                action: { EditorWindowController.shared.show() }
             ),
             Command(
                 id: "settings",

@@ -12,12 +12,12 @@ import SwiftUI
 /// rather than finding out after a minute of progress bar.
 @MainActor
 struct LinkImportSheet: View {
-    @ObservedObject var store: CuttingRoomStore
+    @ObservedObject var store: EditorStore
     @Binding var isPresented: Bool
 
     @StateObject private var model: LinkImportModel
 
-    init(store: CuttingRoomStore, isPresented: Binding<Bool>) {
+    init(store: EditorStore, isPresented: Binding<Bool>) {
         self.init(store: store, isPresented: isPresented, seed: nil)
     }
 
@@ -25,11 +25,11 @@ struct LinkImportSheet: View {
     /// lookup, no process. Five of the six phases are otherwise unreachable from a
     /// harness, and the failure sentences are exactly the part of this sheet whose
     /// wrapping and truncation only a frame can check.
-    init(store: CuttingRoomStore, isPresented: Binding<Bool>, seed: LinkImportSeed) {
+    init(store: EditorStore, isPresented: Binding<Bool>, seed: LinkImportSeed) {
         self.init(store: store, isPresented: isPresented, seed: .some(seed))
     }
 
-    private init(store: CuttingRoomStore, isPresented: Binding<Bool>, seed: LinkImportSeed?) {
+    private init(store: EditorStore, isPresented: Binding<Bool>, seed: LinkImportSeed?) {
         self.store = store
         self._isPresented = isPresented
         self._model = StateObject(wrappedValue: LinkImportModel(seed: seed))
@@ -400,7 +400,7 @@ final class LinkImportModel: ObservableObject {
     @Published private(set) var toolVersion: String?
     @Published private(set) var didCopyInstallCommand = false
 
-    /// Set by `URLHandler.handleCuttingRoom(queryItems:)` when a
+    /// Set by `URLHandler.handleEditor(queryItems:)` when a
     /// `melo://cutting-room?url=…` route arrives, and consumed here ahead of the
     /// clipboard.
     static var pendingLink: URL?
@@ -491,7 +491,7 @@ final class LinkImportModel: ObservableObject {
 
     // MARK: Downloading
 
-    func download(into store: CuttingRoomStore, onFinished: @escaping () -> Void) {
+    func download(into store: EditorStore, onFinished: @escaping () -> Void) {
         guard let url = LinkExtractor.webLink(fromPastedText: linkText) else { return }
         lookupTask?.cancel()
 

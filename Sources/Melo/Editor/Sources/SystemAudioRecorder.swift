@@ -243,7 +243,7 @@ final class SystemAudioRecorder: ObservableObject {
         }
 
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("MeloCuttingRoom", isDirectory: true)
+            .appendingPathComponent("MeloEditor", isDirectory: true)
             .appendingPathComponent("Recording-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
@@ -318,7 +318,7 @@ final class SystemCaptureTap: @unchecked Sendable {
     private let configuration: Configuration
     // Passed to AudioDeviceCreateIOProcIDWithBlock; the callback itself runs on Core
     // Audio's realtime HAL thread, not on this queue.
-    private let callbackQueue = DispatchQueue(label: "Melo.CuttingRoom.CaptureTap", qos: .userInitiated)
+    private let callbackQueue = DispatchQueue(label: "Melo.Editor.CaptureTap", qos: .userInitiated)
 
     private var resources = TapResources()
     private var sink: CaptureSink?
@@ -490,7 +490,7 @@ final class SystemCaptureTap: @unchecked Sendable {
             capture.runWriteLoop()
             finished.signal()
         }
-        thread.name = "Melo.CuttingRoom.RecordWriter"
+        thread.name = "Melo.Editor.RecordWriter"
         thread.qualityOfService = .userInitiated
         thread.stackSize = 512 * 1_024
         writerThread = thread
@@ -516,7 +516,7 @@ final class SystemCaptureTap: @unchecked Sendable {
             description = CATapDescription(stereoMixdownOfProcesses: configuration.processObjectIDs)
         }
         description.uuid = UUID()
-        description.name = "Melo Cutting Room"
+        description.name = "Melo Edit"
         description.isPrivate = true
         // The live path uses `.mutedWhenTapped` because it re-renders the audio.
         // A recording must never take the sound away from the person making it.
@@ -526,7 +526,7 @@ final class SystemCaptureTap: @unchecked Sendable {
 
     private func makeAggregateDescription(tapUUID: UUID) -> [String: Any] {
         [
-            kAudioAggregateDeviceNameKey: "Melo Cutting Room Recorder",
+            kAudioAggregateDeviceNameKey: "Melo Edit Recorder",
             kAudioAggregateDeviceUIDKey: UUID().uuidString,
             kAudioAggregateDeviceMainSubDeviceKey: configuration.outputDeviceUID,
             kAudioAggregateDeviceClockDeviceKey: configuration.outputDeviceUID,

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Guards for the Cutting Room: the DSP it measures with, the moves it proposes, and their arrival.
+"""Guards for Melo Edit: the DSP it measures with, the moves it proposes, and their arrival.
+
+Named `verify-cutting-room.py`, and its frames are named `cutting-room-*`, after
+the name the feature shipped under in 3.1.0. That is the snapshot harness's own
+namespace rather than a product name: renaming the scenes would invalidate every
+frame already on disk, and this script reads six of them by name.
 
 Three kinds of check, in descending order of how much they prove. The ordering
 is not stylistic. This project's anchor records a run in which four wiring
@@ -675,7 +680,7 @@ def run_swift_checks() -> None:
         if compiled.returncode != 0:
             errors = [line for line in compiled.stderr.splitlines() if "error:" in line][:12]
             failures.append(
-                "the Cutting Room's DSP checks did not compile:\n        "
+                "Melo Edit's DSP checks did not compile:\n        "
                 + "\n        ".join(errors or compiled.stderr.splitlines()[:12])
             )
             return
@@ -687,7 +692,7 @@ def run_swift_checks() -> None:
         failures.extend(reported)
         if result.returncode != 0 and not reported:
             failures.append(
-                f"the Cutting Room's DSP checks exited {result.returncode} with no verdict: "
+                f"Melo Edit's DSP checks exited {result.returncode} with no verdict: "
                 f"{(result.stderr.strip() or result.stdout.strip())[:300]}"
             )
 
@@ -1103,7 +1108,7 @@ def run_frame_checks() -> None:
     if missing:
         failures.append(
             f"frames in {frames} are missing {missing} — either the render predates the "
-            "Cutting Room scenes or a scene was renamed without updating this script"
+            "Melo Edit scenes or a scene was renamed without updating this script"
         )
         return
 
@@ -1282,9 +1287,9 @@ for name in REQUIRED_FRAMES:
 # ---------------------------------------------------------------------------
 
 if failures:
-    print("Cutting Room checks failed:")
+    print("Melo Edit checks failed:")
     for failure in failures:
         print(f"  - {failure}")
     sys.exit(1)
 
-print("Cutting Room DSP, proposals, rendered arrival and wiring checks passed.")
+print("Melo Edit DSP, proposals, rendered arrival and wiring checks passed.")

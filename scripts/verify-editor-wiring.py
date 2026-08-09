@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guards that the Cutting Room's expensive machinery is actually reached.
+"""Guards that Melo Edit's expensive machinery is actually reached.
 
 Every check in this file exists because something in the editor was correct,
 tested, and **never called**. That is this project's signature defect —
@@ -9,7 +9,7 @@ assertion tested a pure function nothing proved was called.
 
 It happened again on the run that built this feature. `MoveProposer` had 45
 executed assertions behind it. `LoudnessMeter` measured a −20 dBFS tone at
-−20.0 LUFS. `CuttingRoomStore.setAnalysis` had **zero callers**, so
+−20.0 LUFS. `EditorStore.setAnalysis` had **zero callers**, so
 `document.analysis` was nil for the life of every document in a shipping build,
 and therefore: "Fix it for me" was permanently disabled, "What I found" said
 "Still listening." forever, Normalize and Fix DC offset were unavailable, and
@@ -74,7 +74,7 @@ def unit_paths() -> list[str]:
     return listed
 
 
-# `MeloThemeRemix.openInCuttingRoom()` reaches the window controller, and the
+# `MeloThemeRemix.openInEditor()` reaches the window controller, and the
 # real one drags DockPresence, SettingsManager and the whole root view in
 # behind it. Nothing here calls that function; this is the smallest shape that
 # satisfies the reference.
@@ -82,8 +82,8 @@ STUB_SWIFT = """
 import AppKit
 
 @MainActor
-final class CuttingRoomWindowController {
-    static let shared = CuttingRoomWindowController()
+final class EditorWindowController {
+    static let shared = EditorWindowController()
     func show() {}
 }
 """
@@ -130,7 +130,7 @@ func run() async -> Int32 {
         return 1
     }
 
-    let store = CuttingRoomStore.shared
+    let store = EditorStore.shared
     await store.open(url)
 
     check("the document opened", store.document != nil, store.lastError ?? "no error reported")
@@ -255,7 +255,7 @@ def calls_outside(pattern: re.Pattern[str], defining_file: str) -> list[str]:
 # has to be named. These are the spellings the store is reached by; a new one
 # means updating this line, which is the correct amount of friction for a check
 # whose whole job is to notice a call disappearing.
-STORE_CLOSE = re.compile(r"(CuttingRoomStore\.shared|\bstore|\bcuttingRoom)\.close\(\)")
+STORE_CLOSE = re.compile(r"(EditorStore\.shared|\bstore|\bcuttingRoom)\.close\(\)")
 FORGET_CACHE = re.compile(r"\.forgetCachedSource\(\)")
 
 if not calls_outside(FORGET_CACHE, "Editor/DSP/RenderEngine.swift"):
@@ -264,9 +264,9 @@ if not calls_outside(FORGET_CACHE, "Editor/DSP/RenderEngine.swift"):
         "source is about 1.4 GB and nothing else frees it"
     )
 
-if not calls_outside(STORE_CLOSE, "Editor/Core/CuttingRoomStore.swift"):
+if not calls_outside(STORE_CLOSE, "Editor/Core/EditorStore.swift"):
     failures.append(
-        "nothing calls CuttingRoomStore.close() — so closing the Cutting Room "
+        "nothing calls EditorStore.close() — so closing Melo Edit "
         "window never writes the session sidecar and never releases the decoded "
         "source (about 1.4 GB for a two-hour file, held for the rest of the "
         "session). The window's root view is the caller this needs."

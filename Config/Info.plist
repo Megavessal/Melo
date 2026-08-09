@@ -17,13 +17,13 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.1.0</string>
-	<!-- Audio files the Cutting Room can open. LSHandlerRank is Alternate on
+	<string>3.1.1</string>
+	<!-- Audio files Melo Edit can open. LSHandlerRank is Alternate on
 	     purpose: Melo appears in "Open With" for these types and accepts a drop
 	     on its Dock tile, but never becomes the default handler for anyone's
 	     music library. A menu-bar utility that quietly takes over double-click
-	     on every .mp3 on the Mac is a large claim nobody asked for, and the
-	     Cutting Room's own window is the intended way in. -->
+	     on every .mp3 on the Mac is a large claim nobody asked for, and
+	     Melo Edit's own window is the intended way in. -->
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -58,7 +58,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>310</string>
+	<string>311</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
@@ -72,11 +72,11 @@
 	<key>MeloDiagnosticsEndpoint</key>
 	<string></string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<!-- Rewritten for 3.1: the Cutting Room can record system audio, so the old
+	<!-- Rewritten for 3.1: Melo Edit can record system audio, so the old
 	     promise that Melo never records was no longer true. Recording needs no
 	     new permission — it is the same Screen & System Audio Recording grant
 	     the live path already asks for — so this is a truer sentence rather
-	     than a bigger ask. It does not name the Cutting Room: this prompt
+	     than a bigger ask. It does not name Melo Edit: this prompt
 	     appears at first launch, before anyone knows what that is, and the
 	     record sheet does that work at the moment it means something. -->
 	<string>Melo adjusts the volume and tone of each app you control and plays that audio straight back. It records only when you start a recording, and that file stays on this Mac.</string>
