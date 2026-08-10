@@ -249,7 +249,8 @@ final class EditorPlayback: ObservableObject {
     /// playback position stay exactly where they are, and letting go puts it
     /// back. This is the only way someone can judge a change Melo proposed for
     /// them rather than taking it on faith. What comes out and what stays is
-    /// `arrangementOnly`, which is where that decision is written down.
+    /// `EditorChain.arrangementOnly`, which is where that decision is written
+    /// down and the only place it is written down.
     ///
     /// While playing this re-splices immediately rather than waiting for the
     /// scheduling horizon: 600 ms of latency between pressing and hearing is
@@ -345,7 +346,11 @@ final class EditorPlayback: ObservableObject {
         isRenderingBypass = true
         defer { isRenderingBypass = false }
 
-        let block = try? await engine.render(Self.arrangementOnly(document), range: nil, progress: { _ in })
+        let block = try? await engine.render(
+            EditorChain.arrangementOnly(document),
+            range: nil,
+            progress: { _ in }
+        )
         // Nothing to adopt if the stack moved on while this was rendering.
         guard let buffer = block?.makeBuffer(), document == renderedDocument else { return }
         dry = buffer
@@ -354,67 +359,20 @@ final class EditorPlayback: ObservableObject {
         if isBypassed && isPlaying { restart(at: nil) }
     }
 
-    /// The document with **Melo's processing** removed and the user's
-    /// arrangement left exactly as they built it.
-    ///
-    /// Three rules, in the order they bind.
-    ///
-    /// 1. **Anything that changes where a sample sits in time stays.** This is
-    ///    not a preference, it is what makes the control work: `restart(at:)`
-    ///    splices the two renders at the same sample position, so a bypass
-    ///    buffer of a different length would jump rather than compare. That is
-    ///    why `trim`, `removeSilence`, `speed` and `reverse` survive — at clip,
-    ///    track and master level alike, now that all three carry stacks.
-    ///
-    /// 2. **Tone and level moves come out, at every level.** A move is what
-    ///    Melo proposed; the whole point of the control is judging those rather
-    ///    than taking them on faith. Before tracks existed there was one list
-    ///    and this filtered it; the multitrack render put the same kinds of move
-    ///    on clips and tracks, and a bypass that stripped only the master would
-    ///    quietly stop being a bypass.
-    ///
-    /// 3. **The user's own mixer is not touched.** Clip gain, track gain, pan,
-    ///    mute and solo stay put, and so do the fades.
-    ///
-    /// Rule 3 is a deliberate departure from "strip level at every level", and
-    /// the reason is what the control is *for*. Melo does not propose a track
-    /// fader — the user dragged it. Flattening the faders makes bypass an A/B
-    /// against a mix they never made, and on a four-track document the
-    /// unity-gain sum of every track can be louder than anything they have
-    /// heard so far, which is the worst possible surprise from a key you hold
-    /// down to listen. Neutralising them is one line if that call is wrong;
-    /// clamp the three gains and pan to zero here.
-    ///
-    /// Fades stay for a different reason and it is the stronger one: taking
-    /// them out puts a click at every clip boundary, and a click is an artefact
-    /// of the comparison rather than part of what is being compared. Two or
-    /// three milliseconds of ramp is a cheaper lie than a transient that is not
-    /// in either version of the audio.
-    private static func arrangementOnly(_ document: EditorDocument) -> EditorDocument {
-        var copy = document
-        copy.master = document.master.filter(Self.shapesTime)
-        for index in copy.tracks.indices {
-            copy.tracks[index].moves = copy.tracks[index].moves.filter(Self.shapesTime)
-            for clipIndex in copy.tracks[index].clips.indices {
-                copy.tracks[index].clips[clipIndex].moves =
-                    copy.tracks[index].clips[clipIndex].moves.filter(Self.shapesTime)
-            }
-        }
-        return copy
-    }
-
-    /// Whether a move changes *where* audio is rather than *what it sounds
-    /// like*. Exhaustive over `MoveKind` on purpose: a new kind should fail to
-    /// compile here rather than silently pick a side.
-    private static func shapesTime(_ move: Move) -> Bool {
-        switch move.kind {
-        case .trim, .removeSilence, .speed, .reverse:
-            return true
-        case .gain, .normalize, .limiter, .fadeIn, .fadeOut,
-             .equalizer, .highPass, .noiseGate, .channels, .fixDCOffset:
-            return false
-        }
-    }
+    // What bypass plays — the document with Melo's processing removed and the
+    // user's arrangement left exactly as they built it — used to be two private
+    // static functions here. It is `EditorChain.arrangementOnly` now, in Core,
+    // and the move was not tidying.
+    //
+    // This object holds an `AVAudioEngine` and lives in the view layer, so the
+    // rule that decides *what a bypass is* could not be reached by anything
+    // headless. It was therefore the one part of the feature no assertion could
+    // execute: a filter that silently matched nothing would have rendered the
+    // identical buffer, lit the identical control, changed no pixel, and passed
+    // every check. `scripts/verify-compare-bypass.py` executes it against a
+    // real render now, which is only possible because the definition left this
+    // file. The compare lane draws the complement of the same split, so the
+    // picture and the sound cannot describe different edits.
 
     /// Takes a fresh render. If the sound is playing, nothing stops: the chunks
     /// already queued finish from the old buffer and the next one comes from

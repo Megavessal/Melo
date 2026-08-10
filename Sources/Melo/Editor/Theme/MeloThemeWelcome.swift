@@ -3,7 +3,7 @@
 // What Melo Edit says the first time it opens on Melo's own theme, and
 // the four one-tap starts underneath it.
 //
-// Shown once and then never again: it is bound to the stack being empty, so
+// Shown once and then never again: it is bound to the Chain being empty, so
 // pressing any starter dismisses it by making the condition false. There is no
 // preference to remember and nothing to forget.
 
@@ -49,14 +49,14 @@ struct MeloThemeWelcome: View {
     /// started" is that promise kept literally — with four `apply`s the middle
     /// of the peel is a state no starter produced, where the user has undone
     /// the thing and it still sounds wrong. Second, the argument for fine
-    /// grain was that peeling teaches the stack, and it does not: the stack
+    /// grain was that peeling teaches the Chain, and it does not: the Chain
     /// inspector already teaches it *better*, because `setEnabled` switches a
     /// single move off in place, visibly, by name, reversibly, and without
     /// spending an undo. A blind ⌘Z is the worse version of a control that
     /// exists. It also makes a starter behave exactly like a destination
     /// proposal, which uses `replaceMoves` for the same reason.
     ///
-    /// Appending to whatever is on the stack rather than assuming it is empty:
+    /// Appending to whatever is on the Chain rather than assuming it is empty:
     /// the guard above means it always is, and building the array this way
     /// means a stale frame cannot turn one press into a discarded edit.
     private func start(_ starter: MeloThemeStarter) {
@@ -157,7 +157,7 @@ struct MeloThemeWelcomeCard: View {
                         .font(DesignTokens.Typography.Scale.caption())
                         .foregroundStyle(DesignTokens.Colors.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
-                    // Says a stack is coming before they press, which is the
+                    // Says a Chain is coming before they press, which is the
                     // whole point of the starters: the result is inspectable.
                     Text(starter.moveCountLabel(forThemeOfLength: themeDuration))
                         .font(DesignTokens.Typography.Scale.caption2())
@@ -174,7 +174,7 @@ struct MeloThemeWelcomeCard: View {
         }
         .buttonStyle(.meloHover)
         .accessibilityLabel("\(starter.title). \(starter.blurb)")
-        .accessibilityHint("Adds \(starter.moveCountLabel(forThemeOfLength: themeDuration)) to the stack.")
+        .accessibilityHint("Adds \(starter.moveCountLabel(forThemeOfLength: themeDuration)) to the Chain.")
     }
 }
 

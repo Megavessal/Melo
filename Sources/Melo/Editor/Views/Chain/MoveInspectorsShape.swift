@@ -1,4 +1,4 @@
-// Melo/Editor/Views/Stack/MoveInspectorsShape.swift
+// Melo/Editor/Views/Chain/MoveInspectorsShape.swift
 import SwiftUI
 
 // The two moves that change what the sound is, rather than how it sounds.

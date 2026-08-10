@@ -1,4 +1,4 @@
-// Melo/Editor/Views/Stack/MoveInspectorsLevel.swift
+// Melo/Editor/Views/Chain/MoveInspectorsLevel.swift
 import SwiftUI
 
 // The five moves that change how loud the sound is.
@@ -48,7 +48,7 @@ struct NormalizeInspector: View {
                 value: Binding(
                     get: { targetLUFS },
                     // Applied gain is the difference, not a third opinion about
-                    // it. Letting it be typed independently is how a stack ends
+                    // it. Letting it be typed independently is how a Chain ends
                     // up claiming -16 LUFS while applying the gain for -14.
                     set: {
                         onChange(.normalize(
@@ -63,7 +63,7 @@ struct NormalizeInspector: View {
                 unit: "LUFS"
             )
 
-            // Reads exactly as the stack row above reads it, because it is the
+            // Reads exactly as the Chain row above reads it, because it is the
             // same formatter.
             MoveFactRow(
                 label: "Applies",
@@ -148,7 +148,7 @@ struct FadeInspector: View {
                     get: { curve },
                     set: { onChange(kind(length: length, curve: $0)) }
                 ),
-                // `FadeCurve.title` is lowercase because the stack row uses it
+                // `FadeCurve.title` is lowercase because the Chain row uses it
                 // mid-sentence. A segment label starts a phrase of its own.
                 options: FadeCurve.allCases.map { ($0, Self.sentenceCase($0.title)) }
             )

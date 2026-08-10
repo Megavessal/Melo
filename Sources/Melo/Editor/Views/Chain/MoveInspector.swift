@@ -1,7 +1,7 @@
-// Melo/Editor/Views/Stack/MoveInspector.swift
+// Melo/Editor/Views/Chain/MoveInspector.swift
 import SwiftUI
 
-/// What opens when a row in the stack is disclosed: the concrete numbers of one
+/// What opens when a row in the Chain is disclosed: the concrete numbers of one
 /// move, and nothing else.
 ///
 /// The inspector never explains what the move is — the row already said that in

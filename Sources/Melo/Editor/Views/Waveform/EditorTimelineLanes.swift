@@ -42,9 +42,28 @@ struct EditorTimelineClipDrawing: Equatable {
     var isLive: Bool
     /// The part of the clip inside the window — the only part sampled or drawn.
     var visible: ClosedRange<TimeInterval>
-    /// One entry per channel lane, already scaled by the clip's gain and fades.
+    /// One entry per channel lane, already scaled by the clip's gain and fades,
+    /// and — when the compare lane is on and the chain has been rendered — the
+    /// picture of the audio *after* the chain rather than before it.
     var channels: [[EditorWaveformColumn]]
     var isDense: Bool
+    /// The untouched original over the same span, for the compare strip.
+    ///
+    /// **Empty is the normal state**, not an error: it means the compare lane
+    /// is off, or the clip is too short to give a strip up, or the processed
+    /// picture has not landed yet. Empty draws no strip at all rather than an
+    /// empty one — a blank rectangle under a clip reads as missing audio, and
+    /// `CLAUDE.md` records what it costs when blank is read as absent.
+    var original: [[EditorWaveformColumn]] = []
+    /// Whether `channels` is really the processed picture.
+    ///
+    /// A clip whose chain does nothing has no processed render to wait for, so
+    /// its two lanes are honestly identical and the strip says so. A clip whose
+    /// render is still in flight is drawing the *original* twice, which is a
+    /// different thing and must not be captioned as a comparison — that is the
+    /// exact "a lane where the two look identical" failure, and this is the
+    /// flag that keeps the caption truthful about which case it is.
+    var isChainRendered: Bool = false
 }
 
 // MARK: - The lanes
@@ -55,6 +74,13 @@ struct EditorTimelineLanes: View, Equatable {
     let window: ClosedRange<TimeInterval>
     let selection: ClosedRange<TimeInterval>?
     let isBypassed: Bool
+    /// Whether every clip gives up its bottom strip to the original.
+    ///
+    /// Carried as its own flag rather than inferred from `original` being
+    /// non-empty on some clip: with the lane on, a clip whose columns have not
+    /// arrived must still be drawn at the *shortened* height, or the lane's
+    /// clips would sit at two different heights and jump as data landed.
+    var comparing: Bool = false
     let style: EditorWaveformStyle
     /// Not read directly — the palette is dynamic — but a colour scheme change
     /// has to invalidate the cached drawing, and equality is what decides that.
@@ -66,6 +92,7 @@ struct EditorTimelineLanes: View, Equatable {
     // main actor is sound.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.isBypassed == rhs.isBypassed
+            && lhs.comparing == rhs.comparing
             && lhs.style == rhs.style
             && lhs.scheme == rhs.scheme
             && lhs.selection == rhs.selection
@@ -110,8 +137,16 @@ struct EditorTimelineLanes: View, Equatable {
             // is exactly the line the bare waveform drew; with three, three
             // lines is what says there are three lanes — no wash, no border, no
             // chrome the simple case did not already have.
+            //
+            // The *clip's* midpoint, not the lane's: with the compare strip on,
+            // the two stop being the same y, and a centre line that stayed at
+            // the lane's middle would run through the clips a few points below
+            // where their waveforms are centred. Visible only in the empty
+            // stretches either side of a clip, which is exactly where a line
+            // that does not line up is most obvious.
+            let clipArea = EditorTimelineGeometry.clipRect(in: laneRect, comparing: comparing)
             context.fill(
-                Path(CGRect(x: 0, y: laneRect.midY - 0.5, width: size.width, height: 1)),
+                Path(CGRect(x: 0, y: clipArea.midY - 0.5, width: size.width, height: 1)),
                 with: .color(EditorWaveformPalette.zeroLine)
             )
 
@@ -133,12 +168,33 @@ struct EditorTimelineLanes: View, Equatable {
         let endX = x(clip.end)
         guard endX - startX > 0.5 else { return }
 
-        let body = CGRect(x: startX, y: laneRect.minY, width: endX - startX, height: laneRect.height)
+        // The compare strip is carved out of the lane, so the clip body is
+        // shorter when it is on. Both rects come from `EditorTimelineGeometry`
+        // for the reason everything else here does: the header column in the
+        // other pane divides the same lane by the same function, and a second
+        // arithmetic for "where does the clip stop" is a shear waiting to
+        // happen.
+        let clipArea = EditorTimelineGeometry.clipRect(in: laneRect, comparing: comparing)
+        let compareArea = comparing ? EditorTimelineGeometry.compareRect(in: laneRect) : nil
+
+        let body = CGRect(x: startX, y: clipArea.minY, width: endX - startX, height: clipArea.height)
         let shape = Path(
             roundedRect: body.insetBy(dx: 0.5, dy: 0.5),
             cornerRadius: EditorWaveformMetrics.clipCorner,
             style: .continuous
         )
+
+        if let compareArea {
+            drawCompare(
+                clip,
+                into: &context,
+                strip: CGRect(
+                    x: startX, y: compareArea.minY,
+                    width: endX - startX, height: compareArea.height
+                ),
+                x: x
+            )
+        }
 
         context.fill(shape, with: .color(EditorWaveformPalette.clipFill))
         if clip.isSelected || clip.isLive {
@@ -229,6 +285,126 @@ struct EditorTimelineLanes: View, Equatable {
                 columns: columns
             )
         }
+    }
+
+    // MARK: The compare strip
+
+    /// The untouched original, under the clip, over the same span of the ruler.
+    ///
+    /// **Under and not beside, which is what makes it a comparison at all.**
+    /// Side by side would put the same moment of audio at two different x
+    /// positions, and the eye cannot difference two pictures it has to scan
+    /// across; stacked, one column of pixels is one moment in both readings and
+    /// the difference is the vertical distance between two silhouettes. The
+    /// owner asked for "an original side by side" and said in the same sentence
+    /// that it need not literally be — this is the reading that makes the
+    /// feature work.
+    ///
+    /// **The pair inverts under bypass.** With the edit playing, the clip above
+    /// is at full weight and this is the quiet reference; hold B and the two
+    /// swap, so the picture at full weight is always the sound in the ear. It
+    /// is the whole marker — no badge, nothing to keep in step, and both sides
+    /// read the one flag `EditorPlayback` publishes.
+    ///
+    /// Drawn even when `original` is empty, as a labelled empty strip? No —
+    /// see `EditorTimelineClipDrawing.original`. Nothing is drawn, because a
+    /// blank rectangle under a clip reads as audio that is not there.
+    private func drawCompare(
+        _ clip: EditorTimelineClipDrawing,
+        into context: inout GraphicsContext,
+        strip: CGRect,
+        x: (TimeInterval) -> CGFloat
+    ) {
+        guard !clip.original.isEmpty, strip.width > 0.5 else { return }
+        let shape = Path(
+            roundedRect: strip.insetBy(dx: 0.5, dy: 0.5),
+            cornerRadius: EditorWaveformMetrics.clipCorner,
+            style: .continuous
+        )
+        context.fill(shape, with: .color(EditorWaveformPalette.compareGround))
+
+        let lowerX = x(clip.visible.lowerBound)
+        let upperX = x(clip.visible.upperBound)
+        guard upperX - lowerX > 0.5 else { return }
+
+        context.drawLayer { inner in
+            inner.clip(to: shape)
+
+            // `isBypassed: isBypassed ? false : ...` reads backwards until you
+            // hold the key: bypassed means the *clip above* is not what is
+            // playing, so it is the clip that greys and this strip that comes
+            // up to full weight.
+            let painter = EditorWaveformPainter(
+                style: style,
+                isBypassed: false,
+                isOriginal: !isBypassed,
+                isDense: clip.isDense,
+                covering: clip.visible,
+                selection: selection
+            )
+
+            // **One lane, always**, however many channels the clip draws above,
+            // and `first` rather than a loop because a second entry would draw
+            // on top of the first in the same rectangle. The strip is 30
+            // points; splitting it in two gives 15 a side, which the
+            // channel-split floor already rejects as two stripes rather than a
+            // drawing of two channels. `original` is merged upstream in
+            // `EditorWaveformView.compareColumns`, so the merge rule stays in
+            // the one place that owns it.
+            if let columns = clip.original.first {
+                painter.draw(
+                    &inner,
+                    rect: CGRect(
+                        x: lowerX, y: strip.minY,
+                        width: upperX - lowerX, height: strip.height
+                    ),
+                    columns: columns
+                )
+            }
+
+            drawCompareLabel(clip, into: &inner, strip: strip)
+        }
+    }
+
+    /// What this strip is, and whether it is the one you are hearing.
+    ///
+    /// Three captions rather than one. The third is the reason: when the
+    /// processed picture has not arrived yet the strip is drawing the same
+    /// numbers as the clip above it, and two identical waveforms with no
+    /// caption look exactly like a compare lane that does not work.
+    ///
+    /// No middot separators. The owner reads "A · B · C" captions as slop, and
+    /// a status label is a sentence fragment rather than a spec sheet — the
+    /// export presets keep their middots because those really are a list of
+    /// values.
+    private func drawCompareLabel(
+        _ clip: EditorTimelineClipDrawing,
+        into context: inout GraphicsContext,
+        strip: CGRect
+    ) {
+        guard strip.width >= EditorWaveformMetrics.clipNameMinimumWidth else { return }
+        let caption: String
+        if isBypassed {
+            caption = "Original, playing"
+        } else if clip.isChainRendered {
+            caption = "Original"
+        } else {
+            caption = "Original, still drawing the edit"
+        }
+        let text = context.resolve(
+            Text(caption)
+                .font(DesignTokens.Typography.Scale.caption2(isBypassed ? .semibold : .medium))
+                .foregroundStyle(
+                    isBypassed
+                        ? Color.accentColor
+                        : EditorWaveformPalette.compareLabel
+                )
+        )
+        context.draw(
+            text,
+            at: CGPoint(x: strip.minX + DesignTokens.Spacing.xs2, y: strip.minY + 1),
+            anchor: .topLeading
+        )
     }
 
     /// The waveform's part of the clip: everything under the name strip.

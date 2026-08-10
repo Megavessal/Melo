@@ -111,6 +111,38 @@ enum EditorWaveformMetrics {
     static let fadeHandleZone: CGFloat = 12
     static let fadeHandleSize: CGFloat = 7
 
+    // MARK: Compare
+
+    /// The strip under a clip carrying the untouched original.
+    ///
+    /// 30 points, and the number is a floor rather than a taste. `LaneGeometry`
+    /// gives a waveform `height / 2 - 1` either side of the centre line, so 30
+    /// is 14 points of excursion — enough that a level difference of a few dB
+    /// is a visible difference in the drawing rather than a rounding one, and
+    /// enough that `.pixel` can fit more than two blocks between the centre and
+    /// full scale. *Rejected:* 20, which reads as a coloured rule rather than
+    /// as audio, and a proportional share of the lane, which would make the
+    /// reference strip large on a one-track document and useless on a
+    /// six-track one — the opposite of what is wanted, since the crowded
+    /// document is the one that needs the comparison legible.
+    static let compareLaneHeight: CGFloat = 30
+
+    /// Between the clip body and the strip. Small: they are two readings of one
+    /// clip and have to look joined, not stacked.
+    static let compareLaneGap: CGFloat = 3
+
+    /// The strip is not drawn at all when taking it would leave the clip less
+    /// than this. A clip body under about 44 points has no room for a title
+    /// strip and a waveform both, so at that height the compare lane would be
+    /// spending the clip to describe it.
+    ///
+    /// It cannot bite at the sizes Melo ships: `minimumLaneHeight` is 97, and
+    /// 86 − 30 − 3 = 53. It exists because the floor is owned by
+    /// `EditorTrackMetrics` for a reason about button sizes that has nothing to
+    /// do with waveforms, and a lane height that stops being 86 should turn
+    /// this off rather than draw two unreadable stripes.
+    static let compareLaneMinimumClipHeight: CGFloat = 44
+
     /// A clip body shorter than this draws its channels merged into one lane.
     /// Two 24pt sub-lanes and the gap between them is the floor at which a
     /// stereo split is still a drawing of two channels rather than two stripes.
@@ -383,6 +415,46 @@ enum EditorTimelineGeometry {
             y: lanes.minY + CGFloat(index) * (height + EditorWaveformMetrics.laneGap),
             width: lanes.width,
             height: height
+        )
+    }
+
+    /// The compare strip inside a lane, or `nil` when the lane is too short to
+    /// give one up.
+    ///
+    /// **Carved out of the lane, not added to it.** The lane's own height is
+    /// what `TrackHeaderColumn` sizes its rows against, in another pane, by
+    /// calling `laneRect` — so a compare lane that grew the lane would shear
+    /// the headers away from the waveform the moment it was switched on, which
+    /// is the exact defect the "one function answers it" note on
+    /// `EditorWaveformMetrics` exists to prevent. The clip gets shorter
+    /// instead. That is the vertical cost, and it is why the lane can be turned
+    /// off.
+    static func compareRect(in lane: CGRect) -> CGRect? {
+        let height = EditorWaveformMetrics.compareLaneHeight
+        let gap = EditorWaveformMetrics.compareLaneGap
+        guard lane.height - height - gap >= EditorWaveformMetrics.compareLaneMinimumClipHeight else {
+            return nil
+        }
+        return CGRect(x: lane.minX, y: lane.maxY - height, width: lane.width, height: height)
+    }
+
+    /// The part of a lane a clip body occupies: the whole of it, or everything
+    /// above the compare strip.
+    ///
+    /// `hitTest` deliberately keeps measuring from `laneRect` and not from
+    /// this. Every target it resolves — the fade zone, the title strip, the two
+    /// trim edges — is anchored to the *top* of the lane and does not move when
+    /// the bottom is carved away. What does change is that a click low in the
+    /// lane lands on the compare strip and is reported as the clip's `.body`,
+    /// which starts a time selection: the right answer, since a strip drawn
+    /// under a clip to describe that clip should not be a dead region.
+    static func clipRect(in lane: CGRect, comparing: Bool) -> CGRect {
+        guard comparing, let compare = compareRect(in: lane) else { return lane }
+        return CGRect(
+            x: lane.minX,
+            y: lane.minY,
+            width: lane.width,
+            height: compare.minY - EditorWaveformMetrics.compareLaneGap - lane.minY
         )
     }
 

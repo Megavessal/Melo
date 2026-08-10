@@ -796,15 +796,32 @@ run_swift_checks()
 
 # The app row's readout. `volume` alone is the base gain; without the boost
 # factor a 2x app reads 100% while its slider sits at the far right.
-app_row = read("Sources/Melo/Views/Rows/AppRow.swift")
-if "volume * boost.rawValue" not in app_row:
-    failures.append("AppRow: the row percentage must multiply base volume by boost")
-if "min(4," not in app_row:
-    failures.append("AppRow: the row percentage must clamp to a gain of 4 (400%)")
-
+#
+# This used to read `AppRow.swift` and `InactiveAppRow.swift`, because each of
+# them printed its own `Text("\(displayedPercentage)%")` in the collapsed row
+# from its own copy of the formula. Both copies are gone: the editable
+# percentage moved onto the row itself, so there is one formula and it is in
+# `AppRowControls`. Checking the old files would now be checking two files that
+# no longer compute a percentage at all — green, and about nothing.
 controls = read("Sources/Melo/Views/Rows/AppRowControls.swift")
+if "volume * boost.rawValue" not in controls:
+    failures.append("AppRowControls: the row percentage must multiply base volume by boost")
+if "min(4," not in controls:
+    failures.append("AppRowControls: the row percentage must clamp to a gain of 4 (400%)")
 if "range: 0...400" not in controls:
     failures.append("AppRowControls: the editable percentage must span 0...400")
+
+# And the two rows must no longer carry a second copy. A duplicate that nothing
+# reads is the state this pass just cleaned up, and it goes out of step in
+# silence — the copies here were already one edit from disagreeing.
+for row in ("AppRow", "InactiveAppRow"):
+    text = read(f"Sources/Melo/Views/Rows/{row}.swift")
+    if "volume * boost.rawValue" in text:
+        failures.append(
+            f"{row}: a second copy of the gain formula is back. One lives in "
+            "AppRowControls; a copy here is a number that can disagree with the "
+            "slider beside it."
+        )
 
 
 # Every read and write of an app's volume or boost has to go through the two
@@ -1148,18 +1165,30 @@ def run_frame_checks() -> None:
     #
     # `volume 1.0 x boost 2x` renders "200%": four glyphs. Dropping the boost
     # factor renders "100%", which the source check above catches; scaling the
-    # percent wrongly renders "20%", which nothing else can see. The readout is
-    # the only ink in the right quarter of a collapsed row, and the digits
-    # segment cleanly with 3-4px of tracking between them.
+    # percent wrongly renders "20%", which nothing else can see.
+    #
+    # This used to say "the readout is the only ink in the right quarter of a
+    # collapsed row" and scan from 0.75 of the width. That stopped being true
+    # when the volume slider moved onto the collapsed row: the slider's track
+    # ends inside that quarter and was counted as a fifth glyph. Taking the
+    # runs from the right and stopping at the first wide gap is not a wider
+    # guess, it is the actual structure — the digits are 3-4px apart and the
+    # slider is over 120px away, so no threshold in between is arbitrary.
     row = Image.open(frames / "app-row-200-percent.png").convert("L")
     content_bottom = provenance_band_top(Image.open(frames / "app-row-200-percent.png"))
-    glyphs = ink_column_runs(
-        row, int(row.width * 0.75), row.width, 0, content_bottom, threshold=110
+    all_runs = ink_column_runs(
+        row, int(row.width * 0.5), row.width, 0, content_bottom, threshold=110
     )
+    glyphs = []
+    for run in reversed(all_runs):
+        if glyphs and glyphs[0][0] - run[1] > 40:
+            break
+        glyphs.insert(0, run)
     if len(glyphs) != 4:
         failures.append(
             "app-row-200-percent: the readout renders "
-            f"{len(glyphs)} glyph(s), expected 4 for “200%”. Runs: {glyphs}"
+            f"{len(glyphs)} glyph(s), expected 4 for “200%”. "
+            f"Readout runs: {glyphs}. Everything scanned: {all_runs}"
         )
 
     # --- The headroom label reaches the screen, and only when it should.

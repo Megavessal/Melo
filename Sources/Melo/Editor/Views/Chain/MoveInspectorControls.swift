@@ -1,4 +1,4 @@
-// Melo/Editor/Views/Stack/MoveInspectorControls.swift
+// Melo/Editor/Views/Chain/MoveInspectorControls.swift
 import SwiftUI
 import AppKit
 
@@ -6,7 +6,7 @@ import AppKit
 // (`MoveNumberRow`, `MoveTimeRow`, `MoveChoiceRow`, `MoveFactRow`), the
 // `MoveNumberField` the numeric rows share, and the `MoveInspectorBody` that
 // holds them. A gain in dB, a fade in seconds and a gate release in
-// milliseconds are the same control wearing different units — the stack is one
+// milliseconds are the same control wearing different units — the Chain is one
 // object the user learns once, not fifteen little panels each with its own
 // habits.
 
@@ -276,7 +276,7 @@ struct MoveNumberField: View {
     }
 
     /// `EditorFormat.number` is Melo Edit's only numeral, so a dB here
-    /// and the same dB in the stack row above are the same string.
+    /// and the same dB in the Chain row above are the same string.
     nonisolated static func text(_ value: Double, unit: String, places: Int) -> String {
         let numeral = EditorFormat.number(value, places: places)
         return unit.isEmpty ? numeral : "\(numeral) \(unit)"

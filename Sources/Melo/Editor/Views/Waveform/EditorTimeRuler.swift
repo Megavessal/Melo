@@ -19,6 +19,11 @@ struct EditorTimeRuler: View {
 
     @ObservedObject var timeline: EditorTimeline
 
+    /// Observed, not read once. `M` appends to this from the key handler while
+    /// the ruler is already on screen, and a `Canvas` only redraws when
+    /// something it observes changes.
+    @ObservedObject private var markers = EditorMarkers.shared
+
     /// Intervals a person reads without arithmetic. Nothing here is a power of
     /// two, and nothing is 3 or 7 seconds: an unfamiliar interval makes the
     /// reader do sums to place a moment between two ticks.
@@ -103,6 +108,54 @@ struct EditorTimeRuler: View {
             let labelX = x + 3
             guard labelX + measured.width <= size.width - 2 else { continue }
             context.draw(label, at: CGPoint(x: labelX, y: 1), anchor: .topLeading)
+        }
+
+        drawMarkers(&context, size: size, pointsPerSecond: pointsPerSecond, visibleEnd: visibleEnd)
+    }
+
+    /// The markers `M` drops, painted over the ticks.
+    ///
+    /// Last, so a marker is never hidden under a tick label. That ordering is
+    /// the whole of the interaction: `M` was bound and drawn by nothing for one
+    /// build, which is a key that appears in the cheat sheet and does nothing a
+    /// person can see.
+    ///
+    /// Full height rather than a stub at the top. A marker is a place in the
+    /// piece and the eye has to be able to drop from the ruler onto the
+    /// waveform without losing the column; an 8pt nub in a 20pt strip is a
+    /// tick with a number next to it.
+    private func drawMarkers(
+        _ context: inout GraphicsContext,
+        size: CGSize,
+        pointsPerSecond: Double,
+        visibleEnd: TimeInterval
+    ) {
+        for marker in markers.markers {
+            guard marker.time >= timeline.start, marker.time <= visibleEnd else { continue }
+            let x = CGFloat((marker.time - timeline.start) * pointsPerSecond)
+            guard x >= -0.5, x <= size.width else { continue }
+
+            context.fill(
+                Path(CGRect(x: x, y: 0, width: 1, height: size.height)),
+                with: .color(EditorWaveformPalette.marker)
+            )
+
+            let flag = context.resolve(
+                Text(marker.name)
+                    .font(DesignTokens.Typography.Scale.caption2(.semibold).monospacedDigit())
+                    .foregroundStyle(EditorWaveformPalette.markerLabel)
+            )
+            let measured = flag.measure(in: size)
+            // A filled tab behind the number, because the number sits on top of
+            // whatever timecode label is already there and two glyphs in the
+            // same 8pt square are unreadable at any weight.
+            let tab = CGRect(x: x, y: 0, width: measured.width + 6, height: measured.height + 2)
+            guard tab.maxX <= size.width else { continue }
+            context.fill(
+                Path(roundedRect: tab, cornerRadius: 2, style: .continuous),
+                with: .color(EditorWaveformPalette.marker)
+            )
+            context.draw(flag, at: CGPoint(x: x + 3, y: 1), anchor: .topLeading)
         }
     }
 

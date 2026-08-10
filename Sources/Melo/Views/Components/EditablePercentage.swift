@@ -63,6 +63,12 @@ struct EditablePercentage: View {
                 Text("\(percentage)%")
                     .font(DesignTokens.Typography.percentage)
                     .foregroundStyle(isHovered ? DesignTokens.Colors.textPrimary : textColor)
+                    // The width below is measured to fit, and this is here in
+                    // case it ever stops fitting: a readout that runs out of
+                    // room should sit slightly proud of its column, not fold
+                    // the per-cent sign onto a second line inside a 28pt row.
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(.horizontal, isVisuallyEditing ? DesignTokens.Spacing.xs2 : DesignTokens.Spacing.xs)

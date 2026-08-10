@@ -356,6 +356,68 @@ func run() async -> Int32 {
     check("it now carries the timeline too", object["tracks"] != nil && object["sources"] != nil)
     check("`savedAt` is still written", object["savedAt"] != nil)
 
+    // MARK: Duplicating a clip must not empty the clipboard.
+    //
+    // ⌘D was built as copyClips-then-pasteClips. It produced the right clip and
+    // took the user's clipboard with it — and a clipboard is not in the
+    // document, so undo cannot bring it back and nothing on screen reports it.
+    // The stub-store probe in verify-editor-keys.py can only see which method
+    // was called; this drives the real store and looks at what came out.
+    //
+    // **The two clips must be different.** A first version copied clip A and
+    // duplicated clip A, so a duplicate that overwrote the clipboard overwrote
+    // it with an identical clip and the assertion could not see the defect: the
+    // mutation that puts `copyClips(ids)` back at the top of `duplicateClips`
+    // ran green. B is trimmed to a length A does not have, and the paste is
+    // identified by that length.
+    if let trackID = store.document?.tracks.first?.id,
+       let sourceID = store.document?.sources.first?.id,
+       let clipA = store.document?.tracks.first?.clips.first {
+
+        let clipB = store.addClip(sourceID: sourceID, to: trackID, at: 12.0)
+        store.trimClip(clipB, sourceIn: 0.25, sourceOut: 0.75)
+        let lengthB = 0.5
+        let lengthA = clipA.duration
+        check("the fixture's two clips are distinguishable by length",
+              abs(lengthA - lengthB) > 0.01,
+              "A is \(lengthA)s, B is \(lengthB)s — an assertion that cannot tell them "
+              + "apart cannot see a clipboard being overwritten")
+
+        store.copyClips([clipB])
+        let countBefore = store.document?.tracks.first?.clips.count ?? 0
+        let made = store.duplicateClips([clipA.id])
+        check("duplicate adds a clip", made.count == 1, "made \(made.count)")
+        check("the duplicate does not land on top of its original",
+              store.document?.tracks.first?.clips.first(where: { $0.id == made.first })
+                  .map { $0.start >= clipA.end - 1e-9 } == true,
+              "a duplicate under its original looks like nothing happened")
+
+        // Paste far to the right, where nothing else is, and read back what
+        // arrived. If duplicating overwrote the clipboard this is A's length.
+        store.pasteClips(at: 40, track: trackID)
+        let pasted = (store.document?.tracks.first?.clips ?? [])
+            .filter { $0.start >= 39.5 }
+        check("a paste after a duplicate still pastes something", pasted.count == 1,
+              "\(pasted.count) clips landed at 40s")
+        check("the clipboard still holds what was copied, not what was duplicated",
+              pasted.first.map { abs($0.duration - lengthB) < 1e-6 } == true,
+              "pasted \(String(describing: pasted.first?.duration))s, copied B at "
+              + "\(lengthB)s, duplicated A at \(lengthA)s — A's length here means "
+              + "duplicating emptied the clipboard")
+        check("the duplicate and the paste are two separate clips",
+              (store.document?.tracks.first?.clips.count ?? 0) == countBefore + 2,
+              "\(countBefore) -> \(String(describing: store.document?.tracks.first?.clips.count))")
+
+        // Put the track back the way the round-trip section below expects it.
+        let extras = (store.document?.tracks.first?.clips ?? [])
+            .filter { $0.id != clipA.id }
+            .map(\.id)
+        for id in extras { store.removeClip(id) }
+        check("the fixture is restored for the sections below",
+              store.document?.tracks.first?.clips.count == 1,
+              "\(String(describing: store.document?.tracks.first?.clips.count))")
+    }
+
     // MARK: A 3.2 document round-trips.
 
     let secondTrack = store.addTrack()
@@ -369,7 +431,11 @@ func run() async -> Int32 {
     }
     let before = store.document
 
-    EditorSession.save(store.document!)
+    // The panel set is a parameter rather than a field on the document — it
+    // describes the pane, not the sound, and undo copies documents. Two panels,
+    // not one, because a set of one survives a bug that flattens the set to its
+    // first element and a set of two does not.
+    EditorSession.save(store.document!, openPanels: [.chain, .analysis])
     if let session = EditorSession.load(for: url) {
         var fresh = EditorDocument(source: store.document!.sources[0])
         session.restore(into: &fresh)
@@ -389,6 +455,18 @@ func run() async -> Int32 {
               })
         check("the round trip is lossless",
               fresh.tracks == before?.tracks && fresh.master == before?.master)
+        // Which panels were open is the one thing in the sidecar that is not in
+        // the document, so `restore(into:)` cannot carry it and nothing above
+        // would notice it going missing. A dropped `openPanels` key reopens
+        // every file on the destination picker with no error and no clue.
+        check("the open panels came back",
+              session.openPanels.map(EditorPanel.migrating) == Set<EditorPanel>([.chain, .analysis]),
+              "\(String(describing: session.openPanels))")
+        // The pre-rename spelling, which every sidecar written before 3.3
+        // carries. Dropping it is silent: the Chain was open yesterday and is
+        // shut today.
+        check("a pre-3.3 sidecar's \"stack\" still opens the Chain",
+              EditorPanel.migrating(["stack", "analysis"]) == Set<EditorPanel>([.chain, .analysis]))
     } else {
         failures.append("a 3.2 sidecar did not load back")
     }

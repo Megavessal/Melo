@@ -419,7 +419,7 @@ enum MoveProposer {
 
     // Numbers become strings in exactly one place in this feature —
     // `EditorFormat`, in `Editor/Core/MoveKindDisplay.swift` — so a dB in a
-    // rationale, a dB in the stack row beside it and a dB in the inspector
+    // rationale, a dB in the Chain row beside it and a dB in the inspector
     // below it are the same string. The only thing added here is a sample
     // count, which nothing else in the feature has to render.
 

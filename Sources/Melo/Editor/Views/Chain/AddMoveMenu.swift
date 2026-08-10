@@ -1,7 +1,7 @@
-// Melo/Editor/Views/Stack/AddMoveMenu.swift
+// Melo/Editor/Views/Chain/AddMoveMenu.swift
 import SwiftUI
 
-/// How a move gets onto the stack by hand.
+/// How a move gets onto the Chain by hand.
 ///
 /// Grouped Cut / Level / Tone / Shape — the four things a person is trying to do
 /// to a sound — rather than in the order `MoveKind` happens to declare its
@@ -95,7 +95,7 @@ struct AddMoveMenu: View {
     /// One menu item, built **from the move it creates**.
     ///
     /// The name and the glyph come off `MoveKind.title` and
-    /// `MoveKind.symbolName` — the same two properties the stack row reads — so
+    /// `MoveKind.symbolName` — the same two properties the Chain row reads — so
     /// the item and the row it produces cannot disagree. They previously did:
     /// this menu carried its own hardcoded table, ten of the fourteen glyphs
     /// had drifted from the row's, and Normalize here wore `speaker.wave.2`,

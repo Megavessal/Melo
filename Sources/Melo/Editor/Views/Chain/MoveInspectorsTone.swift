@@ -1,4 +1,4 @@
-// Melo/Editor/Views/Stack/MoveInspectorsTone.swift
+// Melo/Editor/Views/Chain/MoveInspectorsTone.swift
 import SwiftUI
 
 // The three moves that change the colour of the sound.

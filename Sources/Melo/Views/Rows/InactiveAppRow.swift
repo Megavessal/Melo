@@ -47,10 +47,6 @@ struct InactiveAppRow: View {
     @State private var localStereoFieldSettings: StereoFieldSettings
     @State private var isIconHovered = false
 
-    private var displayedPercentage: Int {
-        Int(round(Double(max(0, min(4, volume * boost.rawValue))) * 100))
-    }
-
     init(
         appInfo: PinnedAppInfo,
         icon: NSImage,
@@ -127,7 +123,9 @@ struct InactiveAppRow: View {
         ExpandableGlassRow(isExpanded: isEQExpanded, isFocused: isFocused) {
             // Header: Main row content (always visible)
             HStack(spacing: DesignTokens.Spacing.sm) {
-                // VU Meter (always 0 for inactive apps)
+                // The meter, the icon and the name carry the dimming. See the
+                // note where `.opacity` used to sit, at the bottom of this row.
+                Group {
                 VUMeter(level: 0, isMuted: isMuted || volume == 0)
 
                 // Open placeholders remain launchable/focusable even before Core
@@ -198,19 +196,53 @@ struct InactiveAppRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-
-                if isMuted {
-                    Image(systemName: "speaker.slash.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(DesignTokens.Colors.mutedIndicator)
-                        .accessibilityLabel("Muted")
+                // The name yields, the controls do not — see the same line in
+                // `AppRow`. These two lists sit one above the other in the same
+                // popup, so a slider that is a different width here reads as a
+                // mistake rather than as a different kind of row.
+                .layoutPriority(-1)
                 }
+                .opacity(isAppOpen ? 0.82 : 0.6)
 
-                Text("\(displayedPercentage)%")
-                    .percentageStyle()
+                Spacer(minLength: DesignTokens.Spacing.md)
+
+                // Quiet & Remembered gets the slider on the row for the same
+                // reason the active list does, and one better: these are apps
+                // that have not made a sound yet. Setting one down *before* it
+                // starts is the entire point of pinning it, and that was two
+                // clicks away behind a disclosure.
+                AppRowControls(
+                    appName: appInfo.displayName,
+                    volume: volume,
+                    isMuted: isMuted,
+                    devices: devices,
+                    deviceIconOverrides: deviceIconOverrides,
+                    selectedDeviceUID: selectedDeviceUID ?? defaultDeviceUID ?? "",
+                    selectedDeviceUIDs: selectedDeviceUIDs,
+                    isFollowingDefault: isFollowingDefault,
+                    defaultDeviceUID: defaultDeviceUID,
+                    deviceSelectionMode: deviceSelectionMode,
+                    boost: boost,
+                    isEQExpanded: isEQExpanded,
+                    onVolumeChange: onVolumeChange,
+                    onMuteChange: onMuteChange,
+                    onBoostChange: onBoostChange,
+                    onDeviceSelected: onDeviceSelected,
+                    onDevicesSelected: onDevicesSelected,
+                    onDeviceModeChange: onDeviceModeChange,
+                    onSelectFollowDefault: onSelectFollowDefault,
+                    onEQToggle: onEQToggle,
+                    isRowFocused: isFocused,
+                    part: .primary
+                )
             }
             .frame(height: DesignTokens.Dimensions.rowContentHeight)
-            .opacity(isAppOpen ? 0.82 : 0.6)
+            // The dimming used to be here, on the whole row, which was right
+            // when the row was only an icon and a name. It is applied to those
+            // two and the meter now, and deliberately NOT to the controls: a
+            // slider at 60% opacity reads as disabled, and this one is not —
+            // it is the control the row exists to offer, and the whole reason
+            // an app is pinned before it has made a sound.
         } expandedContent: {
             VStack(spacing: DesignTokens.Spacing.xs) {
                 AppRowControls(
@@ -235,7 +267,8 @@ struct InactiveAppRow: View {
                     onDeviceModeChange: onDeviceModeChange,
                     onSelectFollowDefault: onSelectFollowDefault,
                     onEQToggle: onEQToggle,
-                    isRowFocused: isFocused
+                    isRowFocused: isFocused,
+                    part: .secondary
                 )
                 .frame(maxWidth: .infinity, alignment: .trailing)
 

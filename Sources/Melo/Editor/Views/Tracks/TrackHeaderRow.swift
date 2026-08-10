@@ -27,6 +27,17 @@ import SwiftUI
 @MainActor
 struct TrackHeaderRow: View {
     @ObservedObject var store: EditorStore
+    /// Observed, not merely read. `EditorLevelReading.forTrack` asks
+    /// `EditorClipWaveforms.shared` for each source's overview, and those
+    /// arrive on a later turn of the run loop than the first layout pass — so
+    /// without this the meter would draw whatever had landed by the time the
+    /// header first appeared and then never move again. In the render harness
+    /// the pictures are seeded before the view exists and the bug is invisible,
+    /// which is exactly the shape of defect this project's anchor records.
+    /// Not `private`: a `private` stored property drags the whole memberwise
+    /// initialiser down to `private` with it, and `TrackHeaderColumn` is in
+    /// another file.
+    @ObservedObject var clipWaveforms = EditorClipWaveforms.shared
     let trackID: Track.ID
 
     @State private var isRenaming = false
@@ -92,14 +103,37 @@ struct TrackHeaderRow: View {
             nameRow(track)
                 .frame(height: EditorTrackMetrics.nameRowHeight)
 
+            EditorLevelMeter(
+                reading: reading(track),
+                isAudible: isAudible,
+                showsScale: store.mode.shows(.meterScale),
+                subject: track.name
+            )
+
             levelRow(track)
                 .frame(height: EditorTrackMetrics.levelRowHeight)
 
-            TrackPanControl(pan: pan, subject: track.name)
-                .frame(height: EditorTrackMetrics.panRowHeight)
-                .opacity(isAudible ? 1 : 0.45)
+            // **The one control on this row that Simple takes away**, and the
+            // space it leaves is reserved rather than reclaimed — see
+            // `EditorTrackMetrics.minimumLaneHeight` for why a lane may not
+            // change height when the mode does. `Color.clear` rather than
+            // nothing, for the same reason the meter reserves its ladder.
+            if store.mode.shows(.trackPan) {
+                TrackPanControl(pan: pan, subject: track.name)
+                    .frame(height: EditorTrackMetrics.panRowHeight)
+                    .opacity(isAudible ? 1 : 0.45)
+            } else {
+                Color.clear
+                    .frame(height: EditorTrackMetrics.panRowHeight)
+                    .accessibilityHidden(true)
+            }
         }
-        .padding(.horizontal, DesignTokens.Spacing.sm2)
+        // 10pt of lead was the whole inset; the stripe now takes 3 of it, so
+        // the text column starts where it always did and the colour is drawn
+        // in space that was empty.
+        .padding(.leading, DesignTokens.Spacing.sm2)
+        .padding(.trailing, DesignTokens.Spacing.sm2)
+        .padding(.vertical, EditorTrackMetrics.rowSpacing)
         // Centred rather than pinned to the top. Two tracks in a tall window
         // gives each lane 200pt or more, and a block of controls stuck to the
         // top of a 200pt header reads as a header that failed to lay out; the
@@ -112,19 +146,7 @@ struct TrackHeaderRow: View {
                 .fill(isHovered ? DesignTokens.Colors.hoverSurface : Color.clear)
                 .allowsHitTesting(false)
         }
-        .overlay(alignment: .leading) {
-            // Selection is a bar, not a fill. The house rule is that a row is
-            // flat at rest and hover owns the fill, so a selected row cannot
-            // take one — the popup draws an accent ring instead, and a ring
-            // around a 200pt-tall lane header reads as a box drawn over the
-            // column. A bar on the leading edge is the same stroke-not-fill
-            // idea in the shape a lane actually has.
-            Rectangle()
-                .fill(Color.accentColor)
-                .frame(width: 2.5)
-                .opacity(isSelected ? 1 : 0)
-                .allowsHitTesting(false)
-        }
+        .overlay(alignment: .leading) { edge }
         // No separator line. The lanes are set `EditorWaveformMetrics.laneGap`
         // apart and so are these, and a hairline under a row that already has
         // six points of air below it reads as an underline rather than as a
@@ -139,6 +161,54 @@ struct TrackHeaderRow: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(track.name)
         .accessibilityValue(spokenState(track))
+    }
+
+    // MARK: The leading edge
+
+    /// Two bands on the leading edge: the selection, then the lane's colour.
+    ///
+    /// **Both live here because there is only one edge and both belong on it.**
+    /// The colour band is the thing the VEGAS frame says to take — it answers
+    /// "which strip goes with which lane" with no words and no box. Selection
+    /// is Melo's accent, and the existing decision this replaces was right
+    /// about the shape: a row is flat at rest, hover owns the fill, so a
+    /// selected header takes a bar and not a wash. A ring round a 200pt-tall
+    /// header reads as a box drawn over the column.
+    ///
+    /// The accent's 2 points are **reserved whether or not the row is
+    /// selected**, so selecting a track does not slide its colour band two
+    /// points sideways. A colour that twitches when you click it looks like a
+    /// layout bug, and the cost of holding the space is two clear points inside
+    /// a ten-point inset that was empty anyway.
+    ///
+    /// *Rejected:* one band that changes colour to show selection. The colour
+    /// is the lane's identity — it has to stay the same colour when the lane is
+    /// selected, or the one thing it exists to say stops being true exactly
+    /// when the user is looking at it.
+    private var edge: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(isSelected ? Color.accentColor : Color.clear)
+                .frame(width: Self.selectionWidth)
+
+            Rectangle()
+                .fill(DesignTokens.Colors.trackStripe(at: index ?? 0))
+                .frame(width: EditorTrackMetrics.stripeWidth)
+                // The band dims with the lane rather than disappearing. A
+                // silenced track still *is* the green one.
+                .opacity(isAudible ? 1 : 0.4)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private static let selectionWidth: CGFloat = 2
+
+    /// What the meter reads. `.silent` with no document rather than a guess:
+    /// a meter that invents a level while the pictures are still arriving is a
+    /// control that lies for the first second of every open.
+    private func reading(_ track: Track) -> EditorLevelReading {
+        guard let document = store.document else { return .silent }
+        return EditorLevelReading.forTrack(track, in: document)
     }
 
     // MARK: Name
@@ -256,7 +326,7 @@ struct TrackHeaderRow: View {
     /// *Rejected:* dragging headers to reorder. The lane column shares a
     /// vertical scroller with the timeline, and a drag that might be a scroll
     /// is the one interaction this window has already decided must not be made
-    /// ambiguous — `MoveStackView` owns drag-to-reorder, in a pane with its own
+    /// ambiguous — `ChainPanelView` owns drag-to-reorder, in a pane with its own
     /// scroller and nothing else competing for the gesture. Move Up and Move
     /// Down also work from the keyboard and read correctly to VoiceOver, which
     /// a drag does not.

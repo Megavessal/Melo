@@ -37,33 +37,107 @@ enum EditorTrackMetrics {
 
     /// Pan. `LiquidGlassSlider` draws itself at
     /// `Dimensions.sliderHitHeight`, which is 20.
+    ///
+    /// **Full mode only** — `EditorMode.Extra.trackPan`. The height is still
+    /// counted into `minimumLaneHeight` in both modes; see the note there.
     static let panRowHeight: CGFloat = DesignTokens.Dimensions.sliderHitHeight
 
-    /// Between the three rows, and around them.
-    static let rowSpacing: CGFloat = DesignTokens.Spacing.xs
+    /// The level bar. 6pt, and it is a bar rather than a row: it sits directly
+    /// under the name with 1pt of air, inside the name row's own band, so a
+    /// meter costs the header six points and not a fourth row of controls.
+    static let meterBarHeight: CGFloat = 6
 
-    /// **The one number the lanes and the headers must both hold.**
+    /// The decibel ladder under the bar. Full mode only —
+    /// `EditorMode.Extra.meterScale`. 10 is `caption2`'s cap height plus the
+    /// 2pt tick; anything less clips the numerals' descender-free digits, which
+    /// looks like a rendering fault rather than a tight layout.
+    static let meterScaleHeight: CGFloat = 10
+
+    /// Between the rows, and around them.
     ///
-    /// Derived rather than picked: 22 + 28 + 20 for the three rows, 4 twice
-    /// between them, 4 twice around them — 86. A lane shorter than this is a
-    /// lane whose header cannot be drawn, and a header that changes shape at a
-    /// height the user reaches by adding a track (rather than by resizing
-    /// anything) is a worse answer than lanes that stop shrinking.
+    /// **2, down from 4.** The VEGAS pass is density: four rows at 4pt spent 20
+    /// points of a lane that can be as short as 86 on air between controls that
+    /// are already separated by being different shapes. Measured against the
+    /// alternative of cutting a row instead — there is no row to cut, the name,
+    /// the meter, the fader and the pan are each the answer to a different
+    /// question — so the air goes and the controls stay.
+    static let rowSpacing: CGFloat = DesignTokens.Spacing.xxs
+
+    /// The colour band down the leading edge of a header.
     ///
-    /// `EditorWaveformMetrics.minimumLaneHeight` has to equal this. It is
-    /// currently 44, which is the height a *drawing* can survive and not the
-    /// height a header can; 44 was written before there was a header to
-    /// measure. **This is the one cross-directory change this piece needs.**
+    /// 3, not the 2 the panel headers use for their open stripe. That one marks
+    /// a binary state on a strip the eye is already reading; this one has to be
+    /// identifiable *as a colour* at a glance across a column of six, and 2
+    /// points of a mid-tone hue on a dark ground reads as a slightly lighter
+    /// edge rather than as blue.
+    static let stripeWidth: CGFloat = 3
+
+    /// **The one number the lanes and the headers must both hold, and it does
+    /// not move when the mode does.**
+    ///
+    /// Derived rather than picked, and it mirrors the stack in
+    /// `TrackHeaderRow.content` line for line: four children — the name row
+    /// (22), the meter block (6 + 1 + 10 = 17), the fader row (28) and pan (20)
+    /// — three gaps of 2 between them and 2 of padding at each end. 97.
+    ///
+    /// ## Why the Full arrangement is the floor in both modes
+    ///
+    /// The rule that governs the whole mode feature is that **switching adds
+    /// and removes panels and never moves the timeline or the waveform**. Two
+    /// of Full's additions live inside a track header — pan and the meter's
+    /// decibel ladder, 30 points between them — so a floor computed from
+    /// whichever mode is current would be 98 in Full and 68 in Simple. That
+    /// number is what stops lanes shrinking, so at four or more tracks in a
+    /// normal window it *binds*, and switching modes would resize every lane
+    /// and redraw every waveform at a new height. The person would press a
+    /// control labelled "show me more" and watch the thing they were looking at
+    /// jump.
+    ///
+    /// So the floor is Full's, always. What it costs is honest and small:
+    /// Simple reserves 30 points per lane it does not draw into, which is
+    /// visible only past the point where the floor binds at all — four tracks
+    /// in a 640pt window — and what it buys is that a mode switch cannot move a
+    /// single pixel of the timeline. Measured the other way round in the scenes:
+    /// `cutting-room-mode-full` and `cutting-room-mode-simple` are rendered at
+    /// the same size with the same document, and the lane geometry assertion
+    /// reads the live timeline rather than trusting this comment.
+    ///
+    /// `EditorWaveformMetrics.minimumLaneHeight` no longer has to be *kept*
+    /// equal to this — it forwards to it
+    /// (`EditorTimelineViewport.swift:80`), so raising the number here raises
+    /// the lanes' floor in the same edit and the two cannot drift. The comment
+    /// this replaces asked for that change; it has since been made.
+    ///
+    /// One stale sentence is left behind by it, in a file this piece does not
+    /// own: `EditorTimelineViewport.swift:139` still reads "`minimumLaneHeight`
+    /// is 86" while arguing that the compare lane's 44pt threshold cannot bite.
+    /// The argument survives — 97 is further above 44 than 86 was — but the
+    /// number is now wrong and is named in the run report.
     ///
     /// What it costs, stated rather than discovered later: `n` tracks keep
-    /// full-height lanes while the timeline pane has `92n + 26` points — 86
+    /// full-height lanes while the timeline pane has `103n + 26` points — 97
     /// each, 6 of gap between, 32 for the ruler and scroll strip — and the pane
-    /// is the window less 130. So five tracks at the 640pt window the harness
-    /// renders, three at the 520pt minimum. Past that both sides clip at the
-    /// bottom until there is a shared vertical scroller.
+    /// is the window less 130. So four tracks at the 640pt window the harness
+    /// renders (down from five), three at the 520pt minimum. Past that both
+    /// sides clip at the bottom until there is a shared vertical scroller.
     static var minimumLaneHeight: CGFloat {
-        nameRowHeight + levelRowHeight + panRowHeight + rowSpacing * 4
+        nameRowHeight
+            + meterBlockHeight
+            + levelRowHeight
+            + panRowHeight
+            + rowSpacing * 5
     }
+
+    /// The bar, the point of air under it, and the ladder. Reserved in both
+    /// modes even though Simple draws only the bar — see the note above.
+    static var meterBlockHeight: CGFloat {
+        meterBarHeight + meterScaleGap + meterScaleHeight
+    }
+
+    /// Between the meter bar and its ladder. One point, because the ladder's
+    /// ticks grow *out of* the bar and any more air makes them read as a
+    /// separate row of marks.
+    static let meterScaleGap: CGFloat = 1
 
     // MARK: The column
 

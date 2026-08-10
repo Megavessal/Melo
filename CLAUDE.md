@@ -254,3 +254,30 @@ Dated 2026-08-07.
   while an observer is attached, so any launch measurement taken under `sample`
   is roughly double. Take the number from `MainThreadStall`'s watchdog, which
   runs unattached, and use the sample only to find *where* the time goes.
+
+- **The render harness used to render with whoever's settings were on the Mac.**
+  `SettingsManager` reads the real `~/Library/Application Support/Melo/settings.json`,
+  so the frames depended on the running developer's own preferences. The owner
+  switched Melo to Aurora while testing a build and the next run came back with
+  seven negative controls between 41% and 47% — all correct, because Aurora is a
+  `TimelineView` animation and two captures of one state sample it at two
+  different phases, 1–7 values out of 255 across 40% of the frame. Invisible by
+  eye, fatal to a pixel comparison. `applyAppearance` now pins `visualTheme` to
+  `.systemAccent` and clears `generatedTheme`. **Fifty-six earlier control
+  readings of 0.0000% were not evidence the frames were stable** — they were
+  evidence that the theme on this Mac happened to be a static one.
+- **A rendered check can pass because of what is missing from the frame.**
+  `verify-volume-and-eq.py` counted glyphs in "the right quarter of a collapsed
+  row", which was the readout and nothing else — until the volume slider moved
+  onto that row and became a fifth glyph. The check went red for a reason
+  unrelated to the percentage it exists to verify. It now takes runs from the
+  right and stops at the first gap over 40px: digits sit 3–4px apart and the
+  slider is 128px away, so the split is the frame's own structure rather than a
+  fraction picked by taste.
+- **Measure a width before choosing one.** Melo's percentage readout wrapped
+  "200%" onto two lines. Two fixes failed first: a `minWidth` on the outside
+  (the component already pinned itself internally) and a width derived from the
+  digit count (`digits - 3` is zero for "400", and the digits are monospaced so
+  the value cannot change the width). Measured with the real font, "400%" is
+  32.2pt and the component adds 4pt of padding each side against a 40pt box —
+  short by two tenths of a point, for every caller including the device rows.

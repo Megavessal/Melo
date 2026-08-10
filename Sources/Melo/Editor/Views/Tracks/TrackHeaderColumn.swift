@@ -9,7 +9,7 @@ import SwiftUI
 /// **Not drawn for a single-track document.** `EditorRootView` decides that,
 /// because the decision is about the whole window: open a file and it looks
 /// exactly as it did before tracks existed — one lane, the destination picker,
-/// the stack — and the mixer is simply not drawn before there is anything to
+/// the Chain — and the mixer is simply not drawn before there is anything to
 /// mix. This view assumes it is only ever asked for once that is no longer
 /// true, and draws whatever tracks it is given.
 ///

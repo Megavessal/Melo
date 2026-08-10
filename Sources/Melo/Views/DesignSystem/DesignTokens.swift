@@ -188,6 +188,148 @@ enum DesignTokens {
             dark: NSColor.white.withAlphaComponent(0.15)
         )
 
+        // MARK: Melo Edit's docked panels
+
+        /// The header strip of a docked panel in Melo Edit's right-hand pane.
+        ///
+        /// **A resting fill, and it is not the pattern `CLAUDE.md` forbids.**
+        /// That decision — `glassFill` and `glassRowBorder` resolving to
+        /// `.clear` — is about rows in the menu-bar popup, which sit on a
+        /// material and use `hoverSurface` as the only interaction signal.
+        /// These are not rows. They are chrome: the whole header is the button
+        /// that opens and closes the panel, and a header that is invisible until
+        /// hovered is a button nobody can see is a button. Same exception the
+        /// clip body took in the timeline for the same reason.
+        ///
+        /// Quiet on purpose — 5% either way. The header has to separate from the
+        /// panel body underneath it and from the window's themed backdrop
+        /// behind it, and nothing more; VEGAS's grey-on-grey chrome is what the
+        /// frame says explicitly not to copy.
+        static let panelHeaderFill = dynamicColor(
+            name: "panelHeaderFill",
+            light: NSColor.black.withAlphaComponent(0.05),
+            dark: NSColor.white.withAlphaComponent(0.05)
+        )
+
+        /// The same header while its panel is open.
+        ///
+        /// Stronger than `panelHeaderFill` because open and shut have to be
+        /// readable from the header alone — with several panels open at once,
+        /// "which of these am I looking at" is answered by the strip, not by
+        /// what is underneath it, and the panel at the bottom of the pane may
+        /// have no visible body at all when the two above it are full.
+        static let panelHeaderFillOpen = dynamicColor(
+            name: "panelHeaderFillOpen",
+            light: NSColor.black.withAlphaComponent(0.10),
+            dark: NSColor.white.withAlphaComponent(0.10)
+        )
+
+        /// The hairline where two docked panels meet.
+        ///
+        /// Heavier than `glassBorder`'s 30% of the system separator: these
+        /// panels butt edge to edge with no gap between them, so the line is
+        /// the only thing saying where one ends. A separator that reads as
+        /// absent turns a dense pane into an undifferentiated column.
+        static let panelSeparator = Color(nsColor: .separatorColor).opacity(0.65)
+
+        // MARK: Melo Edit's tracks and meters
+
+        /// The colour band down the left edge of one track header.
+        ///
+        /// **The cheapest thing in the VEGAS screenshot**, and the frame says
+        /// to take it: a band of colour says which strip belongs to which lane
+        /// without a word, a border or a box. Six, cycled by position, so the
+        /// third and the ninth track share a colour — which is fine, because
+        /// the job is telling *adjacent* lanes apart, and a palette long enough
+        /// to never repeat is a palette whose later entries are indistinguishable
+        /// from each other anyway.
+        ///
+        /// **Not the accent, and not derived from it.** The accent is already
+        /// spoken for twice on this row — it is the selected-track bar and the
+        /// non-zero gain readout — so a lane colour drawn from it would make
+        /// "this track is selected" and "this track is the second one" the same
+        /// signal. These are fixed hues chosen to hold their separation on both
+        /// grounds; the theme's accent stays the accent.
+        ///
+        /// *Rejected:* hashing the track's UUID to a hue. It survives reordering,
+        /// which sounds like the point, and it means two adjacent lanes can come
+        /// out the same colour by luck and stay that way — the one failure the
+        /// band exists to prevent. Position repeats predictably instead.
+        static func trackStripe(at index: Int) -> Color {
+            let palette = trackStripePalette
+            return palette[((index % palette.count) + palette.count) % palette.count]
+        }
+
+        /// How many colours before the band repeats. Read by anything that has
+        /// to say "these two lanes will collide".
+        static var trackStripeCount: Int { trackStripePalette.count }
+
+        private static let trackStripePalette: [Color] = [
+            dynamicColor(
+                name: "trackStripe0",
+                light: NSColor(srgbRed: 0.20, green: 0.48, blue: 0.86, alpha: 1),
+                dark: NSColor(srgbRed: 0.40, green: 0.66, blue: 1.00, alpha: 1)
+            ),
+            dynamicColor(
+                name: "trackStripe1",
+                light: NSColor(srgbRed: 0.13, green: 0.58, blue: 0.44, alpha: 1),
+                dark: NSColor(srgbRed: 0.32, green: 0.82, blue: 0.62, alpha: 1)
+            ),
+            dynamicColor(
+                name: "trackStripe2",
+                light: NSColor(srgbRed: 0.74, green: 0.44, blue: 0.08, alpha: 1),
+                dark: NSColor(srgbRed: 0.98, green: 0.70, blue: 0.30, alpha: 1)
+            ),
+            dynamicColor(
+                name: "trackStripe3",
+                light: NSColor(srgbRed: 0.58, green: 0.28, blue: 0.68, alpha: 1),
+                dark: NSColor(srgbRed: 0.80, green: 0.55, blue: 0.94, alpha: 1)
+            ),
+            dynamicColor(
+                name: "trackStripe4",
+                light: NSColor(srgbRed: 0.76, green: 0.26, blue: 0.34, alpha: 1),
+                dark: NSColor(srgbRed: 0.98, green: 0.50, blue: 0.55, alpha: 1)
+            ),
+            dynamicColor(
+                name: "trackStripe5",
+                light: NSColor(srgbRed: 0.16, green: 0.50, blue: 0.60, alpha: 1),
+                dark: NSColor(srgbRed: 0.42, green: 0.78, blue: 0.88, alpha: 1)
+            )
+        ]
+
+        /// The unlit part of a level meter. Dark enough on both grounds that an
+        /// empty meter reads as a trough rather than as a missing control —
+        /// a meter whose ground is invisible looks like a bar chart with one bar.
+        static let meterTrough = dynamicColor(
+            name: "meterTrough",
+            light: NSColor.black.withAlphaComponent(0.12),
+            dark: NSColor.black.withAlphaComponent(0.38)
+        )
+
+        /// The lit part below −6 dBFS. The ordinary case, and therefore the
+        /// quiet one.
+        static let meterBody = dynamicColor(
+            name: "meterBody",
+            light: NSColor(srgbRed: 0.13, green: 0.56, blue: 0.42, alpha: 0.95),
+            dark: NSColor(srgbRed: 0.36, green: 0.84, blue: 0.62, alpha: 0.95)
+        )
+
+        /// −6 to −1 dBFS. Not a warning — this is where a mastered podcast
+        /// lives — so it is warm rather than alarming.
+        static let meterWarm = dynamicColor(
+            name: "meterWarm",
+            light: NSColor(srgbRed: 0.78, green: 0.56, blue: 0.10, alpha: 0.95),
+            dark: NSColor(srgbRed: 1.00, green: 0.80, blue: 0.34, alpha: 0.95)
+        )
+
+        /// Above −1 dBFS, where a peak is about to become a clip. The one part
+        /// of a meter that is allowed to shout.
+        static let meterHot = mutedIndicator
+
+        /// Ticks and numerals on the meter's decibel ladder. Full mode only —
+        /// see `EditorMode.Extra.meterScale`.
+        static let meterScale = Color(nsColor: .tertiaryLabelColor)
+
         /// HUD panel hairline border (Tahoe + Classic).
         static let hudBorder = dynamicColor(
             name: "hudBorder",
@@ -549,7 +691,19 @@ enum DesignTokens {
         static let sliderMinWidth: CGFloat = 120
 
         /// Percentage text width (fixed to prevent layout shift)
-        static let percentageWidth: CGFloat = 40
+        /// 44, and the 4 matters.
+        ///
+        /// Measured with the real font — `Typography.percentage` is
+        /// `.system(size: 11, weight: .medium).monospacedDigit()` — "400%" is
+        /// **32.2pt**, and `EditablePercentage` puts `Spacing.xs` either side of
+        /// it. 32.2 + 8 = 40.2 against a 40pt box, so the readout wrapped: the
+        /// digits on one line and the per-cent sign alone underneath, inside a
+        /// 28pt row. It was short by two tenths of a point.
+        ///
+        /// The digits are monospaced, so "100%" measures 32.2 as well and the
+        /// device rows were on the same edge — this was never about app rows
+        /// reaching 400%. One number serves every caller for the same reason.
+        static let percentageWidth: CGFloat = 44
 
         // MARK: VU Meter
 

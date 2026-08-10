@@ -23,11 +23,11 @@ final class EditorStore: ObservableObject {
     @Published private(set) var jobs: [EditorJob] = []
     @Published var selection: ClosedRange<TimeInterval>?
     @Published var playhead: TimeInterval = 0
-    /// Which move the stack has selected. The same class of state as
+    /// Which move the Chain has selected. The same class of state as
     /// `selection` and `playhead` above: ephemeral, absent from
     /// `EditorDocument`, not undone, describing the pane rather than the sound.
-    /// It lives here rather than in the stack view because the window's ⌘⌫
-    /// handler and the stack are different pieces that have to agree on it, and
+    /// It lives here rather than in the Chain panel because the window's ⌘⌫
+    /// handler and the Chain are different pieces that have to agree on it, and
     /// two objects that must agree is the defect class this project's anchor
     /// already records.
     @Published var selectedMoveID: Move.ID?
@@ -41,6 +41,157 @@ final class EditorStore: ObservableObject {
     /// Which track the headers have selected. Where a paste with no explicit
     /// track lands, and what "add a move to this track" means.
     @Published var selectedTrackID: Track.ID?
+
+    /// Whether every clip draws a second lane under it carrying the untouched
+    /// original.
+    ///
+    /// **Off by default, and it has to be able to be off.** It costs vertical
+    /// space out of a lane that is already floored at 86 points, and it costs a
+    /// render per on-screen clip whose chain does anything — see
+    /// `EditorClipWaveforms.requestProcessed`. Somebody who is not comparing
+    /// anything should pay neither, and with this false the timeline draws
+    /// exactly what it drew before the lane existed: same geometry, same
+    /// picture, no extra work reaching `RenderEngine`.
+    ///
+    /// Here rather than in `@AppStorage` on the view, unlike
+    /// `EditorWaveformStyle`. Three surfaces have to agree about it — the
+    /// lanes, the transport's compare control, and a key binding that belongs
+    /// to `EditorCommands` — and `EditorWaveformStyle`'s own file comment
+    /// admits the `@AppStorage` route only works because the picker and the
+    /// canvas are the *same* view. Two objects that must agree is the defect
+    /// class this project's anchor already records.
+    ///
+    /// Not in `EditorDocument`: it describes the pane, not the sound, so it is
+    /// not undone and not written to the session sidecar. Same class as
+    /// `selection`, `playhead` and `selectedMoveID` above.
+    // `EditorStore.` and not `Self.`: inside a stored property's initialiser
+    // `Self` is the covariant one and Swift rejects it, even on a final class.
+    @Published var showsCompareLane: Bool = EditorStore.storedCompareLane {
+        didSet {
+            guard oldValue != showsCompareLane else { return }
+            #if MELO_DEV
+            // A render scene toggles this, and a render scene must not write a
+            // preference into the defaults of whoever ran the harness. Same
+            // reasoning as `writeSession` and `refreshWaveform` below, and the
+            // reason the four style scenes pass a seeded style rather than
+            // setting the `@AppStorage` key.
+            if snapshotPinned { return }
+            #endif
+            UserDefaults.standard.set(showsCompareLane, forKey: Self.compareLaneKey)
+        }
+    }
+
+    /// `melo.editor.` to match the keys `ExportSheet` and `EditorWaveformStyle`
+    /// already write.
+    static let compareLaneKey = "melo.editor.compareLane"
+
+    private static var storedCompareLane: Bool {
+        UserDefaults.standard.bool(forKey: compareLaneKey)
+    }
+
+    /// Turns the compare lane on or off. The one entry point, so a menu item, a
+    /// transport chip and a key equivalent cannot end up with three ways to
+    /// spell it — the same rule `EditorTransportCommands` exists to enforce for
+    /// playback and zoom.
+    func toggleCompareLane() {
+        showsCompareLane.toggle()
+    }
+
+    /// Which docked panels the right-hand pane has open, or `nil` when nothing
+    /// has said yet — no sidecar, and the window has not adopted a default.
+    ///
+    /// **The optional is the whole mechanism**, not defensiveness. `nil` and
+    /// `[]` are different answers: `nil` is a document opened before panel
+    /// state was recorded, and it resolves to
+    /// `EditorPanel.defaults(forMoveCount:)`; `[]` is a user who closed all
+    /// three, which must survive a reopen. Collapse the two and every pre-3.3
+    /// document reopens showing three headers and nothing else.
+    ///
+    /// Here rather than in `EditorRootView`'s `@State` because it outlives the
+    /// view — the sidecar writes it on close and reads it back on open — and
+    /// because a view-local copy beside a stored one is two things that have to
+    /// agree. Not in `EditorDocument`, because undo copies documents and
+    /// pressing ⌘Z must not shut a panel.
+    @Published private(set) var openPanels: Set<EditorPanel>?
+
+    /// Simple or Full. See `EditorMode`.
+    ///
+    /// **`private(set)` with one setter, exactly like `openPanels` above**, and
+    /// for the same reason: a menu item, a header control and a key equivalent
+    /// must not become three ways to spell the same change. `setMode` is the
+    /// entry point and a snapshot transition calls it, so what the control does
+    /// is what the frame proves.
+    ///
+    /// ## Why this is not in the session sidecar, when `openPanels` is
+    ///
+    /// The brief said to follow the panel pattern rather than invent a second
+    /// mechanism, and this follows all of it except *where the bytes land* —
+    /// which is a deliberate deviation, so it is argued here rather than
+    /// discovered later.
+    ///
+    /// The sidecar is keyed to a document. Which panels are open is a fact
+    /// about *this recording* — the reader had the Chain open on the podcast
+    /// and the destination picker open on the ringtone, and both should come
+    /// back that way. The mode is a fact about *the person*: the owner's words
+    /// are "have a choice to have simple mode or full mode", and the frame's
+    /// words are that Full is "remembered once chosen". Stored per document,
+    /// somebody who switches to Full gets Full in the file they switched in and
+    /// Simple in every other file they own, forever — which is not remembering
+    /// a choice, it is remembering a click. That failure is silent and would
+    /// read as the switch being broken.
+    ///
+    /// So it goes where Melo's other person-level editor preferences already
+    /// go: `UserDefaults` under `melo.editor.`, which is the same key space
+    /// `showsCompareLane` directly above, `ExportSheet` and
+    /// `EditorWaveformStyle` write into. No new mechanism is invented; the
+    /// existing one is picked between two that were already here.
+    ///
+    /// Not in `EditorDocument`, for the same reason `openPanels` is not: undo
+    /// copies documents, and ⌘Z must not change what the window is showing.
+    @Published private(set) var mode: EditorMode = EditorStore.storedMode {
+        didSet {
+            guard oldValue != mode else { return }
+            #if MELO_DEV
+            // A render scene switches modes, and a render scene must not write
+            // a preference into the defaults of whoever ran the harness. Same
+            // reasoning as `showsCompareLane`, `writeSession` and
+            // `refreshWaveform`.
+            if snapshotPinned { return }
+            #endif
+            UserDefaults.standard.set(mode.rawValue, forKey: EditorStore.modeKey)
+        }
+    }
+
+    static let modeKey = "melo.editor.mode"
+
+    /// A missing or unrecognised value is `.simple`. `EditorMode.initial`
+    /// rather than a literal here, so "what a first run opens with" is stated
+    /// in one place and this reads it.
+    private static var storedMode: EditorMode {
+        guard let raw = UserDefaults.standard.string(forKey: modeKey) else {
+            return EditorMode.initial
+        }
+        return EditorMode(rawValue: raw) ?? EditorMode.initial
+    }
+
+    /// Switches modes. **Touches nothing but `mode`.**
+    ///
+    /// The one-line body is the feature. A mode that quietly edits the document
+    /// — dropping a pan it is about to stop drawing, normalising a gain it no
+    /// longer shows a number for — is the worst version of this, because the
+    /// damage survives switching back and the user has no reason to suspect the
+    /// control they pressed. `cutting-room-mode-round-trip` asserts the
+    /// document's encoded bytes are identical either side of Full and back, so
+    /// anything added here that reaches `mutate` fails a render.
+    func setMode(_ next: EditorMode) {
+        mode = next
+    }
+
+    /// What the header control's action is, so a snapshot transition calling
+    /// this exercises everything a press does except the press.
+    func toggleMode() {
+        setMode(mode.other)
+    }
 
     /// The last thing that went wrong, as one sentence for the user. Cleared
     /// when the next operation starts.
@@ -80,7 +231,7 @@ final class EditorStore: ObservableObject {
     /// another window.
     ///
     /// The coalescing is what makes twelve enough. Without it a single slider
-    /// drag in the inspector fills the stack, because every tick calls
+    /// drag in the inspector fills the history, because every tick calls
     /// `update(_:)` and every call is a new document.
     static let undoDepth = 12
     private static let coalescingWindow: TimeInterval = 1.0
@@ -131,7 +282,7 @@ final class EditorStore: ObservableObject {
     /// It opens the staged copy, never `Bundle.main`'s URL. The bundle is
     /// signed and must not be written into — and the sidecar is keyed on the
     /// source path, so a bundle path would put every saved remix behind a
-    /// location that changes on the next install. The stack would vanish on
+    /// location that changes on the next install. The Chain would vanish on
     /// update, which is the exact loss the sidecar exists to prevent.
     func openMeloTheme() async {
         do {
@@ -220,7 +371,13 @@ final class EditorStore: ObservableObject {
             // exactly as it did before there were tracks; the second lane only
             // exists once the user asks for one.
             var opened = EditorDocument(source: source)
+            var restoredPanels: Set<EditorPanel>?
             if let session = EditorSession.load(for: resolved) {
+                // Read before `restore(into:)` rather than inside it: the panel
+                // set is not part of the document and `restore` takes an
+                // `inout EditorDocument`, so putting it there would mean either
+                // widening that signature or smuggling UI state into the model.
+                restoredPanels = session.openPanels.map(EditorPanel.migrating)
                 // Handles both shapes. A 3.1.x sidecar has no timeline in it,
                 // and this leaves the one-track document above exactly as it
                 // is with the saved moves on the master — which is what those
@@ -269,6 +426,10 @@ final class EditorStore: ObservableObject {
             }
 
             document = opened
+            // Left `nil` when the sidecar had nothing to say, so the window can
+            // tell "no opinion" from "all three closed" and resolve the first
+            // to its default.
+            openPanels = restoredPanels
             resetHistory(with: opened)
             selection = nil
             playhead = 0
@@ -319,6 +480,11 @@ final class EditorStore: ObservableObject {
         selectedClipIDs = []
         selectedTrackID = nil
         selectedMoveID = nil
+        // Back to "nobody has said". `writeSession()` above has already put the
+        // outgoing set on disk, so this discards a cached answer rather than
+        // the user's choice — and leaving it would apply the closed document's
+        // panels to whatever opens next.
+        openPanels = nil
         // The clipboard holds source ids belonging to the document that just
         // closed. Keeping it would offer a paste that points at nothing.
         clipboard = []
@@ -375,7 +541,7 @@ final class EditorStore: ObservableObject {
         }
     }
 
-    // MARK: - The stack
+    // MARK: - The Chain
 
     func apply(_ move: Move) {
         mutate { $0.moves.append(move) }
@@ -408,13 +574,13 @@ final class EditorStore: ObservableObject {
         }
     }
 
-    /// Replaces the whole stack in one edit, so a destination's proposal is one
+    /// Replaces the whole Chain in one edit, so a destination's proposal is one
     /// undo step rather than one per move.
     func replaceMoves(_ moves: [Move]) {
         mutate { $0.moves = moves }
     }
 
-    /// Empties every move stack — master, per-track and per-clip.
+    /// Empties every move list — the Chain, per-track and per-clip.
     ///
     /// The measured analysis and the chosen destination survive: both describe
     /// the *source*, which has not changed, and re-measuring a long file to get
@@ -422,11 +588,11 @@ final class EditorStore: ObservableObject {
     /// slow.
     ///
     /// **The timeline is left alone.** The shipped Guide's words for this
-    /// control are "empties the stack and leaves the file exactly as it
-    /// arrived", written when the stack was the only thing there was; clips,
-    /// trims and fades are not stack entries and the button is not offered for
+    /// control are "empties the Chain and leaves the file exactly as it
+    /// arrived", written when the Chain was the only thing there was; clips,
+    /// trims and fades are not Chain entries and the button is not offered for
     /// a document that has only those. Clearing *only* the master while a track
-    /// stack survived would be the worse reading — a control doing less than
+    /// Chain survived would be the worse reading — a control doing less than
     /// its label says is this project's recorded worst pattern.
     func revertToOriginal() {
         mutate { document in
@@ -779,6 +945,53 @@ final class EditorStore: ObservableObject {
         if !pasted.isEmpty { selectedClipIDs = Set(pasted) }
     }
 
+    /// Copies the selected clips in place, without touching the clipboard.
+    ///
+    /// ⌘D was built as copy-then-paste, which works and throws away whatever
+    /// the user had on the clipboard. Duplicating one clip is a thing people do
+    /// between a copy and a paste — grab a bar, double it, then paste the thing
+    /// they actually copied — and the clipboard would already be gone with no
+    /// warning and nothing to undo it with, because a clipboard is not part of
+    /// the document and undo cannot reach it.
+    ///
+    /// The arithmetic is `pasteClips`', reading the selection instead of the
+    /// clipboard, and landing at the end of the last selected clip rather than
+    /// at the playhead: a duplicate that appears on top of its original looks
+    /// like nothing happened.
+    @discardableResult
+    func duplicateClips(_ ids: [Clip.ID], at time: TimeInterval? = nil) -> [Clip.ID] {
+        guard let document, !ids.isEmpty else { return [] }
+
+        var picked: [(clip: Clip, trackIndex: Int)] = []
+        for (index, track) in document.tracks.enumerated() {
+            for clip in track.clips where ids.contains(clip.id) {
+                picked.append((clip, index))
+            }
+        }
+        guard let earliest = picked.map(\.clip.start).min(),
+              let latest = picked.map(\.clip.end).max() else { return [] }
+
+        let anchor = time ?? latest
+        var made: [Clip.ID] = []
+        mutate { document in
+            for entry in picked {
+                var clip = entry.clip
+                clip.id = UUID()
+                clip.start = max(0, anchor + (entry.clip.start - earliest))
+                clip.moves = clip.moves.map { move in
+                    var copy = move
+                    copy.id = UUID()
+                    return copy
+                }
+                document.tracks[entry.trackIndex].clips.append(clip)
+                made.append(clip.id)
+            }
+            for index in document.tracks.indices { Self.sortClips(&document.tracks[index]) }
+        }
+        if !made.isEmpty { selectedClipIDs = Set(made) }
+        return made
+    }
+
     // MARK: - Growing the document
 
     /// Brings another file in as a new track rather than replacing what is open.
@@ -1125,6 +1338,48 @@ final class EditorStore: ObservableObject {
         }
     }
 
+    // MARK: - Docked panels
+
+    /// Puts a resolved set in place without writing the sidecar.
+    ///
+    /// The window calls this once per document, when `openPanels` is `nil`,
+    /// with `EditorPanel.defaults(forMoveCount:)`. Writing here would record the
+    /// default on disk as though the user had chosen it, which then survives
+    /// every future change to what the default is — the reader would be stuck
+    /// with 3.3's opening panel forever because 3.3 saved it for them.
+    func adoptOpenPanels(_ panels: Set<EditorPanel>) {
+        guard openPanels != panels else { return }
+        openPanels = panels
+    }
+
+    /// Opens a closed panel, closes an open one.
+    ///
+    /// **This is what the header button's action is**, so a snapshot transition
+    /// that calls it exercises everything a press does except the press. It
+    /// writes the sidecar immediately rather than through
+    /// `scheduleQuiescentWork` because opening a panel is not a document edit —
+    /// nothing else on this object would ever schedule the write, and the state
+    /// would come back only for a reader who happened to change a move
+    /// afterwards.
+    ///
+    /// Tolerates `nil` by resolving it first, so the very first press on a
+    /// freshly opened document does the obvious thing whether or not the window
+    /// has adopted yet. A `guard let … else { return }` here would be a header
+    /// that is dead for exactly one click and works forever after, which is
+    /// worse than one that is dead always.
+    func toggleOpenPanel(_ panel: EditorPanel) {
+        var next = openPanels ?? EditorPanel.defaults(
+            forMoveCount: document?.moves.count ?? 0
+        )
+        if next.contains(panel) {
+            next.remove(panel)
+        } else {
+            next.insert(panel)
+        }
+        openPanels = next
+        writeSession()
+    }
+
     // MARK: - Session sidecar
 
     private func writeSession() {
@@ -1132,7 +1387,13 @@ final class EditorStore: ObservableObject {
         if snapshotPinned { return }
         #endif
         guard let document else { return }
-        EditorSession.save(document)
+        // The resolved set, not the raw optional: a document whose panels were
+        // never touched still has an answer, and saving `[]` for it would tell
+        // the next open that the user closed everything.
+        EditorSession.save(
+            document,
+            openPanels: openPanels ?? EditorPanel.defaults(forMoveCount: document.moves.count)
+        )
     }
 
     #if MELO_DEV
@@ -1157,6 +1418,67 @@ final class EditorStore: ObservableObject {
         lastError = nil
         selectedClipIDs = []
         selectedTrackID = document.tracks.first?.id
+        // The default a real open would land on, so a scene that says nothing
+        // about panels renders the pane a user gets. A scene that wants a
+        // different set says so with `setOpenPanelsForSnapshot`.
+        openPanels = EditorPanel.defaults(forMoveCount: document.moves.count)
+        // Back to the mode a first run opens with, on every seed.
+        //
+        // **Not tidiness — the alternative is that every editor frame in the
+        // suite depends on the defaults of whoever ran it.** `mode` is read out
+        // of `UserDefaults` when this singleton is built, so a developer who
+        // had switched Melo Edit to Full would render ninety scenes with a
+        // master panel, a pan row and a second transport strip in them, and the
+        // frames would look like a regression in code nobody touched. Scenes
+        // that want Full say so with `setModeForSnapshot`.
+        mode = EditorMode.initial
+        // And the compare lane off, for exactly the reason above: it is read
+        // out of `UserDefaults` when this singleton is built, so a developer who
+        // had been comparing something would render every timeline frame in the
+        // suite with a strip under each clip and lanes at a different height.
+        // Scenes that want it say so by setting it after seeding, which is
+        // pinned by then and therefore writes nothing back.
+        showsCompareLane = false
+    }
+
+    /// Pins the docked panels for a frame.
+    ///
+    /// Separate from `setForSnapshot` rather than a parameter on it: that
+    /// method is called from one place in `SnapshotScenes` that every editor
+    /// scene funnels through, and widening it would put a panel argument in
+    /// front of ninety frames that have no opinion about panels.
+    func setOpenPanelsForSnapshot(_ panels: Set<EditorPanel>) {
+        openPanels = panels
+    }
+
+    /// Pins Simple or Full for a frame.
+    ///
+    /// **Every mode scene states its mode, including the Simple ones.** The
+    /// store is a singleton that lives for the whole render, `mode` is read
+    /// from `UserDefaults` once at construction, and the harness runs on a
+    /// developer's machine where that default may already say `full`. Without
+    /// this seam a scene named `-simple` would render whatever the machine
+    /// happened to hold — the sticky-global trap `applyAppearance` exists for,
+    /// one object along, and the reason there is no default argument here.
+    ///
+    /// It writes through `mode` rather than around it so the pin goes through
+    /// exactly the property a real switch does; the `snapshotPinned` guard in
+    /// `didSet` is what stops it reaching the running machine's defaults.
+    func setModeForSnapshot(_ next: EditorMode) {
+        mode = next
+    }
+
+    /// The document as bytes, for an assertion that a mode switch left it
+    /// alone.
+    ///
+    /// One line, because the encoding and the comparison it feeds are in
+    /// `EditorDocumentFingerprint.swift` where a command-line probe can execute
+    /// them against real documents. That file's header says why the invariant
+    /// does not live inside the snapshot closure that uses it. `nil` when there
+    /// is no document, which the caller must treat as its own failure rather
+    /// than as a match — `EditorDocument.modeSwitchComplaint` does.
+    func documentFingerprintForSnapshot() -> Data? {
+        document?.fingerprint
     }
 
     /// Puts the store in the state a failed open leaves it in, so the banner

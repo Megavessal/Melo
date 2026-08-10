@@ -1,7 +1,14 @@
-// Melo/Editor/Views/Stack/MoveStackView.swift
+// Melo/Editor/Views/Chain/ChainPanelView.swift
 import SwiftUI
 
-/// The stack: everything Melo is doing to this sound, in order, in words.
+/// The **Chain**: everything Melo is doing to this sound, in order, in words.
+///
+/// The owner named it. It was "the stack" through 3.2 and the objection was that
+/// the word sounds weird, which it does — a stack is a data structure, and the
+/// thing on screen is a signal chain, which is what every mixing desk and every
+/// plug-in host has called it for forty years. `Move` stays the type name: the
+/// panel is the Chain, the things in it are moves, and you build a chain of
+/// them. *Rejected:* "Rack", which the owner was offered and turned down.
 ///
 /// This is the object that has to serve both audiences the brief names. It does
 /// it by depth rather than by mode. A row is three short lines — what the move
@@ -10,10 +17,10 @@ import SwiftUI
 /// person's controls, and there is no "advanced" toggle deciding for them.
 ///
 /// A disabled move stays on the list and goes grey. Turning one off and
-/// listening is the reason a non-destructive stack is worth having at all, and
+/// listening is the reason a non-destructive Chain is worth having at all, and
 /// a move that vanished when it was switched off would make that impossible.
 @MainActor
-struct MoveStackView: View {
+struct ChainPanelView: View {
     @ObservedObject private var store: EditorStore
 
     /// Which row is disclosed. Private on purpose: expansion is a reading
@@ -63,7 +70,7 @@ struct MoveStackView: View {
             controls
 
             if moves.isEmpty {
-                MoveStackEmptyState(reason: emptyReason)
+                ChainEmptyState(reason: emptyReason)
             } else {
                 // The sidebar hands this pane whatever height is left, so the
                 // list scrolls inside itself rather than pushing the two
@@ -99,8 +106,8 @@ struct MoveStackView: View {
         }
     }
 
-    /// The section's own title is drawn by the sidebar that hosts this pane, so
-    /// this is a control strip, not a header. A second "The stack" here is the
+    /// The panel's own title is drawn by the header that hosts this pane, so
+    /// this is a control strip, not a header. A second "The Chain" here is the
     /// kind of duplicate that only shows up once the window is composed.
     private var controls: some View {
         HStack(spacing: DesignTokens.Spacing.xs) {
@@ -115,11 +122,54 @@ struct MoveStackView: View {
 
             Spacer(minLength: 0)
 
+            if !moves.isEmpty {
+                revertButton
+            }
+
             AddMoveMenu(store: store)
         }
     }
 
-    /// Why the stack is empty — **asked, not inferred**.
+    /// The control the shipped Guide has been describing to people who could not
+    /// find it.
+    ///
+    /// `EditorStore.revertToOriginal()` had **no caller anywhere in
+    /// `Sources/`**, while the Guide tells readers "Revert to Original empties
+    /// the Chain and leaves the file exactly as it arrived" — and the Guide is
+    /// indexed and searchable, so people go looking for it by that name. A
+    /// documented control that does not exist is this project's own recorded
+    /// worst pattern, so the label here is the Guide's exact words rather than a
+    /// shorter paraphrase.
+    ///
+    /// **It moved here from the panel's header, and the move is the point of
+    /// this piece.** It sat *beside* the header's disclosure button, outside it,
+    /// with a comment explaining that a button nested inside a button gets its
+    /// clicks eaten by the outer one. True, and the wrong conclusion: the result
+    /// was a header where the left two thirds opened the panel and the right
+    /// third emptied the Chain, with nothing to tell them apart. The owner asked
+    /// for whole headers that open and close when pressed, which leaves this
+    /// control nowhere to be but in the panel it acts on — which is also where
+    /// the Guide entry points.
+    ///
+    /// Shown only while there is something to revert, same as before.
+    ///
+    /// No confirmation. `revertToOriginal()` goes through `mutate` with
+    /// recording on, so ⌘Z puts every move back; a modal asking "are you sure"
+    /// about a reversible act trains people to dismiss modals.
+    private var revertButton: some View {
+        Button("Revert to Original") {
+            store.revertToOriginal()
+        }
+        .buttonStyle(.meloHover)
+        .font(DesignTokens.Typography.Scale.caption(.medium))
+        .foregroundStyle(DesignTokens.Colors.interactiveDefault)
+        .padding(.horizontal, DesignTokens.Spacing.xs2)
+        .frame(minHeight: DesignTokens.Dimensions.minTouchTarget)
+        .contentShape(Rectangle())
+        .help("Empty the Chain and leave the file exactly as it arrived. Undo puts it back.")
+    }
+
+    /// Why the Chain is empty — **asked, not inferred**.
     ///
     /// This used to return `.nothingToFix` from three non-nil values. Those say
     /// the file has been measured against a destination; they say nothing about
@@ -135,8 +185,8 @@ struct MoveStackView: View {
     /// panes cannot disagree. Uncached for the reason the picker gives for not
     /// caching either — it is microseconds, and a stale answer beside a live
     /// button is the defect this feature cannot afford. Only reached when the
-    /// stack is empty.
-    private var emptyReason: MoveStackEmptyState.Reason {
+    /// the Chain is empty.
+    private var emptyReason: ChainEmptyState.Reason {
         guard let document = store.document else { return .noSource }
         guard let destination = document.destination else { return .noDestination }
         guard let report = document.analysis else { return .measuring }
@@ -158,7 +208,7 @@ struct MoveStackView: View {
                 row(move, at: index)
             }
             // The last position needs a target too, or a move can be dragged
-            // everywhere except the end of the stack.
+            // everywhere except the end of the Chain.
             insertionLine(active: dropTargetIndex == moves.count)
                 .frame(height: DesignTokens.Spacing.sm)
                 .contentShape(Rectangle())
@@ -172,7 +222,13 @@ struct MoveStackView: View {
 
     @ViewBuilder
     private func row(_ move: Move, at index: Int) -> some View {
-        let isExpanded = expandedMoveID == move.id
+        // `&& canExpand` rather than the raw comparison. Somebody can expand a
+        // row in Full and switch to Simple with it open; without this the row
+        // would keep an inspector the mode has taken away, and switching back
+        // and forth would leave one row permanently unlike its neighbours.
+        // `expandedMoveID` itself is left alone — the row reopens in Full,
+        // which is the same add-and-remove-what-is-drawn rule the panels follow.
+        let isExpanded = expandedMoveID == move.id && canExpand(move)
         // The ring is drawn from the store, not from `@FocusState`, so the row
         // that ⌘⌫ will delete is exactly the row wearing the ring — from any
         // pane, and in a rendered frame where there is no key window to hold
@@ -286,7 +342,7 @@ struct MoveStackView: View {
                     .frame(height: DesignTokens.Dimensions.rowContentHeight)
                     .accessibilityLabel("\(move.kind.title) on")
 
-                if MoveInspector.hasInspector(move.kind) {
+                if canExpand(move) {
                     Image(systemName: "chevron.right")
                         .font(DesignTokens.Typography.Scale.caption2(.semibold))
                         .foregroundStyle(DesignTokens.Colors.textTertiary)
@@ -387,8 +443,26 @@ struct MoveStackView: View {
         store.update(updated)
     }
 
+    /// Whether a move's row can open into its controls at all.
+    ///
+    /// `EditorMode.Extra.moveInspectors`. **Asked in three places and answered
+    /// in one**, because the three have to agree exactly: the row's chevron
+    /// must not appear where nothing opens, ⏎ must not silently do nothing, and
+    /// `row(_:at:)` must not hand `ExpandableGlassRow` an expanded state that
+    /// the chevron denies. Two of the three checking the mode and the third
+    /// checking `hasInspector` alone is the kind of near-miss that ships as "a
+    /// chevron that does nothing on some rows".
+    ///
+    /// Simple keeps every move's *title*, its *summary numbers* and its on/off
+    /// switch. What it drops is the panel of sliders underneath — which is the
+    /// difference between reading what Melo proposed and dialling it in, and is
+    /// exactly the line the frame draws.
+    private func canExpand(_ move: Move) -> Bool {
+        store.mode.shows(.moveInspectors) && MoveInspector.hasInspector(move.kind)
+    }
+
     private func toggleExpanded(_ move: Move) {
-        guard MoveInspector.hasInspector(move.kind) else { return }
+        guard canExpand(move) else { return }
         // ExpandableGlassRow carries a note asking callers to animate this
         // themselves — an `.animation(_, value: isExpanded)` inside the row
         // loops against its conditional content.
@@ -410,8 +484,8 @@ struct MoveStackView: View {
         store.remove(move.id)
     }
 
-    /// A move left the stack. Move the ring to whatever took its place, so a
-    /// held ⌘⌫ walks down the stack instead of deleting once and going inert,
+    /// A move left the Chain. Move the ring to whatever took its place, so a
+    /// held ⌘⌫ walks down the Chain instead of deleting once and going inert,
     /// and collapse an inspector whose move no longer exists.
     ///
     /// Driven off the list rather than off the delete call because the delete
@@ -457,7 +531,7 @@ struct MoveStackView: View {
 }
 
 #if MELO_DEV
-extension MoveStackView {
+extension ChainPanelView {
     /// Seeds the view's own `@State` so the harness can render surfaces that
     /// otherwise only exist after a click. Only the snapshot harness calls
     /// this; every real call site uses `init(store:)` above.
@@ -466,7 +540,7 @@ extension MoveStackView {
     /// composes with, matching `MenuBarPopupView`'s seam.
     /// `expandedMoveID` carries no default on purpose: with one, this
     /// initialiser and `init(store:)` would both match a bare
-    /// `MoveStackView(store:)` and the window's call site becomes an overload
+    /// `ChainPanelView(store:)` and the window's call site becomes an overload
     /// question nobody meant to ask.
     ///
     /// There is no `focusedMoveID` parameter any more. The focus ring reads

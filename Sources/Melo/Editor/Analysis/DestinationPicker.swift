@@ -199,7 +199,7 @@ struct DestinationPicker: View {
         if proposal.isEmpty { return "This file already meets that spec." }
         let moves = proposal.count == 1 ? "1 move" : "\(proposal.count) moves"
         if store.document?.moves.isEmpty == false {
-            return "\(moves), replacing the stack. Undo puts it back."
+            return "\(moves), replacing the Chain. Undo puts it back."
         }
         return "\(moves), and every number stays editable."
     }

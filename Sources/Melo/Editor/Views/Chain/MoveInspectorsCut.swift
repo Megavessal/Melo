@@ -1,4 +1,4 @@
-// Melo/Editor/Views/Stack/MoveInspectorsCut.swift
+// Melo/Editor/Views/Chain/MoveInspectorsCut.swift
 import SwiftUI
 
 // The three moves that change how long the sound is: trim, remove silence and
@@ -126,7 +126,7 @@ struct SpeedInspector: View {
 
     private static let range: ClosedRange<Double> = 0.5...2.0
 
-    /// Speed is the one parameter in the stack that really is a percentage, so
+    /// Speed is the one parameter in the Chain that really is a percentage, so
     /// it gets the app's percentage field rather than a "1.20 ×" of its own.
     private var percent: Binding<Int> {
         Binding(

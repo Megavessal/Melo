@@ -65,7 +65,7 @@ struct EditorMark: View {
 /// Owns the header row, the sidebar container, the split between them, and the
 /// window-wide drop target. Owns none of the panes: `EditorWaveformView`,
 /// `EditorTransportBar`, `DestinationPicker`, `AnalysisSummaryView`,
-/// `MoveStackView`, `JobProgressStrip` and the three sheets each own their own
+/// `ChainPanelView`, `JobProgressStrip` and the three sheets each own their own
 /// contents and are called here through their `init(store:)` seams.
 ///
 /// Constructible with nothing but a store, so a frame can be rendered without a
@@ -86,15 +86,6 @@ struct EditorRootView: View {
     @State private var showSystemRecord = false
     @State private var isDropTargeted = false
 
-    /// Which sidebar pane is open. See `sidebar`.
-    @State private var expandedSection: SidebarSection = .destination
-
-    #if MELO_DEV
-    /// Set by a snapshot scene to hold one pane open. `syncSidebarSection()`
-    /// stands down when it is non-nil, so `onAppear` cannot undo the fixture.
-    @State private var pinnedSection: SidebarSection?
-    #endif
-
     /// The window is `.fullSizeContentView`, so the SwiftUI content starts at the
     /// very top of the frame and the traffic lights are drawn on top of it. The
     /// standard macOS titlebar is 28pt; reading `contentLayoutRect` would be
@@ -106,6 +97,26 @@ struct EditorRootView: View {
     /// the three panes in it are all fixed-width content.
     private static let sidebarWidth: CGFloat = 320
 
+    /// A docked panel's header strip.
+    ///
+    /// 28, down from 38. `minTouchTarget` rather than a smaller number chosen
+    /// by eye: the header is the full 320pt of the pane, so the target is
+    /// enormous horizontally and the only dimension that can be got wrong is
+    /// this one. Three headers at 38 cost 114pt of a 612pt pane before anything
+    /// was shown; at 28 they cost 84, which is 30pt back — most of a row of the
+    /// Chain.
+    private static let headerHeight: CGFloat = DesignTokens.Dimensions.minTouchTarget
+
+    /// The accent stripe down the left edge of an open panel's header.
+    ///
+    /// VEGAS puts a colour band on the left of every track header and it is the
+    /// single cheapest thing in that screenshot: it says which strip belongs to
+    /// which lane without a word or a border. Here there is one colour, the
+    /// user's accent, and it marks *open* — with three panels able to be open at
+    /// once, "which of these is showing" is a question the pane now has to
+    /// answer at a glance.
+    private static let openStripeWidth: CGFloat = 2
+
     init(store: EditorStore) {
         self.init(store: store, settings: nil)
     }
@@ -114,20 +125,6 @@ struct EditorRootView: View {
         _store = ObservedObject(wrappedValue: store)
         self.settings = settings
         self.recents = .shared
-        _expandedSection = State(initialValue: Self.defaultSection(for: store))
-    }
-
-    /// Derived at construction, not in `onAppear`.
-    ///
-    /// A document that is already open when this view is built — a reopened
-    /// session, and every snapshot scene — must show the stack on the very first
-    /// layout pass. Leaving that to `onAppear` makes the correct frame depend on
-    /// a lifecycle callback the render harness is under no obligation to run,
-    /// which is exactly the kind of dependency that produces a frame nobody can
-    /// explain. `onAppear` still calls `syncSidebarSection()`, for a store that
-    /// gains a document between construction and appearance.
-    private static func defaultSection(for store: EditorStore) -> SidebarSection {
-        (store.document?.moves.isEmpty == false) ? .stack : .destination
     }
 
     var body: some View {
@@ -219,15 +216,16 @@ struct EditorRootView: View {
         }
         .onAppear {
             recents.refreshAvailability()
-            syncSidebarSection()
         }
-        // Which pane opens is about the *document* changing, so it still keys
-        // on the first source: that id changes when a different sound is opened
-        // into an empty window and stays put when a lane is added, which is
-        // exactly when the accordion should and should not move.
-        .onChange(of: store.document?.source.id) { _, _ in
-            syncSidebarSection()
-        }
+        // There is no longer an `onChange(of: store.document?.source.id)` here
+        // resetting which panels are open, and its absence is the feature.
+        // Opening a document sets `store.openPanels` from that document's own
+        // sidecar — see `EditorStore.replaceDocument` — so the pane is already
+        // right on the first layout pass, in the harness as well as in a real
+        // window. The old `syncSidebarSection()` existed to do in a lifecycle
+        // callback what the store now does in the open itself, and a frame that
+        // depends on `onAppear` having run is a frame nobody can explain.
+        //
         // Recents is about *every* file that arrives, which is not the same
         // event and used to be folded into the one above.
         //
@@ -243,18 +241,21 @@ struct EditorRootView: View {
             guard let source = store.lastAddedSource else { return }
             recents.remember(source)
         }
-        // The one automatic switch, and only on the empty-to-populated edge:
-        // pressing "Fix it again" fills the stack, and what the reader wants at
-        // that moment is to see what Melo just did. Every later change leaves
-        // the accordion where they put it.
+        // The one thing that opens a panel nobody pressed, and only on the
+        // empty-to-populated edge: pressing "Fix it again" fills the Chain, and
+        // what the reader wants at that moment is to see what Melo just did.
+        //
+        // **It now opens the Chain rather than switching to it**, which is the
+        // whole difference the docked panels make here. Under the accordion this
+        // line shut whichever panel the reader was working in — usually the
+        // destination picker they had just pressed the button in — so the act of
+        // showing them the result took away the control that produced it. It
+        // adds and never removes, and it does nothing at all when the Chain is
+        // already open.
         .onChange(of: hasMoves) { had, has in
-            #if MELO_DEV
-            if pinnedSection != nil { return }
-            #endif
-            if !had, has {
-                withAnimation(DesignTokens.Animation.panel) {
-                    expandedSection = .stack
-                }
+            guard !had, has, !openPanels.contains(.chain) else { return }
+            withAnimation(DesignTokens.Animation.panel) {
+                store.toggleOpenPanel(.chain)
             }
         }
     }
@@ -263,7 +264,7 @@ struct EditorRootView: View {
         store.document == nil
     }
 
-    /// Whether the stack has anything in it. Named rather than inlined into the
+    /// Whether the Chain has anything in it. Named rather than inlined into the
     /// `onChange` above, where a closure parameter called `isEmpty` would have
     /// shadowed the property directly above this one.
     private var hasMoves: Bool {
@@ -272,18 +273,40 @@ struct EditorRootView: View {
 
     // MARK: - The editor
 
+    /// Panels that meet.
+    ///
+    /// Every `Divider()` in this split is now `hairline`, which is the same
+    /// change the docked pane made one method down and for the same reason:
+    /// `Divider()` resolves to the system separator at full strength and cannot
+    /// be told otherwise, so the window's rules were AppKit's. Four separators
+    /// in one window drawn by two different mechanisms is also how a pane ends
+    /// up looking bolted on — the reason the right-hand side and this side had
+    /// to be done together.
+    ///
+    /// No spacing anywhere and nothing rounded. The header, the timeline, the
+    /// transport, Full's clip strip and the pane are five regions that touch,
+    /// separated by one point each.
     private var editor: some View {
         HStack(spacing: 0) {
             VStack(spacing: 0) {
                 header
-                Divider()
+                hairline
                 timelineArea
-                Divider()
+                hairline
                 EditorTransportBar(store: store)
+
+                // No hairline above this one. The transport bar and the clip
+                // strip are one 44pt band that Full splits in two — see the
+                // arithmetic on `EditorTransportBar.height` — and a separator
+                // between them would be a line the band does not have room for
+                // and would read as two regions rather than one.
+                if store.mode.shows(.transportRow) {
+                    EditorClipStrip(store: store)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Divider()
+            verticalHairline
 
             sidebar
         }
@@ -324,7 +347,7 @@ struct EditorRootView: View {
             // miss and equally possible to ignore, and a centred card sits on
             // the part of the drawing someone is about to click. It renders
             // nothing unless the open sound is the theme with an untouched
-            // stack, so this costs one `nil` check in every other case.
+            // Chain, so this costs one `nil` check in every other case.
             .overlay(alignment: .top) {
                 MeloThemeWelcome(store: store)
                     .padding(DesignTokens.Spacing.lg)
@@ -396,6 +419,13 @@ struct EditorRootView: View {
             }
 
             Spacer(minLength: DesignTokens.Spacing.sm)
+
+            // Left of the source menu and left of Export, which puts it at the
+            // start of the controls cluster rather than at the end. Deliberate:
+            // the two things to its right *do* something to the sound, and this
+            // does something to the window. A control that only changes what is
+            // drawn should not be the neighbour of the one that writes a file.
+            EditorModeSwitch(store: store)
 
             sourceMenu
 
@@ -563,7 +593,7 @@ struct EditorRootView: View {
             // app. This is the only caller of `close()` outside the harness.
             //
             // Nothing is lost by closing: `close()` writes the session sidecar
-            // first, and reopening the same file restores its stack. So no
+            // first, and reopening the same file restores its Chain. So no
             // confirmation, for the same reason Revert has none.
             //
             // **The only thing here that empties the window.** The three doors
@@ -602,211 +632,220 @@ struct EditorRootView: View {
             .accessibilityLabel("Format, \(text)")
     }
 
-    // MARK: - Sidebar
+    // MARK: - The docked panels
 
-    /// The three panes the sidebar holds, and the accordion's state.
-    enum SidebarSection: String, CaseIterable, Identifiable, Sendable {
-        case destination
-        case analysis
-        case stack
-
-        var id: Self { self }
-
-        var title: String {
-            switch self {
-            case .destination: return "Where’s it going?"
-            case .analysis: return "What I found"
-            case .stack: return "The stack"
-            }
-        }
+    /// Which panels are open, resolved.
+    ///
+    /// `store.openPanels` is the record and this is the policy: `nil` there
+    /// means no sidecar had an opinion, and the answer to that is
+    /// `EditorPanel.defaults(forMoveCount:)`. Reading it as a pure function of
+    /// the store, rather than mirroring it into `@State` and syncing, is what
+    /// makes the panes correct on the very first layout pass — in the render
+    /// harness, which runs no lifecycle callbacks it is not obliged to, as much
+    /// as in a real window. The previous accordion needed `onAppear` and an
+    /// `onChange` to reach the same state and carried a `#if MELO_DEV` pin so
+    /// the harness could get around them.
+    private var openPanels: Set<EditorPanel> {
+        store.openPanels ?? EditorPanel.defaults(
+            forMoveCount: store.document?.moves.count ?? 0
+        )
     }
 
-    /// One pane open at a time, and the open one takes every point that is left.
+    /// Panels butted edge to edge, each header the full width of the pane and
+    /// the whole of it the button.
     ///
-    /// ## Why an accordion, when the contract drew three stacked sections
+    /// ## What replaced the accordion, and what the accordion was solving
     ///
-    /// Because three stacked sections do not fit and never could. Measured off
-    /// the first rendered frame at the size the window opens at: the sidebar has
-    /// **612pt** (640 less the titlebar) and the three panes want roughly
-    /// **550 + 620 + 400 = 1570pt**. A plain `VStack` handed a third of the
-    /// height it asked for does not clip politely — it overflows in *both*
-    /// directions, so `cutting-room-loaded-dark` lost "WHERE'S IT GOING?" off the
-    /// top of the window and the whole move stack off the bottom. The stack is
-    /// the document; the one pane every other piece feeds was not on screen.
+    /// It was solving arithmetic. Measured off the first rendered frame at the
+    /// size the window opens at: the pane has **612pt** (640 less the titlebar)
+    /// and the three bodies want roughly **550 + 620 + 400 = 1570pt**. A plain
+    /// `VStack` handed a third of the height it asked for does not clip
+    /// politely — it overflows in *both* directions, so an early
+    /// `cutting-room-loaded-dark` lost "WHERE'S IT GOING?" off the top of the
+    /// window and the whole Chain off the bottom.
     ///
-    /// *Rejected:* wrapping the sidebar in one `ScrollView`. It stops the
-    /// overflow, but it puts `MoveStackView`'s own scroll view inside another
-    /// one, and reordering rows by dragging is the interaction this feature is
-    /// built around. *Rejected:* trimming the analysis pane to a compact table
-    /// — at 8 rows of 28pt it saves 340pt, and 550 + 284 is still more than 612
-    /// with nothing left for the stack. *Rejected:* opening taller, which fails
-    /// the same arithmetic at every height a laptop has and at the 520 minimum.
+    /// That arithmetic has not changed, so the fix has not either: **every open
+    /// body is `maxHeight: .infinity` and therefore takes one equal share of
+    /// whatever the headers leave**, and each of the three already scrolls
+    /// inside itself. Two open at 612pt is 84 of headers and 264 each; three is
+    /// 176 each, which is tight and is the user's own choice rather than
+    /// something the layout did to them. Nothing can overflow at any window
+    /// size, which is the property the accordion bought and this keeps.
     ///
-    /// What this buys beyond fitting: the sidebar cannot overflow at *any*
-    /// window size, because three headers are fixed and exactly one body absorbs
-    /// whatever remains.
+    /// *Rejected:* one `ScrollView` around the whole pane. It stops the
+    /// overflow, but it puts `ChainPanelView`'s own scroll view inside another
+    /// one, and reordering rows by dragging is the interaction the Chain is
+    /// built around. *Rejected:* letting an open panel keep its natural height
+    /// and scrolling past — same nesting, plus a Chain whose bottom is off
+    /// screen while the analysis panel above it shows white space.
+    ///
+    /// **The `Spacer` is conditional, and that is not tidiness.** A `Spacer` is
+    /// as flexible as a `maxHeight: .infinity` body, so an unconditional one
+    /// would be a fourth claimant on the leftover height: one open panel would
+    /// get half the pane and the other half would be blank. It is here only to
+    /// stop three shut headers being centred vertically in an empty column,
+    /// which is the one case where nothing else is flexible at all.
     private var sidebar: some View {
         VStack(spacing: 0) {
-            ForEach(SidebarSection.allCases) { section in
-                if section != .destination {
-                    Divider()
-                }
+            ForEach(drawnPanels) { panel in
+                hairline
+                panelHeader(panel)
 
-                sidebarHeader(section)
-
-                if expandedSection == section {
-                    Divider()
-                    sidebarBody(section)
+                if openPanels.contains(panel) {
+                    hairline
+                    panelBody(panel)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
+            }
+
+            hairline
+
+            if drawnPanels.allSatisfy({ !openPanels.contains($0) }) {
+                Spacer(minLength: 0)
             }
         }
         .frame(width: Self.sidebarWidth)
     }
 
-    /// Always visible, for all three, so the stack never stops being something
-    /// the reader knows is there. A collapsed header carries its pane's answer
-    /// rather than only its name — and that summary is read off the *document*,
-    /// so this file does not start knowing how another piece draws itself.
-    private func sidebarHeader(_ section: SidebarSection) -> some View {
-        let isExpanded = expandedSection == section
-
-        // The accessory sits *beside* the disclosure button rather than inside
-        // it. A button nested in a button gets its clicks eaten by the outer
-        // one, which would make Revert to Original toggle the accordion.
-        return HStack(spacing: 0) {
-            Button {
-                withAnimation(DesignTokens.Animation.panel) {
-                    expandedSection = section
-                }
-            } label: {
-                HStack(spacing: DesignTokens.Spacing.sm) {
-                    Image(systemName: "chevron.down")
-                        .font(DesignTokens.Typography.Scale.caption2(.bold))
-                        .foregroundStyle(DesignTokens.Colors.textTertiary)
-                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
-                        .accessibilityHidden(true)
-
-                    SectionHeader(title: section.title)
-
-                    Spacer(minLength: DesignTokens.Spacing.sm)
-
-                    if !isExpanded, let summary = summary(for: section) {
-                        Text(summary)
-                            .font(DesignTokens.Typography.Scale.caption())
-                            .monospacedDigit()
-                            .foregroundStyle(DesignTokens.Colors.textTertiary)
-                            .lineLimit(1)
-                    }
-                }
-                .padding(.leading, DesignTokens.Spacing.lg)
-                .padding(.trailing, DesignTokens.Spacing.sm)
-                .frame(height: 38)
-                .contentShape(Rectangle())
-            }
-            // The popup's own "Audio" disclosure is this control, so it is this
-            // button style.
-            .buttonStyle(.meloHover)
-            .accessibilityLabel(section.title)
-            .accessibilityValue(isExpanded ? "Showing" : (summary(for: section) ?? "Hidden"))
-
-            if section == .stack, isExpanded, hasMoves {
-                revertButton
-            }
+    /// Which panels this mode paints, in order.
+    ///
+    /// **The mode filters what is drawn and never what is stored.** A reader
+    /// who had Master open, switched to Simple, and switched back gets Master
+    /// open again, because `store.openPanels` was never touched — the set still
+    /// contains `.master`, `openPanels.contains` still answers yes, and this
+    /// list is the only thing that changed. Pruning the stored set instead
+    /// would be a mode that quietly edits state on the way past, which is the
+    /// same class of defect as a mode that edits the document.
+    ///
+    /// It is also why the `Spacer` condition above asks whether any *drawn*
+    /// panel is open rather than whether the set is empty: in Simple with only
+    /// Master open, the set is not empty and the column has nothing flexible in
+    /// it, which is exactly the case the spacer exists for.
+    private var drawnPanels: [EditorPanel] {
+        EditorPanel.allCases.filter { panel in
+            panel != .master || store.mode.shows(.master)
         }
     }
 
-    /// The control the shipped Guide has been describing to people who could not
-    /// find it.
+    /// One point of separator, always, in place of a gap.
     ///
-    /// `EditorStore.revertToOriginal()` had **no caller anywhere in
-    /// `Sources/`**, while `SettingsGuide.swift:1217` tells readers "Revert to
-    /// Original empties the stack and leaves the file exactly as it arrived" —
-    /// and the Guide is indexed and searchable, so people go looking for it by
-    /// that name. A documented control that does not exist is this project's own
-    /// recorded worst pattern, so the label here is the Guide's exact words
-    /// rather than a shorter paraphrase.
+    /// `Divider()` was here and is not a hairline — it takes the ambient
+    /// spacing of whatever stack it is in, which in a `spacing: 0` `VStack` is
+    /// nothing, but it also resolves to the system separator at full strength
+    /// and cannot be told otherwise. This is a token, so the pane's rules are
+    /// the pane's rules and not AppKit's.
+    private var hairline: some View {
+        Rectangle()
+            .fill(DesignTokens.Colors.panelSeparator)
+            .frame(height: 1)
+            .accessibilityHidden(true)
+    }
+
+    /// The same line stood on end, for the boundary between the timeline column
+    /// and the docked pane. One token, two orientations — a second colour for
+    /// the vertical case is how the one seam a user looks at most ends up a
+    /// different weight from every other seam in the window.
+    private var verticalHairline: some View {
+        Rectangle()
+            .fill(DesignTokens.Colors.panelSeparator)
+            .frame(width: 1)
+            .accessibilityHidden(true)
+    }
+
+    /// The header is the whole button, and there is nothing else in it.
     ///
-    /// In the stack's header because that is the pane the Guide entry is about,
-    /// and only while the stack is open and has something in it — there is
-    /// nothing to revert otherwise.
+    /// **This is the correction the owner asked for by name.** The old header
+    /// was a `Button` beside a second button, and the comment there explained
+    /// that Revert to Original had to sit *outside* the disclosure or the outer
+    /// button would eat its clicks. That is a true fact about SwiftUI and it was
+    /// the wrong conclusion: it left a header where part of the strip opened the
+    /// panel and part of it did something else, and the reader has no way to
+    /// know which part is which. Revert now lives in the Chain's own control
+    /// strip — see `ChainPanelView` — and the header has exactly one meaning
+    /// across its full 320pt.
     ///
-    /// No confirmation. `revertToOriginal()` goes through `mutate` with
-    /// recording on, so ⌘Z puts every move back; a modal asking "are you sure"
-    /// about a reversible act trains people to dismiss modals.
-    private var revertButton: some View {
-        Button("Revert to Original") {
-            store.revertToOriginal()
+    /// The chevron stays. It is not the target any more, so its only job is to
+    /// say that the strip is pressable at all, which a flat band of text does
+    /// not.
+    private func panelHeader(_ panel: EditorPanel) -> some View {
+        PanelHeaderButton(
+            title: panel.title,
+            summary: summary(for: panel),
+            isOpen: openPanels.contains(panel),
+            height: Self.headerHeight,
+            stripeWidth: Self.openStripeWidth
+        ) {
+            withAnimation(DesignTokens.Animation.panel) {
+                store.toggleOpenPanel(panel)
+            }
         }
-        .buttonStyle(.meloHover)
-        .font(DesignTokens.Typography.Scale.caption(.medium))
-        .foregroundStyle(DesignTokens.Colors.interactiveDefault)
-        .padding(.trailing, DesignTokens.Spacing.md)
-        .frame(height: 38)
-        .contentShape(Rectangle())
-        .help("Empty the stack and leave the file exactly as it arrived. Undo puts it back.")
     }
 
     @ViewBuilder
-    private func sidebarBody(_ section: SidebarSection) -> some View {
-        switch section {
+    private func panelBody(_ panel: EditorPanel) -> some View {
+        switch panel {
         case .destination:
             // Scrolled here rather than by the pane: six destinations with the
             // chosen one expanded is about 550pt, which fits at most window
-            // heights and not at the minimum.
+            // heights and not at the minimum — and now never gets the whole
+            // pane to itself when a second panel is open beside it.
             ScrollView {
                 DestinationPicker(store: store)
-                    .padding(.horizontal, DesignTokens.Spacing.md)
-                    .padding(.vertical, DesignTokens.Spacing.sm)
+                    .padding(.horizontal, DesignTokens.Spacing.sm)
+                    .padding(.vertical, DesignTokens.Spacing.xs2)
             }
         case .analysis:
             ScrollView {
                 AnalysisSummaryView(store: store)
-                    .padding(.horizontal, DesignTokens.Spacing.md)
-                    .padding(.vertical, DesignTokens.Spacing.sm)
+                    .padding(.horizontal, DesignTokens.Spacing.sm)
+                    .padding(.vertical, DesignTokens.Spacing.xs2)
             }
-        case .stack:
-            // No `ScrollView` here. `MoveStackView` has its own, and its rows are
-            // reordered by dragging them — a drag inside a nested scroller is the
-            // one interaction that must not be made ambiguous.
+        case .chain:
+            // No `ScrollView` here. `ChainPanelView` has its own, and its rows
+            // are reordered by dragging them — a drag inside a nested scroller
+            // is the one interaction that must not be made ambiguous.
             //
             // `settings` is threaded, not just held. It is the same manager this
             // view reads for the theme, and it is the only route by which the
             // equalizer inspector can offer "Save to Melo": with `nil` that row
             // is absent rather than broken.
-            MoveStackView(store: store, settings: settings)
-                .padding(.horizontal, DesignTokens.Spacing.md)
-                .padding(.top, DesignTokens.Spacing.sm)
+            ChainPanelView(store: store, settings: settings)
+                .padding(.horizontal, DesignTokens.Spacing.sm)
+                .padding(.top, DesignTokens.Spacing.xs2)
+        case .master:
+            // Scrolled like the other two short panels rather than left to
+            // overflow: four lines and a meter is about 90pt, which fits at
+            // every window height *until* all four panels are open at 520, and
+            // the pane's whole arrangement is that no body may overflow.
+            ScrollView {
+                MasterPanelView(store: store)
+                    .padding(.horizontal, DesignTokens.Spacing.sm)
+                    .padding(.vertical, DesignTokens.Spacing.xs2)
+            }
         }
     }
 
-    /// What a collapsed header says. Read from `EditorDocument`, which every
-    /// piece shares, rather than from the pane that is currently hidden.
-    private func summary(for section: SidebarSection) -> String? {
+    /// What a shut header says. Read from `EditorDocument`, which every piece
+    /// shares, rather than from the panel that is currently hidden.
+    private func summary(for panel: EditorPanel) -> String? {
         guard let document = store.document else { return nil }
-        switch section {
+        switch panel {
         case .destination:
             return document.destination?.title ?? "Not chosen"
         case .analysis:
             guard let analysis = document.analysis else { return "Not measured" }
             return "\(EditorFormat.number(analysis.integratedLUFS, places: 1)) LUFS"
-        case .stack:
+        case .chain:
             let count = document.moves.count
             return count == 1 ? "1 move" : "\(count) moves"
+        case .master:
+            // The mix's peak, which is the number somebody shuts this panel
+            // still wanting. Not the LUFS — "What I found" two headers up
+            // already says that, and two headers carrying different loudness
+            // numbers for the same window is how a reader decides one of them
+            // is wrong.
+            return EditorLevelReading.label(EditorLevelReading.forMix(store.waveform).peakDB)
         }
-    }
-
-    /// Which pane a freshly opened document opens on.
-    ///
-    /// A stack that already has moves in it — a reopened session, or the theme
-    /// with a starter applied — is the thing to show. Otherwise the destination
-    /// picker, because choosing one is the novice's first move and that pane is
-    /// where "Fix it again" lives.
-    private func syncSidebarSection() {
-        #if MELO_DEV
-        if pinnedSection != nil { return }
-        #endif
-        expandedSection = hasMoves ? .stack : .destination
     }
 
     // MARK: - When something did not work
@@ -949,6 +988,108 @@ struct EditorRootView: View {
     }
 }
 
+// MARK: - The header that is the whole button
+
+/// A docked panel's header strip: full width, square edges, one press target.
+///
+/// Its own type because it needs `@State` for hover, and because
+/// `.buttonStyle(.meloHover)` is wrong here in three separate ways that are
+/// each worth naming rather than rediscovering. It fills a
+/// `DesignTokens.Dimensions.Shape.sm` — a **rounded** rect — which is the
+/// floating-card look the VEGAS frame explicitly refuses; it draws a hairline
+/// border on all four sides, so a hovered header would gain edges the
+/// separators above and below already provide; and it applies a 0.975
+/// `scaleEffect` on press, which on a strip that spans the full pane shows as
+/// the panel's own edges shrinking away from the window's. That style is right
+/// for the popup's rows, which is what it was built for.
+///
+/// So: a square hover wash, no border, no scale. The press feedback is the
+/// panel opening, which is not subtle.
+private struct PanelHeaderButton: View {
+    let title: String
+    /// What the panel would say if it were open — the destination's name, the
+    /// measured loudness, the move count. Shown only while shut, because open
+    /// the panel says it itself and a header repeating its own body is noise.
+    let summary: String?
+    let isOpen: Bool
+    let height: CGFloat
+    let stripeWidth: CGFloat
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DesignTokens.Spacing.xs2) {
+                Image(systemName: "chevron.down")
+                    .font(DesignTokens.Typography.Scale.caption2(.bold))
+                    .foregroundStyle(DesignTokens.Colors.textTertiary)
+                    .rotationEffect(.degrees(isOpen ? 0 : -90))
+                    // A fixed column, so the title starts at the same x whether
+                    // the chevron is pointing down or right. Rotation does not
+                    // change a glyph's bounds, but the glyph is not square and
+                    // its ink is not centred in them.
+                    .frame(width: 10)
+                    .accessibilityHidden(true)
+
+                SectionHeader(title: title)
+
+                Spacer(minLength: DesignTokens.Spacing.xs)
+
+                if !isOpen, let summary {
+                    Text(summary)
+                        .font(DesignTokens.Typography.Scale.caption())
+                        .monospacedDigit()
+                        .foregroundStyle(DesignTokens.Colors.textTertiary)
+                        .lineLimit(1)
+                }
+            }
+            // Tighter than the old 16pt lead. The stripe is drawn in the first
+            // two points of the strip, so the text has to clear it without
+            // opening a gap the eye reads as an indent.
+            .padding(.leading, DesignTokens.Spacing.sm)
+            .padding(.trailing, DesignTokens.Spacing.sm)
+            .frame(maxWidth: .infinity, minHeight: height, alignment: .leading)
+            .background { background }
+            // The whole strip, including the space the `Spacer` opens up. Without
+            // this the gap between the title and the summary is not a target and
+            // the header is a button with a hole in the middle of it.
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+        .animation(DesignTokens.Animation.hover, value: isHovered)
+        .accessibilityLabel(title)
+        .accessibilityValue(isOpen ? "Showing" : (summary ?? "Hidden"))
+        // Says what pressing does, which the label and value between them do
+        // not: a reader who hears "Showing" still has to guess whether the
+        // control that says it will shut the panel or do something else.
+        .accessibilityHint(isOpen ? "Hides this panel" : "Shows this panel")
+        .accessibilityAddTraits(.isHeader)
+    }
+
+    @ViewBuilder
+    private var background: some View {
+        ZStack(alignment: .leading) {
+            Rectangle()
+                .fill(isOpen
+                      ? DesignTokens.Colors.panelHeaderFillOpen
+                      : DesignTokens.Colors.panelHeaderFill)
+
+            if isHovered {
+                Rectangle().fill(DesignTokens.Colors.hoverSurface)
+            }
+
+            if isOpen {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(width: stripeWidth)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
 #if MELO_DEV
 extension EditorRootView {
     /// Seeds the one state of this view that no other seam can reach.
@@ -966,22 +1107,23 @@ extension EditorRootView {
     ///
     /// `recents` is overridable so a frame can show the recents list without
     /// depending on whatever the machine running the harness happened to open.
-    /// `sidebarSection` pins the accordion so all three panes are renderable
-    /// from the one loaded scene. Left `nil` it follows `syncSidebarSection()`,
-    /// which is what a real window does.
+    ///
+    /// There is no `sidebarSection` parameter any more. It pinned the accordion
+    /// because the accordion's state was `@State` on this view and the harness
+    /// had no other way in; which panels are open now lives on the store, where
+    /// `EditorStore.setOpenPanelsForSnapshot` reaches it — one fewer piece of
+    /// view state that only the harness knows how to seed, and one fewer way for
+    /// a frame to show a pane the app cannot produce.
     init(
         store: EditorStore,
         settings: SettingsManager?,
         dropTargeted: Bool,
-        recents: EditorRecents = .shared,
-        sidebarSection: SidebarSection? = nil
+        recents: EditorRecents = .shared
     ) {
         _store = ObservedObject(wrappedValue: store)
         self.settings = settings
         self.recents = recents
         _isDropTargeted = State(initialValue: dropTargeted)
-        _pinnedSection = State(initialValue: sidebarSection)
-        _expandedSection = State(initialValue: sidebarSection ?? Self.defaultSection(for: store))
     }
 }
 #endif

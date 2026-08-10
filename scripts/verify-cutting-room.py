@@ -1300,7 +1300,7 @@ FRAME_INPUTS = [
     "Sources/Melo/Editor/Analysis/DestinationPicker.swift",
     "Sources/Melo/Editor/Analysis/MoveProposer.swift",
     "Sources/Melo/Editor/Analysis/DestinationCatalogue.swift",
-    "Sources/Melo/Editor/Views/Stack/MoveStackView.swift",
+    "Sources/Melo/Editor/Views/Chain/ChainPanelView.swift",
 ]
 
 REQUIRED_FRAMES = [
@@ -1308,8 +1308,8 @@ REQUIRED_FRAMES = [
     "cutting-room-eqcurve-probe.png",
     "cutting-room-destination-quiet.png",
     "cutting-room-destination-compliant.png",
-    "cutting-room-stack-disables-before.png",
-    "cutting-room-stack-disables-after.png",
+    "cutting-room-chain-disables-before.png",
+    "cutting-room-chain-disables-after.png",
 ]
 
 # The scene geometry the pixel checks depend on, restated here rather than
@@ -1575,11 +1575,11 @@ def check_disabled_move_dims(frames: Path) -> None:
     """
     from PIL import Image
 
-    before_image = Image.open(frames / "cutting-room-stack-disables-before.png")
-    after_image = Image.open(frames / "cutting-room-stack-disables-after.png")
+    before_image = Image.open(frames / "cutting-room-chain-disables-before.png")
+    after_image = Image.open(frames / "cutting-room-chain-disables-after.png")
     if before_image.width != after_image.width:
         failures.append(
-            "the two stack frames are different widths and cannot be compared"
+            "the two Chain frames are different widths and cannot be compared"
         )
         return
 
@@ -1600,7 +1600,7 @@ def check_disabled_move_dims(frames: Path) -> None:
     ]
     if not changed:
         failures.append(
-            "cutting-room-stack-disables: nothing in the left of the pane moved when a move "
+            "cutting-room-chain-disables: nothing in the left of the pane moved when a move "
             "was switched off. The row is not reading `isEnabled`."
         )
         return
@@ -1632,7 +1632,7 @@ def check_disabled_move_dims(frames: Path) -> None:
 
     if bottom - top > height * 0.6:
         failures.append(
-            f"cutting-room-stack-disables: {bottom - top} of {height} rows moved when one "
+            f"cutting-room-chain-disables: {bottom - top} of {height} rows moved when one "
             "move was switched off. That is the whole pane relaying out, not a row dimming."
         )
         return
@@ -1653,22 +1653,22 @@ def check_disabled_move_dims(frames: Path) -> None:
 
     if before_bright < 200:
         failures.append(
-            f"cutting-room-stack-disables: the band that moved (rows {top}–{bottom}) carried "
+            f"cutting-room-chain-disables: the band that moved (rows {top}–{bottom}) carried "
             f"only {before_bright} bright pixels before the move was switched off. Whatever "
             "changed, it was not a drawn row going dim."
         )
         return
     if after_bright > before_bright * 0.25:
         failures.append(
-            f"cutting-room-stack-disables: rows {top}–{bottom} kept {after_bright} bright "
+            f"cutting-room-chain-disables: rows {top}–{bottom} kept {after_bright} bright "
             f"pixels of {before_bright} when the move was switched off. A disabled move is "
             "meant to dim to roughly 0.4 of its ink, which leaves none of it bright."
         )
     if after_present < before_present * 0.4:
         failures.append(
-            f"cutting-room-stack-disables: rows {top}–{bottom} kept {after_present} lit "
+            f"cutting-room-chain-disables: rows {top}–{bottom} kept {after_present} lit "
             f"pixels of {before_present}. The row is meant to stay on the list, not leave "
-            "it — turning a move off and listening is what the stack is for."
+            "it — turning a move off and listening is what the Chain is for."
         )
 
 
@@ -1804,7 +1804,7 @@ else:
         elif not any(any(token in arm for token in DOES_WORK) for arm in matching):
             failures.append(
                 f"RenderEngine's `.{kind}` arm reaches no processor. The move is accepted, "
-                "stored, drawn in the stack and rendered as silence."
+                "stored, drawn in the Chain and rendered as silence."
             )
     # A `default:` is fine when it hands the move on and fatal when it swallows
     # one, and the difference is one line of its body.

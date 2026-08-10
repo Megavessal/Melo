@@ -73,6 +73,33 @@ extension EditorStore {
         EditorPlayback.shared.setBypassed(held)
     }
 
+    /// Whether the original is what is playing right now, and what the compare
+    /// lane's ink is inverted against.
+    ///
+    /// A read-through rather than a second stored flag. `EditorPlayback` owns
+    /// the state because it owns the two buffers and the splice between them; a
+    /// mirror on the store would be a second answer to "which one am I
+    /// hearing", and the picture and the sound disagreeing about that is the
+    /// one failure this whole feature exists to prevent. Views that need to
+    /// *redraw* on the change observe `EditorPlayback.shared` for its
+    /// `@Published`; this is for callers that only need the value.
+    var isBypassed: Bool { EditorPlayback.shared.isBypassed }
+
+    /// The latching flip, for a control that stays where you put it — a menu
+    /// item, or a click on the compare lane's own marker.
+    ///
+    /// **Same state as the hold, deliberately, and the last edge wins.** Latch
+    /// it on and then press and release B and you come back unbypassed, because
+    /// the key-up says `false` and there is only one flag. A separate latch
+    /// XOR-ed with the hold is what a plugin does and it was rejected here: it
+    /// needs two flags, and the state where the latch says original and the
+    /// hold says processed is one no control on screen can express, so the user
+    /// would have no way to read what they are hearing. One flag, two ways to
+    /// move it, and what the lane draws is always what the ear is getting.
+    func toggleBypass() {
+        EditorPlayback.shared.setBypassed(!EditorPlayback.shared.isBypassed)
+    }
+
     func zoomIn() {
         let timeline = EditorTimeline.shared
         timeline.zoomIn(anchoredAt: timeline.anchorFraction(preferring: playhead))

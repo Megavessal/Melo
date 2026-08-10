@@ -3,10 +3,10 @@
 // Four one-tap starts for the theme.
 //
 // Why these exist at all: opening ninety seconds of instrumental in an editor
-// with an empty stack is not fun, it is homework. Each starter is a small pile
+// with an empty Chain is not fun, it is homework. Each starter is a small pile
 // of ordinary moves with real numbers in them, so pressing one produces
-// something obviously different *and* leaves behind a stack the user can open,
-// read, change and switch off. The stack is the tutorial; these just fill it.
+// something obviously different *and* leaves behind a Chain the user can open,
+// read, change and switch off. The Chain is the tutorial; these just fill it.
 //
 // Rules every starter here follows:
 //
@@ -16,7 +16,7 @@
 // - **No move that needs a measurement.** `normalize` carries a measured LUFS
 //   and an applied gain; nothing here has analysed the file, so nothing here
 //   proposes one. That is the destinations path's job, not a starter's.
-// - **Nothing is destructive.** Every one of these is a stack, and the stack
+// - **Nothing is destructive.** Every one of these is a Chain, and the Chain
 //   comes off.
 
 import Foundation
@@ -66,7 +66,7 @@ enum MeloThemeStarter: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// The moves this starter puts on the stack, resolved against a theme that
+    /// The moves this starter puts on the Chain, resolved against a theme that
     /// is `duration` long.
     ///
     /// Returns nothing for a duration that cannot carry bar arithmetic, so a
@@ -127,7 +127,7 @@ enum MeloThemeStarter: String, CaseIterable, Identifiable, Sendable {
                 )
             ]
 
-        // The most extreme of the four, and the one that proves the stack is
+        // The most extreme of the four, and the one that proves the Chain is
         // real: switch off any single move and the effect half-collapses.
         case .throughTheWall:
             return [
@@ -154,7 +154,7 @@ enum MeloThemeStarter: String, CaseIterable, Identifiable, Sendable {
 
         // Two moves, deliberately. This one is instantly recognisable without
         // help, and padding it with numbers nobody needs would teach the wrong
-        // lesson about what belongs on a stack.
+        // lesson about what belongs on a Chain.
         case .backwards:
             return [
                 Move(
@@ -170,7 +170,7 @@ enum MeloThemeStarter: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// "3 moves" — shown on the tile, so nobody presses this without knowing a
-    /// stack is about to appear.
+    /// Chain is about to appear.
     func moveCountLabel(forThemeOfLength duration: TimeInterval) -> String {
         let count = moves(forThemeOfLength: duration).count
         return count == 1 ? "1 move" : "\(count) moves"

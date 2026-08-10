@@ -1,6 +1,6 @@
 // Melo/Editor/Core/MoveKindDisplay.swift
 //
-// How a move introduces itself in the stack. `title` is the left of the row,
+// How a move introduces itself in the Chain. `title` is the left of the row,
 // `summary` is the right, `symbolName` is the glyph.
 //
 // Numbers are formatted the way a person reads them: a real minus sign, one
@@ -49,7 +49,7 @@ extension MoveKind {
         }
     }
 
-    /// The right-hand side of a stack row. Empty when the move has no number
+    /// The right-hand side of a Chain row. Empty when the move has no number
     /// worth showing — `reverse` is the whole instruction already.
     var summary: String {
         switch self {
@@ -119,7 +119,7 @@ extension ChannelMode {
 // MARK: - Formatting
 
 /// Melo Edit's number and time formatting, in one place so a dB in the
-/// stack, a dB in the inspector and a dB in a progress line are the same
+/// Chain, a dB in the inspector and a dB in a progress line are the same
 /// string. Everything here is pure and synchronous.
 enum EditorFormat {
     /// U+2212. A hyphen next to a digit reads as a dash, not a negative.

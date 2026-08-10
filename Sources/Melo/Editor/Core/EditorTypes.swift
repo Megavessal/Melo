@@ -33,7 +33,7 @@ struct EditorDocument: Codable, Equatable, Sendable {
     /// render walks it front to back and reordering is a real edit.
     ///
     /// This is where a 3.1.x session's flat move list lands on migration, which
-    /// is the only reading of the old stack that stays true — those moves were
+    /// is the only reading of the old Chain that stays true — those moves were
     /// applied to the whole sound.
     var master: [Move]
     /// `nil` until the user picks one.
@@ -214,7 +214,7 @@ struct Clip: Codable, Equatable, Sendable, Identifiable {
     var sourceOut: TimeInterval
     var gainDB: Double = 0
     /// Measured from the clip's own start and end. Both are draggable handles
-    /// on the clip, which is why they live here and not in the move stack.
+    /// on the clip, which is why they live here and not in the Chain.
     var fadeIn: TimeInterval = 0
     var fadeOut: TimeInterval = 0
     var fadeCurve: FadeCurve = .equalPower
@@ -329,7 +329,7 @@ struct Move: Codable, Equatable, Sendable, Identifiable {
     var kind: MoveKind
     var isEnabled: Bool = true
     /// One sentence, in the app's voice, saying what this does to *this* file.
-    /// Written when the move is created; shown in the stack.
+    /// Written when the move is created; shown in the Chain.
     var rationale: String?
 }
 

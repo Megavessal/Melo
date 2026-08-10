@@ -26,7 +26,7 @@ enum SnapshotScenes {
         case staggered
         /// The same, with a fade in and a fade out on every clip and a different
         /// `FadeCurve` per lane. Fades are per-clip and draggable, so they are
-        /// the one part of the stack that is drawn *into* the audio.
+        /// the one part of the Chain that is drawn *into* the audio.
         case fades
         /// The same, with the first lane's clip split in two at 45% and a copy of
         /// the left half pasted onto the second lane later on. Split and paste
@@ -108,6 +108,24 @@ enum SnapshotScenes {
             settings.prepareForFullErase()
             var appSettings = settings.appSettings
             appSettings.appearance = scheme == .dark ? .dark : .light
+            // Pinned, because `SettingsManager` reads the real
+            // `~/Library/Application Support/Melo/settings.json` and the harness
+            // therefore renders with **whatever theme the person running it
+            // happens to have chosen**. That is not a small fragility: the owner
+            // switched Melo to Aurora while testing a build, and the next run
+            // came back with seven negative controls between 41% and 47% — every
+            // one of them correct, because Aurora is a `TimelineView` animation
+            // and two captures of one state sample it at two different phases.
+            // Fifty-six previous control readings of 0.0000% were not evidence
+            // that the frames were stable; they were evidence that the theme on
+            // this Mac was a static one.
+            //
+            // `.systemAccent` is the historical default, so every reference hash
+            // in this suite still means what it meant. Theme scenes are
+            // unaffected: `themeBackdropScene` hands `MeloThemeBackdrop` a theme
+            // directly and never reads this.
+            appSettings.visualTheme = .systemAccent
+            appSettings.generatedTheme = nil
             settings.appSettings = appSettings
             EditorTimeline.shared.resetForSnapshot()
             EditorClipWaveforms.shared.resetForSnapshot()
@@ -1689,7 +1707,7 @@ enum SnapshotScenes {
         // MARK: - Melo Edit
         //
         // These frames are the only look anyone gets at this window without
-        // running it, and they are deliberately unflattering: the empty stack,
+        // running it, and they are deliberately unflattering: the empty Chain,
         // the move with no rationale, the format that needs a tool this Mac
         // does not have.
         //
@@ -1732,7 +1750,7 @@ enum SnapshotScenes {
         // silence at each end, the interior gaps, the DC offset, dual-mono.
         //
         // `quietReport` is below every threshold in the proposer, so Podcast
-        // proposes the full stack. `compliantReport` is inside all of them, so
+        // proposes the full Chain. `compliantReport` is inside all of them, so
         // Podcast proposes nothing at all and says so. A picker that stopped
         // consulting the measurement would draw these two identically, which is
         // what `scripts/verify-cutting-room.py` reads the frames for.
@@ -1770,24 +1788,24 @@ enum SnapshotScenes {
         // The real proposal, from the shipped proposer, rather than a hand-written
         // list of what a proposal is supposed to look like. That is the point: if
         // `MoveProposer` stops producing rationales, or stops producing moves, the
-        // stack frames show it rather than showing a fixture that cannot change.
+        // Chain frames show it rather than showing a fixture that cannot change.
         let proposedMoves = MoveProposer.propose(
             for: quietReport,
             destination: DestinationCatalogue.podcast,
             source: editorSource
         )
 
-        // A stack somebody has been working in: the proposal, one move they added
+        // A Chain somebody has been working in: the proposal, one move they added
         // by hand (so no rationale — the row has to survive that), and one they
         // switched off rather than deleted, which is the whole reason a
-        // non-destructive stack is worth having.
+        // non-destructive Chain is worth having.
         var mixedMoves = proposedMoves
         mixedMoves.insert(
             Move(kind: .gain(dB: 1.5), rationale: nil),
             at: min(2, mixedMoves.count)
         )
         // Index 1, not the last of nine. A 320×520 pane holds about four rows of
-        // this stack, so switching off the last one produced a frame whose
+        // this Chain, so switching off the last one produced a frame whose
         // provenance band promised a dimmed move the image physically could not
         // contain — and it was read, correctly, as "nothing here is dim". A
         // proposed move rather than the hand-added one, so the dimming is judged
@@ -2240,7 +2258,7 @@ enum SnapshotScenes {
         /// The track-header family's seeding call: one file, several lanes, each
         /// with its own name, level, pan and quieting.
         ///
-        /// Carries the master stack, the destination and the measurement,
+        /// Carries the master Chain, the destination and the measurement,
         /// because these are frames of the whole window and a window with an
         /// empty sidebar is a window nobody ships.
         @discardableResult
@@ -2335,7 +2353,7 @@ enum SnapshotScenes {
         }
 
         let editorSize = CGSize(width: 1000, height: 640)
-        let stackPaneSize = CGSize(width: 320, height: 520)
+        let chainPaneSize = CGSize(width: 320, height: 520)
         let sidebarPaneSize = CGSize(width: 320, height: 420)
         let waveformSize = CGSize(width: 660, height: 320)
         let eqCurveSize = CGSize(width: 480, height: 150)
@@ -2400,13 +2418,13 @@ enum SnapshotScenes {
             )
         }
 
-        @MainActor func stackPane(expanded: Move.ID? = nil, dropTarget: Int? = nil) -> AnyView {
-            sidebarPane("The stack") {
+        @MainActor func chainPane(expanded: Move.ID? = nil, dropTarget: Int? = nil) -> AnyView {
+            sidebarPane("The Chain") {
                 // `settings` because that is what the window passes it; the
                 // equalizer inspector's preset list is absent without one, and a
                 // frame of a pane composed differently from the window is a frame
                 // of something the app never draws.
-                MoveStackView(
+                ChainPanelView(
                     store: editor,
                     expandedMoveID: expanded,
                     settings: settings,
@@ -2562,10 +2580,10 @@ enum SnapshotScenes {
         ) { destinationPane() }
 
         scenes += SnapshotHarness.transition(
-            name: "cutting-room-stack-fills",
-            size: stackPaneSize,
+            name: "cutting-room-chain-fills",
+            size: chainPaneSize,
             colorScheme: .dark,
-            note: "The proposal landing on the stack as one edit. BEFORE is the empty state, "
+            note: "The proposal landing on the Chain as one edit. BEFORE is the empty state, "
                 + "AFTER is \(proposedMoves.count) rows. " + SnapshotHarness.bindingCaveat,
             prepare: {
                 applyAppearance(.dark)
@@ -2575,16 +2593,16 @@ enum SnapshotScenes {
                 )
             },
             act: { editor.replaceMoves(proposedMoves) }
-        ) { stackPane() }
+        ) { chainPane() }
 
         scenes += SnapshotHarness.transition(
-            name: "cutting-room-stack-disables",
-            size: stackPaneSize,
+            name: "cutting-room-chain-disables",
+            size: chainPaneSize,
             colorScheme: .dark,
             note: "The second row switched off — above the fold on purpose, since this pane "
                 + "holds about four of nine rows. It must stay on the list and dim: a move that "
                 + "vanished when it was switched off would make A/B listening impossible, which "
-                + "is the whole reason the stack is non-destructive. Its switch and chevron stay "
+                + "is the whole reason the Chain is non-destructive. Its switch and chevron stay "
                 + "full strength, because the switch is what you press to bring it back. "
                 + SnapshotHarness.bindingCaveat,
             prepare: {
@@ -2600,7 +2618,7 @@ enum SnapshotScenes {
                     editor.setEnabled(false, for: moveToDisable.id)
                 }
             }
-        ) { stackPane() }
+        ) { chainPane() }
 
         scenes += SnapshotHarness.transition(
             name: "cutting-room-waveform-selects",
@@ -2708,8 +2726,8 @@ enum SnapshotScenes {
         // the same code path.
         //
         // The transitions these calibrate, from the same run: destination-reacts
-        // 7.9055%, stack-fills 11.5889%, stack-disables 1.8813%, all against the
-        // 1% floor. `stack-disables` is the thin one and it is thin for a correct
+        // 7.9055%, chain-fills 11.5889%, chain-disables 1.8813%, all against the
+        // 1% floor. `chain-disables` is the thin one and it is thin for a correct
         // reason: dimming one row of nine changes only the *inked* pixels inside
         // it, and text is mostly background. It is also the pair
         // `verify-cutting-room.py` reads for the dimming assertion, so anything
@@ -2755,10 +2773,10 @@ enum SnapshotScenes {
         ) { editorWindow() }
 
         scenes += SnapshotHarness.negativeControl(
-            name: "control-move-stack",
-            size: stackPaneSize,
+            name: "control-chain-panel",
+            size: chainPaneSize,
             colorScheme: .dark,
-            note: "Move stack family.",
+            note: "Chain panel family.",
             prepare: {
                 applyAppearance(.dark)
                 MeloEasterEggClock.forcedTime = nil
@@ -2768,7 +2786,7 @@ enum SnapshotScenes {
                     analysis: quietReport
                 )
             }
-        ) { stackPane() }
+        ) { chainPane() }
 
         scenes += SnapshotHarness.negativeControl(
             name: "control-destination",
@@ -2943,7 +2961,7 @@ enum SnapshotScenes {
             scene(
                 "cutting-room-loaded-dark", editorSize, .dark,
                 note: windowNote + " Podcast chosen, the file measured, the full proposal on "
-                    + "the stack — the state the feature exists to produce." + loadedMovedNote,
+                    + "the Chain — the state the feature exists to produce." + loadedMovedNote,
                 prepare: {
                     seedEditor(
                         moves: proposedMoves,
@@ -3053,25 +3071,25 @@ enum SnapshotScenes {
             ) { editorWindow() }
         )
 
-        // MARK: The move stack
+        // MARK: The Chain
 
         scenes.append(
             scene(
-                "cutting-room-stack-empty-dark", stackPaneSize, .dark,
+                "cutting-room-chain-empty-dark", chainPaneSize, .dark,
                 note: "No destination chosen, so the empty state points at the picker.",
                 prepare: { seedEditor() }
-            ) { stackPane() }
+            ) { chainPane() }
         )
         scenes.append(
             scene(
-                "cutting-room-stack-empty-light", stackPaneSize, .light,
+                "cutting-room-chain-empty-light", chainPaneSize, .light,
                 prepare: { seedEditor() }
-            ) { stackPane() }
+            ) { chainPane() }
         )
         scenes.append(
             scene(
-                "cutting-room-stack-proposed-dark", stackPaneSize, .dark,
-                note: "The stack `MoveProposer` really produced for this measurement. Every row "
+                "cutting-room-chain-proposed-dark", chainPaneSize, .dark,
+                note: "The Chain `MoveProposer` really produced for this measurement. Every row "
                     + "must carry a sentence naming the number that caused it; a row with no "
                     + "third line is a move nothing measured.",
                 prepare: {
@@ -3081,11 +3099,11 @@ enum SnapshotScenes {
                         analysis: quietReport
                     )
                 }
-            ) { stackPane() }
+            ) { chainPane() }
         )
         scenes.append(
             scene(
-                "cutting-room-stack-proposed-light", stackPaneSize, .light,
+                "cutting-room-chain-proposed-light", chainPaneSize, .light,
                 prepare: {
                     seedEditor(
                         moves: proposedMoves,
@@ -3093,11 +3111,11 @@ enum SnapshotScenes {
                         analysis: quietReport
                     )
                 }
-            ) { stackPane() }
+            ) { chainPane() }
         )
         scenes.append(
             scene(
-                "cutting-room-stack-mixed", stackPaneSize, .dark,
+                "cutting-room-chain-mixed", chainPaneSize, .dark,
                 note: "The proposal plus one hand-added Gain at row 3, which has no rationale, "
                     + "and row 2 switched off rather than deleted. Both are inside the four rows "
                     + "this pane can hold. The count of disabled moves sits in the control strip.",
@@ -3109,11 +3127,11 @@ enum SnapshotScenes {
                         selectedMove: mixedMoves.count > 2 ? mixedMoves[2].id : nil
                     )
                 }
-            ) { stackPane() }
+            ) { chainPane() }
         )
         scenes.append(
             scene(
-                "cutting-room-stack-drop", stackPaneSize, .dark,
+                "cutting-room-chain-drop", chainPaneSize, .dark,
                 note: "Mid-reorder, with the insertion line at index 3. Reachable only by "
                     + "dragging, which the harness cannot do.",
                 prepare: {
@@ -3123,7 +3141,7 @@ enum SnapshotScenes {
                         analysis: quietReport
                     )
                 }
-            ) { stackPane(dropTarget: 3) }
+            ) { chainPane(dropTarget: 3) }
         )
 
         // One frame per inspector. A disclosure that discloses the wrong numbers
@@ -3133,7 +3151,7 @@ enum SnapshotScenes {
             let move = inspectorMoves[offset]
             scenes.append(
                 scene(
-                    "cutting-room-inspector-\(name)", stackPaneSize, .dark,
+                    "cutting-room-inspector-\(name)", chainPaneSize, .dark,
                     note: "Row \(offset + 1) disclosed. The inspector is reached through the "
                         + "row's own chevron, so this frame is evidence the row opens onto it "
                         + "rather than evidence that MoveInspector renders.",
@@ -3145,7 +3163,7 @@ enum SnapshotScenes {
                             selectedMove: move.id
                         )
                     }
-                ) { stackPane(expanded: move.id) }
+                ) { chainPane(expanded: move.id) }
             )
         }
 
@@ -4116,6 +4134,889 @@ enum SnapshotScenes {
                 }
             ) { editorWindow() }
         )
+
+        // MARK: - The docked panels
+        //
+        // The right-hand pane stopped being an accordion. Every header is the
+        // full 320pt of the pane and the *whole* strip is the press target,
+        // more than one panel may be open at once, and which are open is
+        // remembered per document in the session sidecar.
+        //
+        // **Why these are transitions and not still frames.** A still frame of a
+        // shut panel proves the header draws. It proves nothing at all about
+        // pressing it — and "the control draws and does nothing" is the exact
+        // failure this project has shipped before and now keeps a whole
+        // mechanism to catch. Every pair below runs `EditorStore
+        // .toggleOpenPanel`, which is the header button's entire action, and
+        // then asserts the store landed on the set it claims *and* that the
+        // frame moved. The two together are what a press produces; neither
+        // alone is.
+        //
+        // `SnapshotHarness.bindingCaveat` still applies and is on every note:
+        // the harness cannot press an AppKit control in an offscreen never-key
+        // window (the accessibility tree is empty there — see the `actOnHost`
+        // comment in `SnapshotHarness`), so emptying the button's own closure
+        // would leave these frames unchanged. What `toggleOpenPanel` does is
+        // verified; that the header is bound to it is not.
+        //
+        // ## The floor
+        //
+        // The harness default, 1%. Not chosen by taste: `control-cutting-room`
+        // is this same family — the whole window, layer capture, seeded the same
+        // way — and measured **0.0000%** on its first complete run, so the
+        // entire 1% is margin. The changes here are nothing like marginal: the
+        // pane is 320 of 1000 points wide and an opening body claims roughly
+        // half of 612 points of it, which is about 16% of the frame. The one to
+        // watch is `-all-three`, where the two already-open bodies only
+        // *shrink* to make room; that still moves every row in both of them.
+        //
+        // `control-editor-panels` below is seeded exactly as these are, rather
+        // than leaning on `control-cutting-room`, for the reason `control-
+        // timeline` gives about `timeline-follow-pages`: a control has to be the
+        // same pane in the same state, not merely the same family.
+
+        /// Puts the pane in a known state. Every pair states both ends, so no
+        /// frame here inherits a panel set from the scene before it — the
+        /// sticky-global trap `applyAppearance` exists for, one object along.
+        @MainActor func seedPanels(
+            _ panels: Set<EditorPanel>,
+            moves: [Move] = [],
+            scheme: ColorScheme = .dark
+        ) {
+            // The scheme is a parameter and not a constant because one pair
+            // below is light. `SnapshotHarness.transition` does not go through
+            // the `scene(...)` wrapper, so nothing else calls this for it — a
+            // hard-coded `.dark` here would render a frame the harness labels
+            // light with the app's own appearance set the other way, which is
+            // the exact contradiction that produced an unreadable `popup-dark`.
+            applyAppearance(scheme)
+            seedEditor(
+                moves: moves,
+                destination: DestinationCatalogue.podcast,
+                analysis: quietReport
+            )
+            editor.setOpenPanelsForSnapshot(panels)
+        }
+
+        /// Reads the store rather than the pixels.
+        ///
+        /// A pixel diff says *something* moved. This says the pane is showing
+        /// the panels the scene's name promises — which is the difference
+        /// between a header that toggles the right panel and one that toggles a
+        /// panel. Both assertions are cheap and they fail on different bugs.
+        @MainActor func panelsAre(
+            _ expected: Set<EditorPanel>
+        ) -> (@MainActor (NSView) -> String?) {
+            { _ in
+                let actual = editor.openPanels ?? []
+                guard actual != expected else { return nil }
+                let name = { (set: Set<EditorPanel>) in
+                    set.isEmpty ? "none" : set.map(\.rawValue).sorted().joined(separator: "+")
+                }
+                return "open panels are \(name(actual)), expected \(name(expected))"
+            }
+        }
+
+        let panelCaveat = " " + SnapshotHarness.bindingCaveat
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-chain-opens",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "BEFORE has only Where's it going? open; AFTER has the Chain open BESIDE it. "
+                + "This is the frame that says the pane is no longer an accordion — under the "
+                + "old one, opening the Chain shut the picker, so the reader lost the control "
+                + "they had just used in order to see what it did. Two bodies, one pane, each "
+                + "taking an equal share of what the three headers leave." + panelCaveat,
+            prepare: { seedPanels([.destination], moves: proposedMoves) },
+            act: { editor.toggleOpenPanel(.chain) },
+            assertBefore: panelsAre([.destination]),
+            assertAfter: panelsAre([.destination, .chain])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-chain-shuts",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "The other direction, and the state nothing could reach before: AFTER has ALL "
+                + "THREE panels shut. Three headers, hairlines, and the themed ground under "
+                + "them. It has to stay legible — a pane of nothing but strips is what somebody "
+                + "who wants the timeline as wide as it goes will choose, and `[]` survives a "
+                + "reopen because the sidecar tells `nil` (nobody said) from `[]` (they said "
+                + "no)." + panelCaveat,
+            prepare: { seedPanels([.chain], moves: proposedMoves) },
+            act: { editor.toggleOpenPanel(.chain) },
+            assertBefore: panelsAre([.chain]),
+            assertAfter: panelsAre([])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-destination-opens",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "From all three shut to the destination picker alone. The BEFORE frame is the "
+                + "only place the shut pane is judged on its own terms: three headers at 28pt, "
+                + "each carrying its panel's answer — the destination's name, the measured "
+                + "LUFS, the move count — because a header that only says its own name wastes "
+                + "the one line it has." + panelCaveat,
+            prepare: { seedPanels([], moves: proposedMoves) },
+            act: { editor.toggleOpenPanel(.destination) },
+            assertBefore: panelsAre([]),
+            assertAfter: panelsAre([.destination])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-destination-shuts",
+            size: editorSize,
+            colorScheme: .light,
+            note: "Shutting one of two, which leaves the Chain the whole pane. Light, because "
+                + "the header fills, the accent stripe on an open header and the hairlines "
+                + "between panels are all at their most different from dark here — a 5% black "
+                + "wash on light glass is the easiest of the four to get wrong." + panelCaveat,
+            prepare: { seedPanels([.destination, .chain], moves: proposedMoves, scheme: .light) },
+            act: { editor.toggleOpenPanel(.destination) },
+            assertBefore: panelsAre([.destination, .chain]),
+            assertAfter: panelsAre([.chain])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-analysis-opens",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "What I found opening UNDER an already-open Chain. The Chain does not move to "
+                + "the top and does not shut: the panels are in a fixed order and opening one "
+                + "takes room from the others rather than replacing them. AFTER is the second "
+                + "two-panels-open frame in this block and the only one where the pair is "
+                + "adjacent." + panelCaveat,
+            prepare: { seedPanels([.chain], moves: proposedMoves) },
+            act: { editor.toggleOpenPanel(.analysis) },
+            assertBefore: panelsAre([.chain]),
+            assertAfter: panelsAre([.chain, .analysis])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-analysis-shuts",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "The analysis panel alone, then shut. Judge the AFTER header's summary: a shut "
+                + "What I found has to still say the loudness it measured, or shutting it "
+                + "throws away the one number the reader opened it for." + panelCaveat,
+            prepare: { seedPanels([.analysis], moves: proposedMoves) },
+            act: { editor.toggleOpenPanel(.analysis) },
+            assertBefore: panelsAre([.analysis]),
+            assertAfter: panelsAre([])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-panel-all-three",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "Two open, then three. **The tightest this pane is ever asked to be**: 612 "
+                + "points less 84 of headers and four hairlines is about 176 each, and all "
+                + "three bodies scroll inside themselves, so nothing may overflow and nothing "
+                + "may be clipped mid-row. Read the boundaries between the three bodies before "
+                + "reading anything inside them. This is also the pair where the change is "
+                + "smallest — the two open bodies only shrink — so it is the one that would go "
+                + "under the floor first if anything about the layout stopped moving."
+                + panelCaveat,
+            prepare: { seedPanels([.destination, .analysis], moves: proposedMoves) },
+            act: { editor.toggleOpenPanel(.chain) },
+            assertBefore: panelsAre([.destination, .analysis]),
+            assertAfter: panelsAre([.destination, .analysis, .chain])
+        ) { editorWindow() }
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-editor-panels",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "Docked panel family. Seeded exactly as cutting-room-panel-chain-opens' BEFORE "
+                + "frame is — one panel open, the full proposal on the Chain — with the act "
+                + "removed. Every transition above asserts that two frames of this pane differ "
+                + "when a panel is toggled; this is the statement that they do NOT differ when "
+                + "nothing is, which is the only thing that makes the seven above mean anything.",
+            prepare: { seedPanels([.destination], moves: proposedMoves) }
+        ) { editorWindow() }
+
+        // MARK: - A/B compare
+        //
+        // The second lane under each clip, and the audible flip that swaps what
+        // plays. Four things need frames and one of them cannot have one; this
+        // block says which is which before it says anything else.
+        //
+        // **What these frames prove.** That the lane can be off and is off by
+        // default. That turning it on takes its space out of the clip and not
+        // out of the header alignment. That the clip body draws the *processed*
+        // picture and the strip draws the raw one — `timeline-compare-chain` is
+        // the pair that catches two identical waveforms, and how is written on
+        // it. That engaging bypass inverts which of the two is at full weight,
+        // so a still frame says what the ear is getting.
+        //
+        // **What they cannot prove, and it is the important half.** There is no
+        // file behind a snapshot source: `RenderEngine` throws on every call
+        // from here, `EditorClipWaveforms` counts two failures and stops asking,
+        // and the processed picture in these frames is therefore *seeded*. No
+        // frame in this suite is evidence that Melo's real chain changes Melo's
+        // real waveform. That claim belongs to
+        // `scripts/verify-compare-bypass.py`, which renders both sides of the
+        // split through the shipping `RenderEngine` and compares samples — and
+        // which also executes the length invariant the strip's geometry rests
+        // on, since a processed render of a different duration would draw the
+        // two pictures against different spans of the same ruler.
+        //
+        // The seeded picture is not an arbitrary second fixture. It is the raw
+        // fixture put through the arithmetic the scene's own chain describes —
+        // `+7 dB` then a ceiling at `−1 dBTP` — so the loud passages squash
+        // against the ceiling while the quiet ones lift, which is a change of
+        // *shape* and not a scaled copy. A stand-in that differed only in
+        // amplitude would let a compare lane that ignored the shape of the
+        // processed data pass.
+
+        /// Both sticky globals this family sets, put back.
+        ///
+        /// `EditorPlayback.shared.isBypassed` outlives a scene exactly the way
+        /// `EditorTimeline` and `EditorClipWaveforms` do, and the shared
+        /// `applyAppearance` hook does not clear it — so a bypassed frame would
+        /// grey every clip in every scene rendered after this block. These
+        /// scenes are last in the list, which bounds the damage to nothing
+        /// today; anything appended below here has to call this first.
+        /// `showsCompareLane` is cleared by `setForSnapshot` as well, and is
+        /// repeated here so a scene that does not reseed still starts clean.
+        @MainActor func resetCompareState() {
+            EditorPlayback.shared.setBypassed(false)
+            editor.showsCompareLane = false
+        }
+
+        /// The chain these frames compare against: a lift and a ceiling.
+        ///
+        /// Two moves rather than one because one would be a level change and
+        /// the whole argument above is that a level change is too weak a
+        /// stand-in. `gain` is the move every proposal starts with and
+        /// `limiter` is the one that changes the crest factor, which is the
+        /// property the drawing carries two weights to show.
+        let compareChain: [Move] = [
+            Move(
+                kind: .gain(dB: 7),
+                rationale: "This is 7 dB under where a podcast wants it — this lifts it."
+            ),
+            Move(kind: .limiter(ceilingDBTP: -1, releaseMS: 60), rationale: nil)
+        ]
+
+        /// The raw fixture through `compareChain`'s arithmetic.
+        ///
+        /// Peaks first, then the ceiling, then the RMS scaled by however much
+        /// the ceiling actually took off that bucket — which is what a limiter
+        /// does and what makes the core visibly fatten against the envelope in
+        /// the loud passages. Deterministic, because `negativeControl` renders a
+        /// scene twice and requires the two frames to match.
+        @MainActor func compareFixture(
+            _ data: WaveformData,
+            gainDB: Double,
+            ceilingDBTP: Double
+        ) -> WaveformData {
+            let gain = Float(pow(10.0, gainDB / 20))
+            let ceiling = Float(pow(10.0, ceilingDBTP / 20))
+            let buckets = data.buckets.map { bucket -> WaveformData.Bucket in
+                let maximum = min(bucket.maximum * gain, ceiling)
+                let minimum = max(bucket.minimum * gain, -ceiling)
+                let wanted = bucket.maximum * gain
+                let squash = wanted > 0 ? min(maximum / wanted, 1) : 1
+                return WaveformData.Bucket(
+                    minimum: minimum,
+                    maximum: maximum,
+                    rms: min(bucket.rms * gain * squash, ceiling)
+                )
+            }
+            return WaveformData(buckets: buckets, duration: data.duration, joins: data.joins)
+        }
+
+        /// Seeds one processed picture per clip, matching each clip's source to
+        /// the same `variant` `seedClipWaveforms` gave it.
+        ///
+        /// Matching the variant is the whole point: the strip and the clip have
+        /// to be two readings of the *same take*, or the frame shows two
+        /// different sounds and proves nothing about the chain.
+        @MainActor func seedCompareFixtures() {
+            guard let document = editor.document else { return }
+            var seeded: [Clip.ID: WaveformData] = [:]
+            for track in document.tracks {
+                for clip in track.clips {
+                    guard let source = document.source(clip.sourceID),
+                          let variant = document.sources.firstIndex(where: { $0.id == clip.sourceID })
+                    else { continue }
+                    seeded[clip.id] = compareFixture(
+                        editorWaveform(
+                            duration: source.duration,
+                            channels: source.channelCount,
+                            variant: variant
+                        ),
+                        gainDB: 7,
+                        ceilingDBTP: -1
+                    )
+                }
+            }
+            EditorClipWaveforms.shared.setProcessedForSnapshot(
+                seeded,
+                chain: EditorChain.stamp(document)
+            )
+        }
+
+        /// The family's one seed: two lanes, a chain on the master, the compare
+        /// lane on, and the processed pictures in place.
+        ///
+        /// Two tracks and not three. At 510 points a two-lane pane gives each
+        /// lane 236, so the 30pt strip is a tenth of it and both readings are
+        /// large enough to judge; at six lanes the strip is a third of an 86pt
+        /// lane and the frame becomes a question about the floor rather than
+        /// about the comparison. The crowded case has its own frame below.
+        @MainActor func seedCompare(
+            trackCount: Int = 2,
+            comparing: Bool = true,
+            processed: Bool = true
+        ) {
+            resetCompareState()
+            var document = EditorTrackFixtures.document(
+                source: editorSource,
+                trackCount: trackCount,
+                master: compareChain,
+                destination: DestinationCatalogue.podcast,
+                analysis: quietReport
+            )
+            // A gain and a fade on the second clip, so the frame also answers
+            // "does the user's own mixer show up in the comparison" — it does,
+            // in the clip and not in the strip, which is what `compareColumns`
+            // refusing the envelope means in a picture.
+            if document.tracks.count > 1, !document.tracks[1].clips.isEmpty {
+                document.tracks[1].clips[0].gainDB = -6
+                document.tracks[1].clips[0].fadeIn = 18
+                document.tracks[1].clips[0].fadeCurve = .equalPower
+            }
+            installDocument(document, playhead: 58)
+            if processed { seedCompareFixtures() }
+            editor.showsCompareLane = comparing
+        }
+
+        let compareNote = "Synthetic fixtures, not decoded files. The strip under each clip is "
+            + "the RAW source; the clip above it is the same source through the master chain "
+            + "(+7 dB, then a −1 dBTP ceiling), SEEDED rather than rendered — there is no file "
+            + "here for RenderEngine to read. So these frames are evidence about the LANE: that "
+            + "it appears, that it takes its space from the clip and not from the header "
+            + "alignment, that one span of the ruler carries both readings, and which of the two "
+            + "is drawn at full weight. They are NOT evidence that the real chain changes the "
+            + "real waveform — scripts/verify-compare-bypass.py owns that claim and executes it."
+
+        scenes.append(
+            scene(
+                "timeline-compare-lanes", timelineSize, .dark,
+                note: compareNote + " Two lanes with the compare lane ON. What to check: the "
+                    + "strip sits directly under its clip and starts and ends at the same two x "
+                    + "positions, the loud passages in the clip above are visibly squashed "
+                    + "against a ceiling the strip below does not have, and lane 2's clip — "
+                    + "which carries −6 dB of its own gain and an 18s fade — shows both in the "
+                    + "CLIP and neither in the STRIP, because the reference is untouched by the "
+                    + "user's mixer as well as by Melo's chain.",
+                prepare: { seedCompare() }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        scenes.append(
+            scene(
+                "timeline-compare-crowded", timelineSize, .light,
+                note: compareNote + " FIVE lanes, which is what this pane holds before it clips. "
+                    + "478 points of lanes less four 6pt gaps over five lanes is 90.8 each, so "
+                    + "the strip takes 30 and leaves the clip 57.8 — under the 54pt "
+                    + "channel-split floor, which is why every clip here draws ONE merged lane "
+                    + "where timeline-compare-lanes draws two. This is the frame that says what "
+                    + "the lane costs at the density it hurts most: judge whether the clip above "
+                    + "is still a drawing of audio at 58 points, and whether the strip is still "
+                    + "readable at 30. If either answer is no, the floor in "
+                    + "`EditorWaveformMetrics.compareLaneMinimumClipHeight` is the number to "
+                    + "move — it is set at 44 and cannot bite while a lane is 86. Light, because "
+                    + "the strip's recessed ground is 5% black here against 22% in dark and this "
+                    + "is where it is closest to the clip's own wash.",
+                prepare: { seedCompare(trackCount: 5) }
+            ) { AnyView(EditorWaveformView(store: editor)) }
+        )
+
+        // Off, then on. The before frame is also the whole of the "it can be
+        // turned off" claim: it is the timeline this app already drew, at the
+        // lane heights it already used, with no strip and no second render
+        // asked for.
+        scenes += SnapshotHarness.transition(
+            name: "timeline-compare-lane",
+            size: timelineSize,
+            colorScheme: .dark,
+            note: compareNote + " BEFORE is the lane OFF, which is the default and is the same "
+                + "timeline as timeline-three-tracks at two lanes. AFTER is one "
+                + "`store.toggleCompareLane()` later. Identical frames mean the switch does not "
+                + "reach the geometry — and note what a *partial* failure looks like here, "
+                + "because it is the likely one: if the strip were added to the lane instead of "
+                + "carved out of it, this pair would still differ and the defect would show up "
+                + "as the header column shearing away from the lanes in "
+                + "cutting-room-compare-window. Read that frame too. "
+                + SnapshotHarness.bindingCaveat,
+            prepare: { seedCompare(comparing: false) },
+            act: { editor.toggleCompareLane() }
+        ) { AnyView(EditorWaveformView(store: editor)) }
+
+        // **The pair that catches two identical waveforms**, which is the way
+        // this feature fails while looking like it works.
+        //
+        // Both frames have the compare lane on and the same document. The only
+        // difference is whether a processed picture exists: the act clears it,
+        // so the clip body falls back to the raw overview and both readings
+        // become the same numbers. If the clip body were *always* drawing the
+        // raw overview — the failure — the two frames would differ only by the
+        // strip's caption changing from "Original" to "Original · chain not
+        // rendered", which is a few hundred pixels of a 478×510 frame, about
+        // 0.1%, and therefore UNDER the 1% floor. So the floor is not margin
+        // here; it is the assertion. Anything that makes the caption longer
+        // weakens it, which is why the caption is short.
+        scenes += SnapshotHarness.transition(
+            name: "timeline-compare-chain",
+            size: timelineSize,
+            colorScheme: .dark,
+            note: compareNote + " BEFORE: the clip draws the chain's picture and the strip draws "
+                + "the raw one, so the two differ. AFTER: the processed picture is taken away, "
+                + "the clip falls back to the raw overview, and the two readings become "
+                + "identical — which the strip admits to in its caption. Identical FRAMES mean "
+                + "the clip body never drew the processed data at all, i.e. the compare lane is "
+                + "drawing the same waveform twice. The caption alone is about 0.1% of this "
+                + "frame and cannot carry the 1% floor on its own, which is what makes this a "
+                + "real assertion rather than a change detector.",
+            prepare: { seedCompare() },
+            act: {
+                EditorClipWaveforms.shared.setProcessedForSnapshot(
+                    [:],
+                    chain: editor.document.map { EditorChain.stamp($0) } ?? ""
+                )
+            }
+        ) { AnyView(EditorWaveformView(store: editor)) }
+
+        // The audible flip, as far as a still frame can carry it.
+        //
+        // `toggleBypass()` is the store surface a menu item calls and is the
+        // same `EditorPlayback.setBypassed` the B key drives through
+        // `setBypassHeld`, so this exercises the one flag both routes move.
+        // What it cannot show is the sound: there is no file, no render and no
+        // audio graph here, so the buffer swap in `EditorPlayback` is
+        // UNVERIFIED by this frame and is what `verify-compare-bypass.py`
+        // covers instead.
+        scenes += SnapshotHarness.transition(
+            name: "timeline-compare-bypass",
+            size: timelineSize,
+            colorScheme: .dark,
+            note: compareNote + " BYPASS. BEFORE: the edit is playing, so the clip is at full "
+                + "weight and the strip is the quiet reference. AFTER: one "
+                + "`store.toggleBypass()`, and the two inks SWAP — the clip greys out and the "
+                + "strip comes up to full weight with an accented \"Original · playing\". That "
+                + "inversion is the whole marker for which of the two you are hearing; there is "
+                + "no badge to get out of step. Identical frames mean the picture cannot tell "
+                + "you what is in your ears, which is the one failure this feature must not "
+                + "have. What is UNVERIFIED here: that the SOUND changes. No file, no render, "
+                + "no audio graph. " + SnapshotHarness.bindingCaveat,
+            prepare: { seedCompare() },
+            act: { editor.toggleBypass() }
+        ) { AnyView(EditorWaveformView(store: editor)) }
+
+        // The whole window with the lane on, and the reason it is here rather
+        // than being one more timeline frame: the compare strip is carved out
+        // of the lane precisely so `TrackHeaderColumn` — which divides the same
+        // lane by the same function in the other pane — does not move. That
+        // claim is only checkable across the divider.
+        scenes.append(
+            scene(
+                "cutting-room-compare-window", editorSize, .dark,
+                note: compareNote + " The whole 1000×640 window with the compare lane on. **Read "
+                    + "the alignment across the divider FIRST**: header row n must still be "
+                    + "level with lane n, top and bottom. The strip comes out of the bottom of "
+                    + "the lane rather than being added to it, so a header that has shifted "
+                    + "means the strip is being added somewhere and the two panes have started "
+                    + "disagreeing about how tall a lane is — which is a worse defect than the "
+                    + "lane being ugly.",
+                prepare: { seedCompare(trackCount: 3) }
+            ) { editorWindow() }
+        )
+
+        // The control for the three transitions above.
+        //
+        // Seeded exactly as their BEFORE frames are — same document, same
+        // chain, same seeded pictures, lane on, bypass off — with the act
+        // removed, following `control-timeline`'s reasoning that a control has
+        // to be the same pane in the same state and not merely the same family.
+        //
+        // **The ceiling is the harness default and it was reasoned, not
+        // measured here.** Nothing in this pane animates at rest: the lanes are
+        // a `Canvas`, the fixture is deterministic from an integer hash, and no
+        // scene in this block seeds a playing transport. The seven Melo Edit
+        // controls that preceded this one all read 0.0000% on their first
+        // complete run, and `control-timeline` — the same view, the same
+        // capture path, the same seeding route — is on the same 1% ceiling.
+        // That is a citation, not a measurement of THIS pair. If it comes back
+        // red the number in `_transitions.log` is the measurement and the
+        // ceiling is set from it; it is not raised to make a run green. It
+        // matters more here than in most families, because
+        // `timeline-compare-chain` deliberately leans on the floor being higher
+        // than a caption's worth of pixels.
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-timeline-compare",
+            size: timelineSize,
+            colorScheme: .dark,
+            note: "Compare lane family. Seeded exactly as timeline-compare-chain's BEFORE frame "
+                + "is, with the act removed.",
+            prepare: { seedCompare() }
+        ) { AnyView(EditorWaveformView(store: editor)) }
+
+        // Sticky state, put back for anything appended after this block. The
+        // three globals this family leans on all outlive a scene, and two of
+        // them are not cleared by the shared `applyAppearance` hook.
+        scenes.append(
+            scene(
+                "control-compare-reset", CGSize(width: 200, height: 60), .dark,
+                note: "Not a frame anyone needs to look at. It exists so the sticky state this "
+                    + "block sets — `EditorPlayback.isBypassed`, `EditorStore.showsCompareLane` "
+                    + "and the seeded processed pictures — is cleared by a scene rather than by "
+                    + "whoever appends the next one remembering to. `EditorTimeline` and "
+                    + "`EditorClipWaveforms` have the same trap and are cleared by "
+                    + "`applyAppearance`; these two are not, and adding them there is a change "
+                    + "to a hook four other builders are writing against this week.",
+                prepare: {
+                    resetCompareState()
+                    EditorClipWaveforms.shared.resetForSnapshot()
+                }
+            ) { AnyView(Color.clear) }
+        )
+
+        // MARK: - Simple and Full
+        //
+        // `.run-notes/TIMELINE-FRAME.md` recorded a decision against two modes
+        // and the owner reversed it; the reversal is written into that file.
+        // The rule the reversal is built on is the one these frames exist to
+        // hold: **switching adds and removes what is drawn, and never moves the
+        // timeline, the waveform, or a byte of the document.**
+        //
+        // ## What each of these can and cannot prove
+        //
+        // A pixel diff says the window changed. It cannot say the document
+        // survived, and it cannot tell "the pane redrew" from "the time axis
+        // refitted and every sample is now three points to the left". So every
+        // pair here carries `assertBefore`/`assertAfter` reading live state,
+        // and the pixel comparison is the *weaker* of the two checks rather
+        // than the only one:
+        //
+        //  * `modeIs` — the store landed where the scene's name says.
+        //  * `documentUnchanged` — `EditorStore.documentFingerprintForSnapshot`
+        //    encodes the document either side of the switch and the bytes must
+        //    match. This is the assertion that matters most and the one with
+        //    the nastiest failure behind it: a mode that quietly drops a pan it
+        //    is about to stop drawing would survive every frame anybody looked
+        //    at, and the user would find out at export.
+        //  * `viewportUnchanged` — `EditorTimeline.shared.viewport` is
+        //    `Equatable` and holds start, visible span, duration, sample rate
+        //    and pane width. Identical either side is the executable form of
+        //    "it never moves the waveform" on the axis a waveform is drawn
+        //    along. It is not a claim about the pane's *height*: Full's clip
+        //    strip costs the timeline 26 points and `EditorClipStrip` says so.
+        //
+        // ## The floor, measured rather than chosen
+        //
+        // This is the Cutting Room window family — 1000×640, layer capture,
+        // store seeded through `setForSnapshot` — and that family's idle noise
+        // is on record. Across the `_transitions.log` files of previous runs on
+        // this machine: `control-cutting-room` 16 runs, `control-cutting-room-
+        // render` 16, `control-editor-jobs` 16, `control-cutting-room-
+        // multitrack` 8 — **fifty-six negative-control measurements, every one
+        // of them 0.0000%**. Nothing in this window animates on its own; there
+        // is no pointer halo and no starfield on the layer path.
+        //
+        // The smallest *real* change recorded in the same family is
+        // `cutting-room-stack-disables` at **1.8813%** — one toggle flipping on
+        // one row of the 320pt pane. So the gap between noise and signal here
+        // is the whole interval from 0 to 1.88, and the harness default of 1%
+        // sits in it with two orders of magnitude of margin on the noise side.
+        // The two `must exceed` pairs below keep that default. `control-editor-
+        // mode` re-measures the number on every run rather than trusting this
+        // paragraph, seeded exactly as the transitions are.
+        //
+        // The round trip's ceiling is **tighter than the default and is derived
+        // rather than picked**: 0.05%. A 1000×640 frame is 640 rows, so one
+        // full-width hairline moving is 1/640 = 0.156% of it. 0.05% is a third
+        // of a hairline — under the smallest visible artifact a mode switch
+        // could leave behind, and still infinitely above the measured 0.0000%.
+        // Leaving it at 1% would let a switch come back with six points of the
+        // pane redrawn wrong and call it identical.
+
+        /// Carries a fingerprint from the moment before a switch to the
+        /// assertion that runs after it.
+        ///
+        /// A local class rather than a captured `var`: the two closures are
+        /// escaping and are handed to the harness separately, and this makes
+        /// what is shared between them a named thing rather than a box the
+        /// compiler happens to make. It is also the only honest way to do it —
+        /// the fingerprint cannot be taken in `prepare`, because `prepare`
+        /// builds a *new* document with fresh UUIDs every time it runs, so a
+        /// before-frame's fingerprint and an after-frame's would differ for
+        /// reasons that have nothing to do with the mode.
+        final class ModeWitness {
+            var document: Data?
+            var viewport: EditorTimelineViewport?
+            /// Set when `act` ran, so an assertion cannot silently pass on a
+            /// scene whose action never happened.
+            var acted = false
+        }
+
+        /// Everything the mode family needs, in one call: appearance, a
+        /// document, per-source pictures, a known viewport, panels, and the
+        /// mode itself.
+        ///
+        /// **The mode is stated by every scene here, including the Simple
+        /// ones.** `EditorStore.mode` is read out of `UserDefaults` when the
+        /// singleton is built, and the harness runs on a machine where somebody
+        /// may have chosen Full in the real app — so a scene that said nothing
+        /// would render whichever mode the developer last used. Same trap
+        /// `applyAppearance` exists for.
+        @MainActor func seedMode(
+            _ mode: EditorMode,
+            tracks: Int = 1,
+            panels: Set<EditorPanel>,
+            scheme: ColorScheme = .dark
+        ) {
+            applyAppearance(scheme)
+            if tracks > 1 {
+                installDocument(
+                    EditorTrackFixtures.document(
+                        source: editorSource,
+                        trackCount: tracks,
+                        names: [0: "Host", 1: "Guest", 2: "Music bed"],
+                        gains: [1: -3.5, 2: -12],
+                        pans: [1: -0.3, 2: 0.45],
+                        master: proposedMoves,
+                        destination: DestinationCatalogue.podcast,
+                        analysis: quietReport
+                    ),
+                    playhead: 58,
+                    selectedClips: [1],
+                    selectedTrack: 1
+                )
+            } else {
+                seedEditor(
+                    moves: proposedMoves,
+                    destination: DestinationCatalogue.podcast,
+                    analysis: quietReport,
+                    playhead: 58
+                )
+            }
+            // A known window, set before the view exists, so `adopt` in the
+            // waveform's body is a no-op and `viewportUnchanged` is comparing
+            // the axis rather than racing the first layout pass. See
+            // `primeTimeline`'s own note.
+            primeTimeline(zoom: 1, width: timelineSize.width)
+            editor.setOpenPanelsForSnapshot(panels)
+            editor.setModeForSnapshot(mode)
+        }
+
+        @MainActor func modeIs(_ expected: EditorMode) -> (@MainActor (NSView) -> String?) {
+            { _ in
+                editor.mode == expected
+                    ? nil
+                    : "mode is \(editor.mode.rawValue), expected \(expected.rawValue)"
+            }
+        }
+
+        /// Takes the two readings a switch must not disturb.
+        @MainActor func witness(_ box: ModeWitness) {
+            box.document = editor.documentFingerprintForSnapshot()
+            box.viewport = EditorTimeline.shared.viewport
+            box.acted = true
+        }
+
+        /// The whole invariant, in one assertion, reported with enough detail
+        /// to act on.
+        ///
+        /// Every branch names what it saw. A check that fails with "the
+        /// document changed" sends the next reader back into the render to find
+        /// out how; the byte counts and the two viewports do not answer that on
+        /// their own either, but they say *which* of the three things moved,
+        /// which is the difference between a morning and a minute.
+        @MainActor func unchanged(
+            _ box: ModeWitness,
+            mode expected: EditorMode
+        ) -> (@MainActor (NSView) -> String?) {
+            { _ in
+                guard box.acted else {
+                    return "the action never ran, so nothing was compared — this assertion "
+                        + "would have passed on an empty act"
+                }
+                if editor.mode != expected {
+                    return "mode is \(editor.mode.rawValue), expected \(expected.rawValue)"
+                }
+                // The comparison itself is in `EditorDocumentFingerprint.swift`
+                // rather than here, and that file's header says why: a check
+                // written inside a closure only the harness can reach can only
+                // be exercised by a full render, so nothing proves it is
+                // capable of failing. Out there it is a pure function a
+                // four-file `swiftc` run can be pointed at.
+                if let complaint = EditorDocument.modeSwitchComplaint(
+                    before: box.document,
+                    after: editor.documentFingerprintForSnapshot()
+                ) {
+                    return complaint
+                }
+                guard let viewportBefore = box.viewport else {
+                    return "no viewport was taken before the switch"
+                }
+                let viewportAfter = EditorTimeline.shared.viewport
+                // The **time window**, and deliberately not the pane's width.
+                //
+                // Measured: this compared whole viewports and reported
+                // "124.999…125.001 over 478.0pt, now …over 679.0pt" on a pair
+                // whose two frames are pixel-for-pixel the same width. The time
+                // window was identical to the last decimal; only the width
+                // differed, and 679 is the correct one. The width reaches
+                // `EditorTimeline` a run-loop turn *after* layout — it has to,
+                // because writing it during layout is the re-entrancy crash this
+                // project already paid for — so the BEFORE frame reads the
+                // previous scene's width and the AFTER frame reads this one's.
+                // A stale number on one side of the pair is not a mode moving a
+                // waveform.
+                //
+                // Nothing is lost by dropping it. "Full must not move the
+                // waveform" is a claim about which slice of time is under the
+                // pointer, which is what these three fields are; a pane that
+                // genuinely changed width would move every pixel in the
+                // timeline and the transition's own comparison covers that.
+                if viewportBefore.start != viewportAfter.start
+                    || viewportBefore.end != viewportAfter.end
+                    || viewportBefore.duration != viewportAfter.duration {
+                    return "THE MODE MOVED THE TIMELINE — window was "
+                        + "\(viewportBefore.start)…\(viewportBefore.end) of "
+                        + "\(viewportBefore.duration)s, now "
+                        + "\(viewportAfter.start)…\(viewportAfter.end) of "
+                        + "\(viewportAfter.duration)s."
+                }
+                return nil
+            }
+        }
+
+        let modeCaveat = " " + SnapshotHarness.bindingCaveat
+
+        let toFull = ModeWitness()
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-mode-to-full",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "BEFORE is what everybody gets: Simple, one sound, the destination picker and "
+                + "the Chain. AFTER is the same window one press later. Read the pane first — "
+                + "Master is a fourth header that was not there, and the Chain's rows have "
+                + "gained the chevron that opens each move's own controls. Then read the strip "
+                + "under the transport, which is the selected clip's numbers and the only thing "
+                + "here that costs the timeline any height. Nothing in the waveform may have "
+                + "moved sideways; the assertion checks that as numbers rather than by eye."
+                + modeCaveat,
+            prepare: { seedMode(.simple, panels: [.destination, .chain]) },
+            act: {
+                witness(toFull)
+                editor.setMode(.full)
+            },
+            assertBefore: modeIs(.simple),
+            assertAfter: unchanged(toFull, mode: .full)
+        ) { editorWindow() }
+
+        let tracksToFull = ModeWitness()
+        scenes += SnapshotHarness.transition(
+            name: "cutting-room-mode-tracks-to-full",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "Three lanes, and this is the frame the track headers are judged on. In BOTH "
+                + "frames every header carries a colour band down its leading edge — the one "
+                + "thing the VEGAS screenshot gives away for free — and a level bar under its "
+                + "name. AFTER adds the decibel ladder under each bar and the pan slider under "
+                + "each fader. **The lanes must be the same height in both frames**: "
+                + "`EditorTrackMetrics.minimumLaneHeight` reserves Full's two extra rows in "
+                + "Simple as well, precisely so a mode switch cannot resize a waveform. Judge "
+                + "that by laying the two frames over each other, and the time axis by the "
+                + "assertion." + modeCaveat,
+            prepare: { seedMode(.simple, tracks: 3, panels: [.chain]) },
+            act: {
+                witness(tracksToFull)
+                editor.setMode(.full)
+            },
+            assertBefore: modeIs(.simple),
+            assertAfter: unchanged(tracksToFull, mode: .full)
+        ) { editorWindow() }
+
+        // Hand-built rather than `transition(...)` or `negativeControl(...)`,
+        // because it is neither: the action is real and the frames must
+        // **match**. `transition` hard-codes `mustDiffer: true` and
+        // `negativeControl` hard-codes an empty act, and the shape between them
+        // — a real action that must come back to where it started — is the only
+        // way to state idempotence as a picture. `pair(...)` is private, so the
+        // two `Scene`s are written out; they are the same shape it builds.
+        let roundTrip = ModeWitness()
+        let roundTripCeiling = 0.0005
+        let roundTripNote =
+            "ROUND TRIP: Simple → Full → Simple, in one action, and the two frames must MATCH to "
+            + "within 0.05% of pixels. Not a negative control — the action really runs, twice — "
+            + "and not a transition, because a mode that cannot be undone exactly is a mode "
+            + "nobody can safely try. The assertion is the stronger half: the document's encoded "
+            + "bytes and the timeline's window are compared either side, so a switch that "
+            + "dropped a pan value or refitted the zoom fails even if the pixels happen to land "
+            + "back where they were." + modeCaveat
+        let roundTripContent: @MainActor () -> AnyView = { editorWindow() }
+        let roundTripPrepare: @MainActor () -> Void = {
+            seedMode(.simple, tracks: 3, panels: [.destination, .chain])
+        }
+        scenes.append(
+            SnapshotHarness.Scene(
+                name: "cutting-room-mode-round-trip-before",
+                size: editorSize,
+                colorScheme: .dark,
+                prepare: roundTripPrepare,
+                assertOnHost: modeIs(.simple),
+                note: roundTripNote,
+                content: roundTripContent
+            )
+        )
+        scenes.append(
+            SnapshotHarness.Scene(
+                name: "cutting-room-mode-round-trip-after",
+                size: editorSize,
+                colorScheme: .dark,
+                prepare: {
+                    roundTripPrepare()
+                    SnapshotHarness.settle(seconds: 0.3)
+                    witness(roundTrip)
+                    editor.setMode(.full)
+                    // Settled in between, so the Full state is really built and
+                    // laid out rather than collapsed into one turn of the run
+                    // loop with the switch back. A round trip that never
+                    // reached Full proves nothing about coming home from it.
+                    SnapshotHarness.settle(seconds: 0.3)
+                    editor.setMode(.simple)
+                    SnapshotHarness.settle(seconds: 0.3)
+                },
+                assertOnHost: unchanged(roundTrip, mode: .simple),
+                comparison: SnapshotHarness.Comparison(
+                    partner: "cutting-room-mode-round-trip-before",
+                    mustDiffer: false,
+                    floor: roundTripCeiling
+                ),
+                note: roundTripNote,
+                content: roundTripContent
+            )
+        )
+
+        scenes += SnapshotHarness.negativeControl(
+            name: "control-editor-mode",
+            size: editorSize,
+            colorScheme: .dark,
+            note: "Mode family. Seeded exactly as `cutting-room-mode-to-full`'s BEFORE frame is, "
+                + "with the act removed. The two pairs above assert that this window differs "
+                + "when the mode changes; this is the statement that it does NOT differ when "
+                + "nothing changes, which is the only thing that makes them mean anything. It "
+                + "also re-measures the family's noise on every run, so the 1% floor and the "
+                + "round trip's 0.05% ceiling stop being a paragraph and start being a number.",
+            prepare: { seedMode(.simple, panels: [.destination, .chain]) }
+        ) { editorWindow() }
 
         return scenes
     }

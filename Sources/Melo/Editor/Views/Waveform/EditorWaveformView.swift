@@ -444,6 +444,7 @@ struct EditorWaveformView: View {
                     window: plan.window,
                     selection: store.selection,
                     isBypassed: playback.isBypassed,
+                    comparing: store.showsCompareLane,
                     style: seededStyle ?? storedStyle,
                     scheme: colorScheme
                 )
@@ -499,6 +500,15 @@ struct EditorWaveformView: View {
                 afterLayout { requestDetail(plan) }
             }
             .onChange(of: documentStamp) { _, _ in requestDetail(plan) }
+            // The switch, and the chain behind it. `documentStamp` above is
+            // deliberately cheap — sources, clip count, length — so it does not
+            // notice a move's *value* changing, which is exactly the edit a
+            // compare picture goes stale on. Watching the chain stamp is what
+            // makes dragging a gain slider redraw the strip's partner; watching
+            // the switch is what starts the first render at all, since turning
+            // the lane on changes nothing else the view already observes.
+            .onChange(of: store.showsCompareLane) { _, _ in requestDetail(plan) }
+            .onChange(of: plan.chain) { _, _ in requestDetail(plan) }
             .onChange(of: plan.window) { _, _ in requestDetail(plan) }
             .onChange(of: store.selection) { _, selection in
                 if let selection { timeline.reveal(range: selection) }
@@ -533,6 +543,13 @@ struct EditorWaveformView: View {
         var frames: [EditorClipFrame]
         var lanes: [[EditorTimelineClipDrawing]]
         var needs: [EditorClipWaveforms.Need]
+        /// Empty whenever the compare lane is off, which is what keeps the
+        /// second render from ever being started for somebody who is not
+        /// comparing anything.
+        var compareNeeds: [EditorClipWaveforms.ProcessedNeed] = []
+        /// The document stamp every compare picture in this pass was looked up
+        /// against. Empty with the lane off.
+        var chain: String = ""
     }
 
     private func plan(for size: CGSize) -> Plan {
@@ -566,9 +583,18 @@ struct EditorWaveformView: View {
         let showsNames = resolved.count > 1 || laneCount > 1
         let liveIDs = edit?.ids ?? []
 
+        // One reflected pass over the document's moves, once per drawing pass,
+        // and **only** when the lane is on. See `EditorChain.stamp`: per clip it
+        // would be the same work multiplied by the clip count at sixty frames a
+        // second, which is why the processed cache is keyed by clip id and
+        // stamped as a whole.
+        let comparing = store.showsCompareLane
+        let chain = comparing ? EditorChain.stamp(document) : ""
+
         var frames: [EditorClipFrame] = []
         var lanes = [[EditorTimelineClipDrawing]](repeating: [], count: laneCount)
         var needs: [EditorClipWaveforms.Need] = []
+        var compareNeeds: [EditorClipWaveforms.ProcessedNeed] = []
 
         for entry in resolved {
             let clip = entry.clip
@@ -594,15 +620,36 @@ struct EditorWaveformView: View {
             let laneRect = EditorTimelineGeometry.laneRect(
                 index: entry.trackIndex, count: laneCount, in: lanesRect
             )
+            // The clip's own part of the lane, which is shorter while the
+            // compare strip is taking the bottom of it. Read here rather than
+            // only in the canvas because the stereo-split decision is made off
+            // this height, and a clip that split its channels in the plan and
+            // was drawn short in the canvas would draw two 12pt stripes.
+            let clipRect = EditorTimelineGeometry.clipRect(in: laneRect, comparing: comparing)
             let widthOnScreen = timeline.x(for: upper, width: size.width)
                 - timeline.x(for: lower, width: size.width)
             let count = columnCount(for: widthOnScreen)
-            guard count > 0, laneRect.height > 4 else { continue }
+            guard count > 0, clipRect.height > 4 else { continue }
 
             let sourceRange = clip.sourceTime(atTimelineTime: lower)...clip.sourceTime(atTimelineTime: upper)
             needs.append(
                 EditorClipWaveforms.Need(sourceID: clip.sourceID, range: sourceRange, columns: count)
             )
+
+            let moves = comparing
+                ? EditorChain.effectiveChain(
+                    clip: clip,
+                    track: document.tracks[entry.trackIndex],
+                    document: document
+                )
+                : []
+            if comparing, !moves.isEmpty, let source = document.source(clip.sourceID) {
+                compareNeeds.append(
+                    EditorClipWaveforms.ProcessedNeed(
+                        clipID: clip.id, source: source, moves: moves
+                    )
+                )
+            }
 
             let channels = channelColumns(
                 for: clip,
@@ -610,9 +657,25 @@ struct EditorWaveformView: View {
                 sourceRange: sourceRange,
                 timelineRange: lower...upper,
                 count: count,
-                splittable: laneRect.height - EditorWaveformMetrics.clipTitleHeight
-                    >= EditorWaveformMetrics.channelSplitMinimumHeight
+                splittable: clipRect.height - EditorWaveformMetrics.clipTitleHeight
+                    >= EditorWaveformMetrics.channelSplitMinimumHeight,
+                chain: chain
             )
+
+            // The reference, and only when there is a strip to put it in. Never
+            // envelope-scaled and never chain-processed: "untouched original"
+            // is the whole claim the strip makes, and a reference that carried
+            // the clip's own gain would make a gain move invisible in the one
+            // picture that exists to show it.
+            let compare = comparing && EditorTimelineGeometry.compareRect(in: laneRect) != nil
+                ? compareColumns(
+                    for: clip,
+                    document: document,
+                    sourceRange: sourceRange,
+                    timelineRange: lower...upper,
+                    count: count
+                )
+                : []
 
             lanes[entry.trackIndex].append(
                 EditorTimelineClipDrawing(
@@ -629,7 +692,13 @@ struct EditorWaveformView: View {
                     isLive: liveIDs.contains(clip.id),
                     visible: lower...upper,
                     channels: channels.columns,
-                    isDense: channels.isDense
+                    isDense: channels.isDense,
+                    original: compare,
+                    // A clip with no chain has nothing to render and is not
+                    // waiting on anything: its two lanes are honestly the same
+                    // audio, and the strip says "Original" rather than
+                    // confessing to a render that was never started.
+                    isChainRendered: moves.isEmpty || channels.isProcessed
                 )
             )
         }
@@ -640,7 +709,9 @@ struct EditorWaveformView: View {
             trackIDs: document.tracks.map(\.id),
             frames: frames,
             lanes: lanes,
-            needs: needs
+            needs: needs,
+            compareNeeds: compareNeeds,
+            chain: chain
         )
     }
 
@@ -746,14 +817,46 @@ struct EditorWaveformView: View {
         sourceRange: ClosedRange<TimeInterval>,
         timelineRange: ClosedRange<TimeInterval>,
         count: Int,
-        splittable: Bool
-    ) -> (columns: [[EditorWaveformColumn]], isDense: Bool) {
+        splittable: Bool,
+        chain: String
+    ) -> (columns: [[EditorWaveformColumn]], isDense: Bool, isProcessed: Bool) {
         let channels = max(1, document.source(clip.sourceID)?.channelCount ?? 1)
 
         var raw: [[EditorWaveformColumn]] = []
         var isDense = false
+        var isProcessed = false
 
-        if let (data, covering) = clipWaveforms.buckets(
+        // **The chain's picture wins when there is one, and this is the reversal
+        // of a decision recorded in `EditorClipWaveforms`' file comment.** That
+        // comment says the move stacks no longer tint the picture, and the
+        // argument was sound: the mix has one timeline and the lanes have many,
+        // so there is no honest per-track drawing *of the mix*. This is not the
+        // mix. It is the same one-source isolated document the detail path
+        // already builds, with the clip's tone-and-level chain on it — filtered
+        // so it cannot move a sample in time, which is what keeps it mapped
+        // onto the clip's own span. The cost is one render per on-screen clip
+        // with a chain, and it is bought by the compare switch: with the lane
+        // off, `chain` is empty, this lookup misses by construction, and the
+        // clip draws exactly what it drew before.
+        if !chain.isEmpty,
+           let (data, covering) = clipWaveforms.processedBuckets(for: clip.id, chain: chain),
+           !data.buckets.isEmpty {
+            let lanes = EditorWaveformSampler.laneCount(bucketCount: data.buckets.count, channels: channels)
+            raw = (0..<lanes).map { lane in
+                EditorWaveformSampler.columns(
+                    buckets: data.buckets,
+                    lanes: lanes, lane: lane,
+                    covering: covering, window: sourceRange, count: count
+                )
+            }
+            // The processed picture is a whole-source overview at the same 2048
+            // buckets the raw one uses, so it answers the density question the
+            // same way the raw overview does.
+            isDense = clipWaveforms.isDense(
+                sourceID: clip.sourceID, covering: sourceRange, columns: count, channels: channels
+            )
+            isProcessed = true
+        } else if let (data, covering) = clipWaveforms.buckets(
             for: clip.sourceID, covering: sourceRange, columns: count
         ), !data.buckets.isEmpty {
             let lanes = EditorWaveformSampler.laneCount(bucketCount: data.buckets.count, channels: channels)
@@ -782,7 +885,7 @@ struct EditorWaveformView: View {
             isDense = perLane * span / overview.duration >= Double(count) * 0.6
         }
 
-        guard !raw.isEmpty else { return ([], false) }
+        guard !raw.isEmpty else { return ([], false, false) }
         if !splittable, raw.count > 1 {
             // Too short to split honestly: one lane carrying the widest
             // excursion either channel saw. A 15pt stripe per channel is not a
@@ -800,7 +903,7 @@ struct EditorWaveformView: View {
         let clipDuration = clip.duration
         let span = timelineRange.upperBound - timelineRange.lowerBound
         let needsEnvelope = clip.fadeIn > 0 || clip.fadeOut > 0 || gain != 1
-        guard needsEnvelope, span > 0 else { return (raw, isDense) }
+        guard needsEnvelope, span > 0 else { return (raw, isDense, isProcessed) }
 
         let scaled = raw.map { lane in
             lane.enumerated().map { index, column -> EditorWaveformColumn in
@@ -815,7 +918,67 @@ struct EditorWaveformView: View {
                 return column.scaled(by: gain * envelope)
             }
         }
-        return (scaled, isDense)
+        return (scaled, isDense, isProcessed)
+    }
+
+    /// The clip's window of its source with **nothing** applied: no chain, no
+    /// clip gain, no fades.
+    ///
+    /// Three deliberate differences from `channelColumns`, each of which is the
+    /// point of the strip rather than a simplification of it.
+    ///
+    /// 1. **It never looks at the processed picture.** If it did, the strip
+    ///    would be the second drawing of the same thing and the lane would be
+    ///    decoration.
+    /// 2. **It never scales by the envelope.** A gain move and a clip fader
+    ///    both change level, and the only way to see either is a reference that
+    ///    has neither in it.
+    /// 3. **It always merges to one lane.** The strip is 30 points; two 13pt
+    ///    halves is the stereo split the channel-split floor already rejects,
+    ///    and the reference's job is level and shape over time, not imaging.
+    ///
+    /// It draws from the same three sources in the same order as the clip
+    /// above, so a scene with only the store's mix overview seeded still gets a
+    /// strip rather than nothing — which is the fallback that keeps every frame
+    /// written before this lane existed rendering unchanged.
+    private func compareColumns(
+        for clip: Clip,
+        document: EditorDocument,
+        sourceRange: ClosedRange<TimeInterval>,
+        timelineRange: ClosedRange<TimeInterval>,
+        count: Int
+    ) -> [[EditorWaveformColumn]] {
+        let channels = max(1, document.source(clip.sourceID)?.channelCount ?? 1)
+        var raw: [[EditorWaveformColumn]] = []
+
+        if let (data, covering) = clipWaveforms.buckets(
+            for: clip.sourceID, covering: sourceRange, columns: count
+        ), !data.buckets.isEmpty {
+            let lanes = EditorWaveformSampler.laneCount(bucketCount: data.buckets.count, channels: channels)
+            raw = (0..<lanes).map { lane in
+                EditorWaveformSampler.columns(
+                    buckets: data.buckets,
+                    lanes: lanes, lane: lane,
+                    covering: covering, window: sourceRange, count: count
+                )
+            }
+        } else if let overview = store.waveform, !overview.buckets.isEmpty, overview.duration > 0 {
+            let lanes = EditorWaveformSampler.laneCount(bucketCount: overview.buckets.count, channels: channels)
+            raw = (0..<lanes).map { lane in
+                EditorWaveformSampler.columns(
+                    buckets: overview.buckets,
+                    lanes: lanes, lane: lane,
+                    covering: 0...overview.duration,
+                    window: timelineRange, count: count
+                )
+            }
+        }
+
+        guard !raw.isEmpty else { return [] }
+        guard raw.count > 1 else { return raw }
+        return [(0..<count).map { index in
+            EditorWaveformColumn.merged(raw.map { $0[index] })
+        }]
     }
 
     /// Cheap identity for "the project changed". Comparing the whole document on
@@ -846,6 +1009,18 @@ struct EditorWaveformView: View {
             return
         }
         clipWaveforms.request(document: document, engine: store.renderEngine, needs: plan.needs)
+        // Only ever non-empty with the compare lane on and a chain that does
+        // something, so the second render is not merely *skipped* when nobody
+        // is comparing — it is never asked for. The same debounced hooks the
+        // detail request rides on (`onAppear`, the document stamp, the window)
+        // carry this, plus one more for the switch itself.
+        guard !plan.compareNeeds.isEmpty else { return }
+        clipWaveforms.requestProcessed(
+            document: document,
+            engine: store.renderEngine,
+            chain: plan.chain,
+            needs: plan.compareNeeds
+        )
     }
 
     /// An opening window for a render scene. Always `nil` outside `MELO_DEV`.

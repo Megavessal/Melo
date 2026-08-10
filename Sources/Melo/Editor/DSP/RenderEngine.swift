@@ -693,7 +693,7 @@ actor RenderEngine {
         var errorDescription: String? {
             switch self {
             case .emptyRender:
-                return "That stack leaves nothing to play."
+                return "That Chain leaves nothing to play."
             case .mixedRates:
                 return "Those files record at rates Melo couldn't line up."
             }

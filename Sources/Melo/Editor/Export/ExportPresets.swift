@@ -303,7 +303,7 @@ enum ExportSizeEstimate {
     /// The length the export will actually be. Trim and speed are exact and
     /// worth honouring — a trim to 30 seconds should not quote the size of the
     /// whole file. Silence removal shortens things further, so an estimate
-    /// with one of those in the stack reads high.
+    /// with one of those in the Chain reads high.
     static func estimatedDuration(source: EditorSource, moves: [Move]) -> TimeInterval {
         var duration = source.duration
         for move in moves where move.isEnabled {

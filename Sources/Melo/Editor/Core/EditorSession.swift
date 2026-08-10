@@ -1,12 +1,12 @@
 // Melo/Editor/Core/EditorSession.swift
 //
-// The sidecar that makes the move stack survive closing the window. Reopening
-// a file you were working on yesterday puts the stack back — which is the point
-// of editing non-destructively at all. If the stack disappears with the window,
+// The sidecar that makes the Chain survive closing the window. Reopening a
+// file you were working on yesterday puts the Chain back — which is the point
+// of editing non-destructively at all. If the Chain disappears with the window,
 // it is just an undo history with extra steps.
 //
 // Lives in `~/Library/Application Support/Melo/CuttingRoom/` — still the 3.1.0
-// spelling, because it holds the user's saved move stacks and renaming the
+// spelling, because it holds the user's saved Chains and renaming the
 // directory would orphan every one of them. Beside the
 // AutoEQ cache, and reaches that directory the same way `AutoEQFetcher` and
 // `AutoEQProfileLoader` do.
@@ -22,7 +22,7 @@ struct EditorSession: Codable, Equatable, Sendable {
     /// One, downgrade is a path people take — every release from 2.9.0 on is
     /// still attached to the releases page — and a 3.1.x build reading a
     /// sidecar with no `moves` key fails the decode and silently discards the
-    /// stack. Two, it is what a 3.1.x sidecar carries, so `restore(into:)` has
+    /// Chain. Two, it is what a 3.1.x sidecar carries, so `restore(into:)` has
     /// one field to read on both sides of the migration.
     var moves: [Move]
     /// The destination's id, not the destination. Resolved through
@@ -40,7 +40,7 @@ struct EditorSession: Codable, Equatable, Sendable {
     /// it: every Melo release from 2.9.0 on is still attached to the GitHub
     /// releases page, so downgrade is a path people actually take, and this key
     /// is not optional. A 3.1.0 install decoding a sidecar written without it
-    /// fails the decode and **silently discards the user's move stack** — no
+    /// fails the decode and **silently discards the user's Chain** — no
     /// crash, no error, just work that does not come back, which is the failure
     /// mode this project spends the most effort avoiding. Rejected 2026-08-09:
     /// removing it as a write-only member. One unread `Date` is the whole cost.
@@ -53,7 +53,7 @@ struct EditorSession: Codable, Equatable, Sendable {
     // `restore(into:)` reads that as "one track, one clip, moves on the
     // master". Adding either as non-optional would fail the decode of every
     // sidecar written by every previous build, so the first open after the
-    // update would erase every move stack on the machine — the schema trap
+    // update would erase every Chain on the machine — the schema trap
     // `load(for:)` already carries a comment about, sprung from the other end.
 
     /// The whole source pool, because a clip refers to a source by id and a
@@ -62,6 +62,28 @@ struct EditorSession: Codable, Equatable, Sendable {
     var sources: [EditorSource]?
     /// The lanes, their clips, and their per-track and per-clip moves.
     var tracks: [Track]?
+
+    // MARK: 3.3 — which panels were open
+
+    /// `EditorPanel` raw values, sorted, or `nil` when the sidecar predates the
+    /// docked-panel rebuild.
+    ///
+    /// Optional for the same reason `tracks` and `sources` are, and the
+    /// distinction is load-bearing rather than tidy: `nil` means *nobody said*,
+    /// which the window resolves to `EditorPanel.defaults(forMoveCount:)`, while
+    /// `[]` means the user closed all three and meant it. Decoding a missing key
+    /// as an empty set would reopen every pre-3.3 document with a pane full of
+    /// nothing but headers.
+    ///
+    /// Stored sorted rather than as a `Set` because `JSONEncoder` has no set
+    /// ordering to promise and `outputFormatting` includes `.sortedKeys` — a
+    /// sidecar whose bytes change when nothing changed is a file that looks
+    /// edited to every tool that watches it.
+    ///
+    /// **Not on `EditorDocument`.** Undo is an array of twelve documents, so a
+    /// panel state carried there would be undone: press ⌘Z after opening a
+    /// panel and the panel shuts, which is not what anybody means by undo.
+    var openPanels: [String]?
 
     /// Cheap evidence that the file on disk is still the file we measured.
     /// Size and modification date, not a content hash: hashing a 400 MB WAV on
@@ -95,7 +117,7 @@ extension EditorSession {
 
     // There was a cap here — newest two hundred sidecars kept, oldest deleted
     // on write — and it is gone for the same reason the source prune is. A
-    // sidecar is small, but it is the user's move stack, and silently dropping
+    // sidecar is small, but it is the user's Chain, and silently dropping
     // the two-hundred-and-first is the same defect at a smaller scale. Two
     // hundred sessions is under 200 KB, so the cap was never buying storage;
     // it was buying tidiness at the price of somebody's work. Keeping it while
@@ -115,12 +137,12 @@ extension EditorSession {
 
     /// SHA-256 of the file's resolved absolute path.
     ///
-    /// Keyed by path, which means renaming or moving the file loses its stack.
+    /// Keyed by path, which means renaming or moving the file loses its Chain.
     /// The alternative — keying by a hash of the file's *contents* — survives a
     /// move but has to read the whole file before the editor can show anything,
     /// on every open, for a feature the user notices only when it works. The
     /// path is also what identifies the file everywhere else in the UI, so
-    /// losing the stack on a rename is at least consistent with what the user
+    /// losing the Chain on a rename is at least consistent with what the user
     /// just did. Hashed rather than escaped so the filename is a fixed length
     /// and reveals nothing about where the user keeps their audio.
     static func key(for url: URL) -> String {
@@ -146,7 +168,7 @@ extension EditorSession {
             // reads as tidying up a corrupt sidecar but is really a schema
             // trap: add one non-optional field to `EditorSession` and every
             // sidecar written by every previous build fails to decode, so the
-            // first open after the update erases every move stack the user has.
+            // first open after the update erases every Chain the user has.
             // Ignoring it costs one failed decode and the next save overwrites
             // it anyway, because the key is the same.
             logger.warning("Ignoring an unreadable Melo Edit session")
@@ -170,7 +192,7 @@ extension EditorSession {
     /// the default alone and puts `moves` on the master, which is what those
     /// moves always meant.
     ///
-    /// **Nobody sees a notice**, and nobody loses a stack. Anything about the
+    /// **Nobody sees a notice**, and nobody loses a Chain. Anything about the
     /// saved timeline that does not fit the file actually on disk falls back to
     /// that same branch rather than dropping the moves.
     func restore(into document: inout EditorDocument) {
@@ -211,7 +233,10 @@ extension EditorSession {
     /// Writes the sidecar for `document`. Silent on failure by design: a
     /// sidecar that cannot be written must not interrupt an edit, and the user
     /// loses nothing they can see until they close the window.
-    static func save(_ document: EditorDocument) {
+    /// `openPanels` is a parameter rather than a field read off `document`
+    /// because it is not part of the document — see the property's own note.
+    /// The one caller is `EditorStore.writeSession()`, which holds both.
+    static func save(_ document: EditorDocument, openPanels: Set<EditorPanel>) {
         let url = document.source.url
         guard let fingerprint = Fingerprint.of(url) else { return }
 
@@ -222,7 +247,8 @@ extension EditorSession {
             fingerprint: fingerprint,
             savedAt: Date(),
             sources: document.sources,
-            tracks: document.tracks
+            tracks: document.tracks,
+            openPanels: openPanels.map(\.rawValue).sorted()
         )
 
         do {

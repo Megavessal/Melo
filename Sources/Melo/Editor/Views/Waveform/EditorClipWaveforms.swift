@@ -80,8 +80,49 @@ final class EditorClipWaveforms: ObservableObject {
         var columns: Int
     }
 
+    /// One on-screen clip whose chain the compare lane needs a picture of.
+    ///
+    /// Carries the source rather than its id: the render is of a synthetic
+    /// one-source document, and looking the source back up on the far side of
+    /// an `await` is a lookup into a document that may have moved on.
+    struct ProcessedNeed {
+        var clipID: Clip.ID
+        var source: EditorSource
+        /// Already through `EditorChain.effectiveChain`, so it holds only
+        /// enabled moves that do not shape time. That filter is what guarantees
+        /// the render comes back the same length as the source, which is what
+        /// lets the strip be drawn against the clip's own span of the ruler.
+        var moves: [Move]
+    }
+
+    /// One clip's audio after its chain, for the compare lane.
+    ///
+    /// **Keyed by clip, not by source**, because the chain is per clip: two
+    /// clips cut from one file can carry different stacks, and one entry per
+    /// source would have drawn one of them through the other's moves. The cost
+    /// is that two clips with identical chains render twice. Measured against
+    /// the alternative — keying by a per-clip fingerprint of the chain — that
+    /// alternative loses on the hot path, not on the render: `stamp` is one
+    /// reflected pass over the document per drawing frame, and per clip it
+    /// would be one per clip per frame at sixty frames a second.
+    struct Processed: Equatable {
+        var data: WaveformData
+        var covering: ClosedRange<TimeInterval>
+    }
+
     @Published private(set) var overviews: [UUID: Overview] = [:]
     @Published private(set) var detail: Detail?
+    @Published private(set) var processed: [Clip.ID: Processed] = [:]
+
+    /// The document chain every entry in `processed` was rendered against.
+    ///
+    /// One string for the whole map rather than one per entry. When the user
+    /// changes any move, this stops matching and **every** processed picture is
+    /// stale at once — which is the truth: the master stack is in every clip's
+    /// effective chain, so a master edit really does invalidate all of them, and
+    /// a per-entry stamp would spend a comparison per clip per frame to
+    /// discover the same thing.
+    private var processedChain: String?
 
     /// Buckets in a source overview. The same number the store asks for, for
     /// the same reason: wide enough for a full-width waveform on a Retina
@@ -94,6 +135,8 @@ final class EditorClipWaveforms: ObservableObject {
 
     private var overviewWork: Task<Void, Never>?
     private var overviewQueue: [UUID] = []
+    private var processedWork: Task<Void, Never>?
+    private var processedQueue: [ProcessedNeed] = []
     private var detailWork: Task<Void, Never>?
     private var detailInFlight: (sourceID: UUID, range: ClosedRange<TimeInterval>, requested: Int)?
 
@@ -126,6 +169,22 @@ final class EditorClipWaveforms: ObservableObject {
             return (overview.data, overview.covering)
         }
         return nil
+    }
+
+    /// The chain-processed picture of one clip's source, if there is a current
+    /// one.
+    ///
+    /// `nil` covers three different situations and the caller has to keep them
+    /// apart: the lane is off so nothing was asked for, the render has not
+    /// landed, or the document changed and what is held describes an older
+    /// chain. All three mean *draw the raw picture in both places and say so* —
+    /// never *draw two identical waveforms and call it a comparison*.
+    func processedBuckets(
+        for clipID: Clip.ID,
+        chain: String
+    ) -> (data: WaveformData, covering: ClosedRange<TimeInterval>)? {
+        guard processedChain == chain, let entry = processed[clipID] else { return nil }
+        return (entry.data, entry.covering)
     }
 
     /// Whether what is on hand for this span has at least one bucket behind
@@ -190,6 +249,52 @@ final class EditorClipWaveforms: ObservableObject {
         requestDetail(widest, document: document, engine: engine)
     }
 
+    /// Everything the compare lane needs for the clips on screen, and nothing
+    /// for anything else.
+    ///
+    /// **Called only while the lane is on**, which is the whole cost argument:
+    /// with it off this is never reached, no second render is started, and the
+    /// timeline behaves exactly as it did before the lane existed. That is what
+    /// makes "it can be turned off" a real answer to the expense rather than a
+    /// setting that hides a feature you are still paying for.
+    ///
+    /// A clip whose effective chain is **empty is skipped rather than
+    /// rendered**. There is nothing for the render to do — the answer would be
+    /// the raw overview, bucket for bucket — and the drawing side already falls
+    /// back to that. It also happens to be the default document's state, so the
+    /// common case costs nothing at all.
+    ///
+    /// Serial, one clip at a time, for the reason `drainOverviews` is: the
+    /// transient peak is one decoded block plus one processed copy, whatever
+    /// the project holds. Draw order, so the lane being looked at fills first.
+    func requestProcessed(
+        document: EditorDocument,
+        engine: RenderEngine,
+        chain: String,
+        needs: [ProcessedNeed]
+    ) {
+        #if MELO_DEV
+        if isSeeded { return }
+        #endif
+        if processedChain != chain {
+            // The stack moved. Everything held describes an edit nobody is
+            // making any more, and drawing it under a clip would be a
+            // comparison against the wrong thing — worse than no comparison.
+            processedChain = chain
+            processedWork?.cancel()
+            processedWork = nil
+            processedQueue = []
+            if !processed.isEmpty { processed = [:] }
+        }
+        for need in needs where !need.moves.isEmpty {
+            guard processed[need.clipID] == nil else { continue }
+            guard (failures[need.source.id] ?? 0) < 2 else { continue }
+            guard !processedQueue.contains(where: { $0.clipID == need.clipID }) else { continue }
+            processedQueue.append(need)
+        }
+        drainProcessed(engine: engine, chain: chain)
+    }
+
     /// Drops everything. Called when the document closes or the sources change
     /// under us.
     func invalidate() {
@@ -199,11 +304,16 @@ final class EditorClipWaveforms: ObservableObject {
         detailWork?.cancel()
         detailWork = nil
         detailInFlight = nil
+        processedWork?.cancel()
+        processedWork = nil
+        processedQueue = []
+        processedChain = nil
         failures = [:]
         // Guarded: these are the published properties, and this is reached from
         // callbacks that fire on every resize.
         if !overviews.isEmpty { overviews = [:] }
         if detail != nil { detail = nil }
+        if !processed.isEmpty { processed = [:] }
     }
 
     /// Forgets one source, so re-importing a file that changed on disk redraws.
@@ -211,6 +321,14 @@ final class EditorClipWaveforms: ObservableObject {
         overviews[sourceID] = nil
         failures[sourceID] = nil
         if detail?.sourceID == sourceID { detail = nil }
+        // The whole processed map, not the entries for this source: the map is
+        // keyed by clip and nothing here knows which clips point at it, and a
+        // compare strip left drawing a file that changed under it is precisely
+        // the "convincingly drawn wrong audio" failure the seeding note on
+        // `setForSnapshot` records. Re-rendering a few strips is cheap; being
+        // quietly wrong is not.
+        if !processed.isEmpty { processed = [:] }
+        processedChain = nil
     }
 
     // MARK: - Private
@@ -320,6 +438,43 @@ final class EditorClipWaveforms: ObservableObject {
         }
     }
 
+    /// Renders queued compare pictures one at a time.
+    ///
+    /// The chain is captured and re-checked on the far side of the `await`. A
+    /// user who edits a move while a strip is rendering must not get the old
+    /// answer written into the new map — it would look exactly like a working
+    /// comparison and be a comparison against the previous edit.
+    private func drainProcessed(engine: RenderEngine, chain: String) {
+        guard processedWork == nil, !processedQueue.isEmpty else { return }
+
+        processedWork = Task { [weak self] in
+            while true {
+                guard let self, !Task.isCancelled else { return }
+                guard self.processedChain == chain else { break }
+                guard !self.processedQueue.isEmpty else { break }
+                let need = self.processedQueue.removeFirst()
+                guard self.processed[need.clipID] == nil else { continue }
+                do {
+                    let data = try await engine.waveform(
+                        EditorChain.isolated(need.source, through: need.moves),
+                        range: nil,
+                        bucketCount: Self.overviewBuckets
+                    )
+                    guard !Task.isCancelled, self.processedChain == chain else { return }
+                    self.processed[need.clipID] = Processed(
+                        data: data,
+                        covering: 0...max(data.duration, 0.001)
+                    )
+                    self.failures[need.source.id] = 0
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    self.failures[need.source.id, default: 0] += 1
+                }
+            }
+            self?.processedWork = nil
+        }
+    }
+
     /// Whether `have` contains `want`, with a hair of slack for the floating
     /// point that got both of them here.
     private static func covers(_ have: ClosedRange<TimeInterval>, _ want: ClosedRange<TimeInterval>) -> Bool {
@@ -340,6 +495,30 @@ final class EditorClipWaveforms: ObservableObject {
         invalidate()
         isSeeded = true
         overviews = seeded.mapValues { Overview(data: $0, covering: 0...max($0.duration, 0.001)) }
+    }
+
+    /// Hands the harness a compare-lane fixture, since it cannot render one.
+    ///
+    /// **The processed side of a compare frame cannot be real here and the
+    /// scene has to say so.** There is no file behind a snapshot source, so
+    /// `RenderEngine` throws on every call and the only picture the strip could
+    /// ever hold is a seeded one. What that costs is stated where it is spent,
+    /// in the scene's note: the frames prove the *lane* — that it appears, that
+    /// it takes its space from the clip and not from the header alignment, that
+    /// the two inks invert under bypass, that two different pictures are drawn
+    /// over one span — and they prove nothing about whether the real chain
+    /// changes the real waveform. That claim is
+    /// `scripts/verify-compare-bypass.py`'s, which renders both sides through
+    /// the shipping engine and compares samples.
+    ///
+    /// `chain` is whatever stamp the scene will hand the view; the two only
+    /// have to match each other, because a seeded map is never re-rendered.
+    func setProcessedForSnapshot(_ seeded: [Clip.ID: WaveformData], chain: String) {
+        isSeeded = true
+        processedChain = chain
+        processed = seeded.mapValues {
+            Processed(data: $0, covering: 0...max($0.duration, 0.001))
+        }
     }
 
     /// This object outlives every scene, which is the sticky global-state trap

@@ -30,6 +30,31 @@ struct AppRowControls: View {
     let onEQToggle: () -> Void
     var isRowFocused: Bool = false
 
+    /// Which half of the strip to draw.
+    ///
+    /// The whole strip does not fit beside an app's name. Measured against the
+    /// narrowest popup — Compact is 470pt wide with 12pt of padding, so 446pt of
+    /// content — the six controls and their gaps need about 388pt and leave the
+    /// name 58pt, which truncates "Spotify" to an ellipsis. So the row carries
+    /// the three controls someone reaches for constantly and the disclosure
+    /// keeps the three they do not.
+    ///
+    /// *Rejected:* shrinking the slider to fit all six. A 90pt slider spanning
+    /// 0–400% gives each percent under a quarter of a point, which is a slider
+    /// you cannot land on a number with — and the number is the entire job.
+    enum Part {
+        /// Mute, the slider, the percentage. Drawn on the row itself, open or
+        /// closed, because they are what the row is *for*.
+        case primary
+        /// Boost, output routing, the equalizer. Behind the disclosure.
+        case secondary
+        /// Both on one line. The inactive-app rows still use this: they have no
+        /// disclosure, so there is nowhere else for the second half to go.
+        case both
+    }
+
+    var part: Part = .both
+
     @State private var dragOverrideValue: Double?
     @State private var isEQButtonHovered = false
 
@@ -95,6 +120,23 @@ struct AppRowControls: View {
 
     var body: some View {
         HStack(spacing: DesignTokens.Spacing.sm) {
+            if part != .secondary {
+                primaryControls
+            }
+            if part != .primary {
+                secondaryControls
+            }
+        }
+        .fixedSize()
+    }
+
+    /// Fixed width by construction — every control in here is a fixed size, so
+    /// the cluster is the same width on every row and the sliders and
+    /// percentages line up straight down the list. That alignment is the
+    /// difference between a control strip and three things put next to a name.
+    @ViewBuilder
+    private var primaryControls: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             // Mute button
             MuteButton(
                 isMuted: showMutedIcon,
@@ -144,7 +186,13 @@ struct AppRowControls: View {
                 subject: appName,
                 isRowFocused: isRowFocused
             )
+        }
+    }
 
+    /// The three that live behind the disclosure. See `Part`.
+    @ViewBuilder
+    private var secondaryControls: some View {
+        HStack(spacing: DesignTokens.Spacing.sm) {
             // The boost shortcut and slider now describe the same effective gain.
             BoostChevrons(level: boost) { target in
                 setEffectiveGain(target.rawValue)
@@ -196,6 +244,5 @@ struct AppRowControls: View {
             .animation(DesignTokens.Animation.panel, value: isEQExpanded)
             .animation(DesignTokens.Animation.hover, value: isEQButtonHovered)
         }
-        .fixedSize()
     }
 }

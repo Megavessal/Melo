@@ -1174,7 +1174,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Remove Dead Air",
             summary: "Finds the gaps and takes them out, leaving a short tail on each so speech does not sound spliced.",
             keywords: ["remove silence", "cut the gaps", "remove dead air", "remove pauses", "tighten up a recording", "long silences", "gaps between words"],
-            location: "Melo Edit › The stack",
+            location: "Melo Edit › The Chain",
             opensEditor: true
         ),
         .init(
@@ -1183,7 +1183,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             title: "Fade In and Fade Out",
             summary: "Eases a sound up at the start or down at the end over a length you set, with a linear, equal-power, or exponential curve.",
             keywords: ["fade", "fade in", "fade out", "fade the ending", "smooth start", "soft ending", "ease it in", "abrupt ending"],
-            location: "Melo Edit › The stack",
+            location: "Melo Edit › The Chain",
             opensEditor: true
         ),
         .init(
@@ -1193,7 +1193,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             summary: "Gain moves the whole thing by a number of decibels. Normalize measures the file and lands it on a loudness target instead of guessing.",
             details: "Melo measures in LUFS, the unit streaming services publish their targets in, and a limiter holds the peaks under the ceiling so nothing clips on the way up.",
             keywords: ["make it louder", "make it quieter", "make my podcast louder", "this recording is too quiet", "turn up a recording", "gain", "normalize", "normalise", "lufs", "limiter", "amplify a file", "decibels"],
-            location: "Melo Edit › The stack",
+            location: "Melo Edit › The Chain",
             opensEditor: true
         ),
         .init(
@@ -1213,7 +1213,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // through the same `EQPresetPicker` the popup uses.
             details: "Melo’s twenty presets and your own saved ones are in the picker, and a curve you build here can be saved back as one.",
             keywords: ["eq a file", "eq an mp3", "change the tone of a recording", "more bass in a file", "cut the boom", "brighten a recording", "parametric eq", "high pass", "rumble"],
-            location: "Melo Edit › The stack",
+            location: "Melo Edit › The Chain",
             opensEditor: true
         ),
         .init(
@@ -1226,7 +1226,7 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // enough to cut "Undo a Change" — which is what "reverse" meant in
             // this app before there was a reverse — out of the results entirely.
             keywords: ["speed up", "slow down", "half speed", "double speed", "tempo", "faster", "slower", "play it backwards"],
-            location: "Melo Edit › The stack",
+            location: "Melo Edit › The Chain",
             opensEditor: true
         ),
         .init(
@@ -1249,13 +1249,21 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             opensEditor: true
         ),
         .init(
-            "editor-stack",
+            "editor-chain",
             category: .editor,
-            title: "The Stack",
-            summary: "Every move is a row you can reorder, switch off, edit, or delete. The sound is rendered from the original plus the stack, so nothing is ever destroyed.",
-            details: "Order changes the result — a limiter before an equaliser is not the same as one after it. Revert to Original empties the stack and leaves the file exactly as it arrived.",
-            keywords: ["undo an edit", "change an edit i made", "non destructive", "remove a change", "reorder my edits", "edit history", "start this edit over", "revert"],
-            location: "Melo Edit › The stack",
+            title: "The Chain",
+            summary: "Every move is a row you can reorder, switch off, edit, or delete. The sound is rendered from the original plus the Chain, so nothing is ever destroyed.",
+            details: "Order changes the result — a limiter before an equaliser is not the same as one after it. Revert to Original empties the Chain and leaves the file exactly as it arrived.",
+            // **"the stack" is an alias here and it earns its place.** The panel
+            // was called that through 3.2, every screenshot and every note
+            // written before the rename says it, and the word is nowhere else
+            // in this catalog — so it is the case CLAUDE.md's search note
+            // describes: one topic owns the word, an alias is worth 200–350
+            // points on the entry that should win, and a synonym group would
+            // buy nothing because there is no sibling to disambiguate from.
+            // Without it the one query a returning user types finds nothing.
+            keywords: ["the stack", "move stack", "undo an edit", "change an edit i made", "non destructive", "remove a change", "reorder my edits", "edit history", "start this edit over", "revert"],
+            location: "Melo Edit › The Chain",
             opensEditor: true
         ),
         .init(
@@ -1301,16 +1309,16 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             // Not "Revert to Original", which this line said and which was
             // false twice over: nothing called `revertToOriginal()` at all when
             // it was written, and the control that exists now empties the move
-            // stack. Un-adopting a remix as the theme song is a different
+            // Chain. Un-adopting a remix as the theme song is a different
             // operation with a different button — `MeloThemeExport.swift:234`,
             // "Put the original back" — and this catalog is searched by exact
             // string, so naming the wrong one sends a reader to press something
             // that leaves them still hearing their remix at setup.
             details: "The original is always there — Put the original back returns the shipped theme.",
             // "revert theme" and "put the original back" are aliases here and
-            // not on "The Stack", because those two entries own the two
+            // not on "The Chain", because those two entries own the two
             // different things "revert" means inside this one feature: emptying
-            // the move stack, and un-adopting a remix as the theme song. The
+            // the Chain, and un-adopting a remix as the theme song. The
             // query that found the wrong one is the reason this entry exists in
             // this shape.
             keywords: ["melo theme", "edit the melo theme", "the startup sound", "remix the theme", "change melo’s music", "theme song", "the sound melo makes", "revert theme", "put the original back", "undo my theme remix", "use it as the theme"],
@@ -1335,6 +1343,33 @@ struct SettingsGuideEntry: Identifiable, Sendable {
             details: "Homebrew is the usual way to get yt-dlp: brew install yt-dlp. Everything else in Melo Edit works without it.",
             keywords: ["ffmpeg", "yt-dlp", "install yt-dlp", "mp3 is greyed out", "mp3 is grayed out", "cannot export mp3", "missing tool", "the link did nothing", "opus"],
             location: "Melo Edit › Export",
+            opensEditor: true
+        ),
+        .init(
+            "editor-mode",
+            category: .editor,
+            // "Simple and Full", not "Editor Modes". The two words the control
+            // itself says are the two words somebody will type, and a title
+            // that starts with the query is worth 600 against 400 for one that
+            // merely contains it — the measurement recorded on `editor-eq`
+            // above. It also keeps the word "mode" out of the title, which
+            // matters here: this feature exists *because* the owner asked for
+            // modes and the app is deliberately not making anyone learn the
+            // word to use it.
+            title: "Simple and Full",
+            summary: "Melo Edit opens Simple and stays that way until you say otherwise. Full adds the controls a mixing engineer reaches for; the switch is in the top right, beside Export.",
+            // The one sentence in the app that has to stay true as Full grows,
+            // so it is generated from `EditorMode.Extra` rather than typed.
+            // Somebody adding a seventh thing to Full updates the enum and this
+            // line follows; typed out, it would be the copy that quietly stops
+            // describing the feature.
+            details: "Full adds \(EditorMode.additionsSentence). Switching only adds and removes controls — it never touches the sound, moves the timeline, or changes a single number in your document, and Melo remembers which one you chose.",
+            // "advanced mode" and "pro mode" are in here on purpose even though
+            // Melo says neither. They are what the two other apps this user has
+            // open call it, and an entry that can only be found by its own
+            // vocabulary can only be found by someone who already read it.
+            keywords: ["simple mode", "full mode", "advanced mode", "pro mode", "too many controls", "too complicated", "where is pan", "missing controls", "show more controls", "hide controls", "master", "meter scale", "clip gain", "beginner mode", "expert mode"],
+            location: "Melo Edit › the header, beside Export",
             opensEditor: true
         )
     ]

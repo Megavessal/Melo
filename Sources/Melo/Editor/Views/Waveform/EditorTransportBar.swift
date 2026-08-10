@@ -45,7 +45,21 @@ struct EditorTransportBar: View {
     /// Height is fixed, not a minimum: the strip is three clusters of 28pt
     /// controls and it has no reason to grow or shrink. Everything above it in
     /// the window may take whatever is left.
+    ///
+    /// Two numbers, because Full mode adds a second row under this one and the
+    /// mode rule is that switching must not move the waveform. In Simple the
+    /// bar is 44 and there is nothing below it. In Full the bar gives up its
+    /// 16pt of slack — `controlRowHeight` is the controls themselves — and
+    /// `EditorClipStrip` takes exactly that back, so the band below the
+    /// timeline is 44 either way and the timeline pane never changes height.
+    ///
+    /// *Rejected:* reserving a blank 26pt strip in Simple. It holds the
+    /// geometry just as well and puts an empty band across the bottom of the
+    /// window forever, which is a worse answer to "Simple should be simpler".
     static let height: CGFloat = 44
+
+    /// The controls with their slack removed. See `height`.
+    static let controlRowHeight: CGFloat = 28
 
     /// Below this the selection chip is dropped. The rest of the bar is
     /// 464pt of incompressible controls, which clears the 820pt minimum
@@ -81,7 +95,7 @@ struct EditorTransportBar: View {
             .padding(.horizontal, DesignTokens.Spacing.lg)
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
-        .frame(height: Self.height)
+        .frame(height: store.mode.shows(.transportRow) ? Self.controlRowHeight : Self.height)
         .onAppear { playback.attach(store) }
         .onChange(of: store.document) { _, _ in
             playback.noteDocumentChanged()
@@ -129,7 +143,43 @@ struct EditorTransportBar: View {
                 Haptics.step()
             }
 
+            compare
             bypass
+        }
+    }
+
+    /// The switch that gives every clip a second lane carrying the untouched
+    /// original.
+    ///
+    /// **Next to Bypass and not in a menu**, because they are one feature
+    /// approached two ways: this is the eye's A/B and Bypass is the ear's, and a
+    /// user who has just discovered one should find the other without looking
+    /// away. It is a latch rather than a hold for the opposite reason Bypass is
+    /// a hold — you compare *while* you work, over minutes, and a lane you have
+    /// to keep a finger on is a lane nobody uses.
+    ///
+    /// A real toggle rather than a press-and-hold chip also means it is the one
+    /// control here that can be *found* by pressing it and pressing it again.
+    /// The lane costs vertical space out of every clip and a render per clip
+    /// with a chain; somebody who tries it and does not want it needs the way
+    /// back to be the same button.
+    private var compare: some View {
+        TransportButton(
+            symbol: "rectangle.split.1x2",
+            size: 12,
+            label: "Compare with the original",
+            help: store.showsCompareLane
+                ? "Hide the original under each clip"
+                : "Show the original under each clip",
+            isEnabled: hasSound,
+            isOn: store.showsCompareLane
+        ) {
+            // Through the store, like Play and Loop above and for the same
+            // reason: a key equivalent binds to `toggleCompareLane()` too, and a
+            // button that reached the flag by its own route is a button that
+            // keeps working after the shortcut is severed.
+            store.toggleCompareLane()
+            Haptics.step()
         }
     }
 
@@ -160,8 +210,8 @@ struct EditorTransportBar: View {
                     .onEnded { _ in store.setBypassHeld(false) }
             )
             .animation(DesignTokens.Animation.toggle, value: isBypassed)
-            .help("Hold to hear it without the stack")
-            .accessibilityLabel("Bypass the stack")
+            .help("Hold to hear it without the Chain")
+            .accessibilityLabel("Bypass the Chain")
             .accessibilityHint("Hold to hear the sound without any of the moves applied")
             .accessibilityAddTraits(isBypassed ? [.isSelected] : [])
     }

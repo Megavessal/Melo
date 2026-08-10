@@ -32,6 +32,28 @@ import SwiftUI
 /// of a problem.
 enum EditorWaveformPalette {
 
+    /// The stripe and tab for a marker dropped with M.
+    ///
+    /// Green, and not the accent. The accent is already the playhead and the
+    /// selected clip's ring, and a third thing in the same colour turns the
+    /// accent into decoration rather than a signal. Green because it is the one
+    /// hue the waveform's cool blues and the selection's warm amber both leave
+    /// alone, so a marker is never mistaken for either.
+    static let marker = DesignTokens.dynamicColor(
+        name: "editorWaveformMarker",
+        light: NSColor(srgbRed: 0.13, green: 0.55, blue: 0.34, alpha: 0.92),
+        dark: NSColor(srgbRed: 0.36, green: 0.85, blue: 0.56, alpha: 0.90)
+    )
+
+    /// The number inside the tab. Near-black in both appearances, because the
+    /// tab is a saturated green in both and white on it fails contrast in
+    /// light mode.
+    static let markerLabel = DesignTokens.dynamicColor(
+        name: "editorWaveformMarkerLabel",
+        light: NSColor.white.withAlphaComponent(0.98),
+        dark: NSColor.black.withAlphaComponent(0.86)
+    )
+
     static let ground = DesignTokens.dynamicColor(
         name: "editorWaveformGround",
         light: NSColor.black.withAlphaComponent(0.045),
@@ -91,6 +113,47 @@ enum EditorWaveformPalette {
         name: "editorWaveformBodyBypassed",
         light: NSColor.black.withAlphaComponent(0.42),
         dark: NSColor.white.withAlphaComponent(0.46)
+    )
+
+    /// The compare lane's ink while the *edit* is what you are hearing.
+    ///
+    /// Cooler and quieter than `peak`/`body` rather than a second hue. Two
+    /// waveforms in two colours read as two different sounds; two waveforms in
+    /// two weights of the same colour read as the same sound twice, which is
+    /// what they are. The reference is the quiet one because the thing being
+    /// judged is above it.
+    ///
+    /// **The two inks swap when bypass is engaged** — see
+    /// `EditorTimelineLanes.draw(_:into:laneRect:x:)`. Whichever picture you are
+    /// listening to is the one drawn at full weight, and the other goes to
+    /// `peakBypassed`/`bodyBypassed`. That inversion is the marker: it needs no
+    /// badge, it is impossible to miss in a still frame, and it cannot get out
+    /// of step with the sound because both sides read the same flag.
+    static let comparePeak = DesignTokens.dynamicColor(
+        name: "editorComparePeak",
+        light: NSColor(srgbRed: 0.34, green: 0.44, blue: 0.60, alpha: 0.26),
+        dark: NSColor(srgbRed: 0.54, green: 0.70, blue: 0.94, alpha: 0.22)
+    )
+
+    static let compareBody = DesignTokens.dynamicColor(
+        name: "editorCompareBody",
+        light: NSColor(srgbRed: 0.15, green: 0.26, blue: 0.45, alpha: 0.52),
+        dark: NSColor(srgbRed: 0.66, green: 0.83, blue: 1.00, alpha: 0.54)
+    )
+
+    /// The strip's own ground, a shade recessed from the clip above it so the
+    /// two readings are visibly two objects and not one tall waveform.
+    static let compareGround = DesignTokens.dynamicColor(
+        name: "editorCompareGround",
+        light: NSColor.black.withAlphaComponent(0.05),
+        dark: NSColor.black.withAlphaComponent(0.22)
+    )
+
+    /// "Original", and the marker that says it is the one playing.
+    static let compareLabel = DesignTokens.dynamicColor(
+        name: "editorCompareLabel",
+        light: NSColor.black.withAlphaComponent(0.45),
+        dark: NSColor.white.withAlphaComponent(0.48)
     )
 
     static let playhead = DesignTokens.dynamicColor(
@@ -290,6 +353,20 @@ struct EditorWaveformPainter {
 
     let style: EditorWaveformStyle
     let isBypassed: Bool
+    /// Drawing the compare lane's reference rather than the edit.
+    ///
+    /// A `var` with a default so the memberwise initialiser keeps its old
+    /// shape: the style picker's four thumbnails, the bare lanes canvas and the
+    /// clip painter all construct this by label, and a fourth required
+    /// argument would have been three edits in two other files to say "no" in
+    /// each of them.
+    ///
+    /// It is a third ink and not `isBypassed` reused. Bypassed means *this
+    /// picture is not what you are hearing*; original means *this picture is
+    /// the reference*. On the compare lane the two are independent and the
+    /// caller sets both, which is what lets the pair invert when bypass is
+    /// engaged.
+    var isOriginal: Bool = false
     /// Whether there is at least one bucket behind every couple of columns.
     let isDense: Bool
     /// The span of time the columns cover, so a time selection can be resolved
@@ -612,13 +689,23 @@ struct EditorWaveformPainter {
         }
     }
 
+    // Bypassed outranks original, and original outranks the time selection.
+    //
+    // Bypassed first because it answers "is this what I am hearing", which is
+    // the question the user has in their hand while a key is held down.
+    // Original before selected because the compare strip is a reference and a
+    // reference that goes warm inside a time selection would compete with the
+    // edit above it for the same signal — the selection is already drawn across
+    // both, by the chrome, in one unbroken band.
     private func peakColor(selected: Bool) -> Color {
         if isBypassed { return EditorWaveformPalette.peakBypassed }
+        if isOriginal { return EditorWaveformPalette.comparePeak }
         return selected ? EditorWaveformPalette.peakSelected : EditorWaveformPalette.peak
     }
 
     private func bodyColor(selected: Bool) -> Color {
         if isBypassed { return EditorWaveformPalette.bodyBypassed }
+        if isOriginal { return EditorWaveformPalette.compareBody }
         return selected ? EditorWaveformPalette.bodySelected : EditorWaveformPalette.body
     }
 }

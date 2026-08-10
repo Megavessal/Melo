@@ -1,7 +1,7 @@
-// Melo/Editor/Views/Stack/MoveStackEmptyState.swift
+// Melo/Editor/Views/Chain/ChainEmptyState.swift
 import SwiftUI
 
-/// What the stack says when there is nothing on it, which for the least
+/// What the Chain says when there is nothing on it, which for the least
 /// knowledgeable user is most of the time.
 ///
 /// It points **up**, at the destination picker, not at the add menu. The novice
@@ -9,9 +9,9 @@ import SwiftUI
 /// the moment that user decides this app is not for them. The add menu stays in
 /// the header for anyone who came here to reach for one.
 @MainActor
-struct MoveStackEmptyState: View {
+struct ChainEmptyState: View {
     enum Reason: Equatable {
-        /// No sound open. Nothing to say about a stack yet.
+        /// No sound open. Nothing to say about a Chain yet.
         case noSource
         /// A sound, no destination. This is the one that matters.
         case noDestination
@@ -19,7 +19,7 @@ struct MoveStackEmptyState: View {
         case measuring
         /// Measured, and the proposer has moves waiting that nobody has applied
         /// yet. This is what the novice sees the moment they pick a destination,
-        /// and it used to be reported as `nothingToFix` — the stack calling the
+        /// and it used to be reported as `nothingToFix` — the Chain calling the
         /// file clean while the picker beside it offered eight moves.
         case readyToFix(moveCount: Int)
         /// Measured against a destination, and the proposer genuinely returned
@@ -58,11 +58,11 @@ struct MoveStackEmptyState: View {
         switch reason {
         case .noSource: "waveform"
         // Both of these used to be `arrow.up`, pointing at a picker that sat
-        // directly above. The sidebar is an accordion now — one pane open at a
-        // time — so when the stack is showing, that picker is collapsed behind
-        // its header and an arrow points at a chevron. These say *what* to look
-        // for instead of *where*, which survives the panes being rearranged
-        // again.
+        // directly above. It is not reliably above anything now: the pane is
+        // docked panels the reader opens and shuts independently, so when the
+        // Chain is showing, that picker may be a shut header two strips up or
+        // open right beside it. These say *what* to look for instead of
+        // *where*, which survives the panes being rearranged again.
         case .noDestination: "signpost.right"
         case .measuring: "waveform.badge.magnifyingglass"
         case .readyToFix: "wand.and.rays"
@@ -89,10 +89,10 @@ struct MoveStackEmptyState: View {
 
     /// Names the section a reader has to open, never a direction to look in.
     ///
-    /// The accordion keeps all three headers on screen at all times and expands
-    /// whichever one is clicked, so a section *title* is a reliable landmark
-    /// where "above" is not. The title is read off `SidebarSection` rather than
-    /// retyped, so renaming that pane carries this copy with it.
+    /// All three headers are on screen at all times, whatever is open, so a
+    /// panel *title* is a reliable landmark where "above" is not. The title is
+    /// read off `EditorPanel` rather than retyped, so renaming that panel
+    /// carries this copy with it.
     private var detail: String {
         switch reason {
         case .noSource:
@@ -116,7 +116,7 @@ struct MoveStackEmptyState: View {
     /// ever stops carrying its own punctuation, this supplies the terminator
     /// instead of leaving the sentence hanging.
     private static var destinationPane: String {
-        let title = EditorRootView.SidebarSection.destination.title
+        let title = EditorPanel.destination.title
         let alreadyTerminated = title.hasSuffix("?") || title.hasSuffix(".") || title.hasSuffix("!")
         return alreadyTerminated ? title : title + "."
     }

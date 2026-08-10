@@ -41,15 +41,6 @@ struct AppRow: View {
     @State private var localEQSettings: EQSettings
     @State private var localStereoFieldSettings: StereoFieldSettings
 
-    /// Effective gain × 100, in 0...400 — base volume multiplied by boost.
-    /// This is the one definition of a percent in Melo; the row's slider and
-    /// editable field (`AppRowControls`), Find an Action
-    /// (`ConsumerCommandPalette`), the phrase parser (`IntentSearch`) and the
-    /// "Set App Volume in Melo" shortcut all report and accept the same number.
-    private var displayedPercentage: Int {
-        Int(round(Double(max(0, min(4, volume * boost.rawValue))) * 100))
-    }
-
     init(
         app: AudioApp,
         volume: Float,
@@ -187,19 +178,49 @@ struct AppRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // The name yields, the controls do not. Without this SwiftUI is
+                // free to satisfy a long app name by squeezing the slider, and a
+                // row's slider would then be a different width from the row
+                // above it.
+                .layoutPriority(-1)
 
-                if isMutedExternal {
-                    // Not decorative — it is the only place a collapsed row
-                    // says the app is muted, and colour is the only other
-                    // channel carrying it.
-                    Image(systemName: "speaker.slash.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(DesignTokens.Colors.mutedIndicator)
-                        .accessibilityLabel("Muted")
-                }
+                // A wider gap here than inside the cluster, deliberately. The
+                // row says two things — which app, and how loud — and one gap
+                // that is bigger than the rest is what makes a reader see two
+                // groups instead of seven items in a line.
+                Spacer(minLength: DesignTokens.Spacing.md)
 
-                Text("\(displayedPercentage)%")
-                    .percentageStyle()
+                // Mute, slider and percentage, on the row whether it is open or
+                // closed. They were behind the disclosure, which meant the
+                // control the popup exists for took a click to reach and the
+                // closed row showed a number you could not change.
+                //
+                // The muted state is no longer a separate `speaker.slash.fill`
+                // glyph: `MuteButton` draws it, and it can also be pressed.
+                AppRowControls(
+                    appName: app.name,
+                    volume: volume,
+                    isMuted: isMutedExternal,
+                    devices: devices,
+                    deviceIconOverrides: deviceIconOverrides,
+                    selectedDeviceUID: selectedDeviceUID,
+                    selectedDeviceUIDs: selectedDeviceUIDs,
+                    isFollowingDefault: isFollowingDefault,
+                    defaultDeviceUID: defaultDeviceUID,
+                    deviceSelectionMode: deviceSelectionMode,
+                    boost: boost,
+                    isEQExpanded: isEQExpanded,
+                    onVolumeChange: onVolumeChange,
+                    onMuteChange: onMuteChange,
+                    onBoostChange: onBoostChange,
+                    onDeviceSelected: onDeviceSelected,
+                    onDevicesSelected: onDevicesSelected,
+                    onDeviceModeChange: onDeviceModeChange,
+                    onSelectFollowDefault: onSelectFollowDefault,
+                    onEQToggle: onEQToggle,
+                    isRowFocused: isFocused,
+                    part: .primary
+                )
             }
             .frame(height: DesignTokens.Dimensions.rowContentHeight)
         } expandedContent: {
@@ -226,7 +247,12 @@ struct AppRow: View {
                     onDeviceModeChange: onDeviceModeChange,
                     onSelectFollowDefault: onSelectFollowDefault,
                     onEQToggle: onEQToggle,
-                    isRowFocused: isFocused
+                    isRowFocused: isFocused,
+                    // Boost, routing and the equalizer only. Mute, the slider
+                    // and the percentage are on the row above and must not be
+                    // drawn twice — two sliders for one volume is a question
+                    // about which one is real.
+                    part: .secondary
                 )
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
