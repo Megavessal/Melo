@@ -93,8 +93,9 @@ final class WhatsNewCoordinator {
     }
 
     private func present(_ notes: [MeloReleaseNote], showsFullHistory: Bool) {
+        MainThreadStall.beginReport()
         if let window {
-            window.presentUnprompted()
+            MainThreadStall.measure("whatsNew.represent") { window.presentUnprompted() }
             return
         }
 
@@ -125,7 +126,12 @@ final class WhatsNewCoordinator {
                 self?.startTour(for: notes)
             }
         )
-        window.contentViewController = NSHostingController(rootView: view)
+        let controller = MainThreadStall.measure("whatsNew.hostingController") {
+            NSHostingController(rootView: view)
+        }
+        MainThreadStall.measure("whatsNew.firstLayout") {
+            window.contentViewController = controller
+        }
         window.isReleasedWhenClosed = false
 
         let observer = WhatsNewWindowCloseObserver { [weak self] in
@@ -136,7 +142,8 @@ final class WhatsNewCoordinator {
         closeObserver = observer
 
         self.window = window
-        window.presentUnprompted()
+        MainThreadStall.measure("whatsNew.present") { window.presentUnprompted() }
+        MainThreadStall.report("What's New")
         TelemetryService.shared.send(.whatsNewShown(noteCount: TelemetryBucket(count: notes.count)))
     }
 

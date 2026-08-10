@@ -180,3 +180,73 @@ three of my hypotheses were refuted with evidence. The form that works is
 naming the doubt, saying explicitly that you are not supplying the answer, and
 closing with *go look*. Worth noting the failure mode it prevents is the lead's,
 not the builder's.
+## For notes/skill-friction.md
+
+### A red run is not evidence about the last change until it has been run twice
+
+I told the owner the single-instance guard broke the Settings Guide scroll, and
+then that a fix had repaired it. Both were false. Four runs looked like a clean
+before/after — two green before the guard, two red after — and the fifth run,
+from the same unfixed source, came back green. The scene fails about two runs in
+five on its own.
+
+What made the story convincing was a second signal that really was
+deterministic: twelve frames flipped between the two run pairs, seven of them
+`updates-*`, and those flipped because `RelativeDateTimeFormatter` had moved
+"Last checked 1 hour ago" to "2 hours ago" between 17:56 and 18:31. A wall clock
+in the frames dressed a coin flip up as a regression.
+
+The rule that would have caught it: **before attributing a red to a change, run
+the same source twice.** It costs one render and it is the only thing that
+separates "this change did it" from "this scene does that".
+
+### A pixel percentage cannot tell you which of two wrong states you are in
+
+The transition floor on `settings-audio-guide-devices` is "more than 1% of
+pixels moved". A pane that scrolled to the wrong section, a pane that scrolled
+too far, and a pane that repainted for an unrelated reason all clear it. The
+frame that actually failed was parked at the top of the tab — and its sibling
+`settings-audio-guide-smartsound` was failing the same way with no floor at all,
+because it is a plain scene rather than a transition, so nothing was looking.
+
+Both now carry an assertion that reads the live `NSScrollView` offset and fails
+with the number. The `-before` frame of the pair asserts the opposite — that the
+pane is at the top — through the same machinery, so the two calibrate each
+other.
+
+### Three refutations are cheaper than one shipped guess
+
+I had three mechanisms for the flake and each was plausible: a
+`.scrollPosition(id:)` registration race, a dependence on the animation clock,
+and content above the target changing size after the scroll landed. A ninety-
+line standalone SwiftUI probe refuted all three in about four minutes — the
+destination lands even with a 2.0s animation delay against a 0.9s settle, which
+is the opposite of what a timing story predicts.
+
+Without the probe I would have shipped a fix for the second one and reported it
+as repaired, exactly as I had already done once that day.
+
+## For CLAUDE.md
+
+- **Two scenes in the render harness are flaky on their own.**
+  `settings-audio-guide-devices` and `settings-audio-guide-smartsound` fail
+  together about two runs in five, and each outcome is byte-identical: passing
+  frames hash `9c168550` / `733defd4`, failing frames `039886d8` / `62119bfa`.
+  A red there is not evidence about whatever changed last. Re-run before
+  diagnosing. The cause is not established; three mechanisms have been tested
+  and refuted, and the run-loop turns-per-second line now in `_transitions.log`
+  exists to catch the remaining suspect.
+
+### `_complete` is not the end of a verify run
+
+I armed a watcher on `_complete` and started editing source the moment it
+appeared. `_complete` is written when the last frame lands; `dev-verify.sh` then
+runs twenty verify scripts against the source tree. Two of them came back red
+with "frames in /tmp/melo-fl-2 are older than the source they are evidence
+about", which is the staleness guard doing exactly its job — the red was mine,
+not the code's.
+
+An agent had made the identical mistake ninety minutes earlier and reported it
+against itself, and I made it again the same afternoon. **Wait for the script to
+exit, not for the sentinel.** The sentinel is a promise about the frames; the
+exit code is the verdict about the run.

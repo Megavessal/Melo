@@ -131,6 +131,19 @@ enum SingleInstanceGuard {
     ///    mid-render, and it must not be mistaken for a healthy incumbent that
     ///    another launch can hand itself over to.
     ///
+    ///    **The harness exemption is enforced twice, and the outer one is the
+    ///    real one.** `MeloApp.init()` tests `SnapshotHarness.isRequested`
+    ///    itself and does not call into this type at all under the harness, so
+    ///    a render run never copies an argument list, never builds an
+    ///    environment dictionary, never boxes an existential for
+    ///    `beginListening`, and never touches `SingleInstanceGuard` as a type.
+    ///    The check below is what keeps this type correct on its own terms for
+    ///    any future caller. The reason for the belt as well as the braces is
+    ///    recorded rather than assumed: a render regression was attributed to
+    ///    this guard while the only thing it did under the harness was return,
+    ///    and "returns immediately" turned out to be a much weaker thing to be
+    ///    able to say than "is never called".
+    ///
     /// 2. **`--melo-preflight`.** `scripts/build-app.sh:157` runs the binary it
     ///    just built with that flag as a launch test, and
     ///    `UpdateInstallationCoordinator` does the same to a staged bundle

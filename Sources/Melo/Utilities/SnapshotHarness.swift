@@ -213,6 +213,18 @@ enum SnapshotHarness {
         /// worse trade than saying so.
         var actOnHost: (@MainActor (NSView) -> Void)?
 
+        /// Asked of the live hosting view after layout and before the capture.
+        /// Returns `nil` when the view is in the state the scene claims, or the
+        /// sentence to fail the run with when it is not.
+        ///
+        /// A pixel percentage cannot distinguish "the pane scrolled to the
+        /// section the reader asked for" from "the pane changed somehow", and
+        /// the two `settings-audio-guide-*` scenes have been failing on exactly
+        /// that difference with no number to show for it. This reads the state
+        /// itself. Unlike `actOnHost` it does not need an accessibility tree,
+        /// which is why it works where pressing a real control does not.
+        var assertOnHost: (@MainActor (NSView) -> String?)?
+
         /// The frame this one is measured against. See `Comparison`.
         var comparison: Comparison?
 
@@ -244,6 +256,8 @@ enum SnapshotHarness {
         note: String? = nil,
         prepare: @escaping @MainActor () -> Void = {},
         act: @escaping @MainActor () -> Void,
+        assertBefore: (@MainActor (NSView) -> String?)? = nil,
+        assertAfter: (@MainActor (NSView) -> String?)? = nil,
         content: @escaping @MainActor () -> AnyView
     ) -> [Scene] {
         pair(
@@ -256,6 +270,8 @@ enum SnapshotHarness {
             prepare: prepare,
             act: act,
             mustDiffer: true,
+            assertBefore: assertBefore,
+            assertAfter: assertAfter,
             content: content
         )
     }
@@ -272,6 +288,8 @@ enum SnapshotHarness {
         prepare: @escaping @MainActor () -> Void,
         act: @escaping @MainActor () -> Void,
         mustDiffer: Bool,
+        assertBefore: (@MainActor (NSView) -> String?)? = nil,
+        assertAfter: (@MainActor (NSView) -> String?)? = nil,
         content: @escaping @MainActor () -> AnyView
     ) -> [Scene] {
         [
@@ -281,6 +299,7 @@ enum SnapshotHarness {
                 colorScheme: colorScheme,
                 capture: capture,
                 prepare: prepare,
+                assertOnHost: assertBefore,
                 note: note,
                 content: content
             ),
@@ -295,6 +314,7 @@ enum SnapshotHarness {
                     act()
                     settle(seconds: 0.3)
                 },
+                assertOnHost: assertAfter,
                 comparison: Comparison(
                     partner: "\(name)-before",
                     mustDiffer: mustDiffer,
@@ -365,7 +385,23 @@ enum SnapshotHarness {
     /// Renders every scene and terminates the process. Called instead of, not
     /// alongside, normal startup — the app is a menu-bar agent and would
     /// otherwise sit running with no way for a script to end it.
+    /// Held for the whole run. Without it this process is a background,
+    /// windowless, silent `.accessory` app, which is precisely what App Nap
+    /// exists to throttle — and a throttled run loop produces frames that are
+    /// wrong rather than frames that are missing.
+    ///
+    /// This is a belt, not a diagnosis: App Nap has not been *shown* to be
+    /// behind the `settings-audio-guide-*` flake. It is cheap, it cannot change
+    /// what any frame contains on a machine where App Nap was never going to
+    /// engage, and the turns-per-second line above will say whether it mattered.
+    private static var activity: NSObjectProtocol?
+
     static func run(_ scenes: [Scene]) -> Never {
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .idleSystemSleepDisabled, .suddenTerminationDisabled],
+            reason: "rendering snapshot frames"
+        )
+
         guard let path = ProcessInfo.processInfo.environment[directoryKey] else {
             FileHandle.standardError.write(Data("\(directoryKey) not set\n".utf8))
             exit(2)
@@ -427,6 +463,20 @@ enum SnapshotHarness {
             }
         }
 
+        // Written before the sentinel so it is present on a run that fails.
+        // Measured baseline on this machine: 241.8 turns/s over a 296s render.
+        // The loop returns as soon as a source is serviced rather than sitting
+        // out its 0.02s, so a healthy rate is several times the nominal 50/s —
+        // materially below that baseline is a throttled loop, and App Nap
+        // throttling this process is the one suspect left for the
+        // `settings-audio-guide-*` flake that has not been refuted.
+        measurements.append(
+            String(
+                format: "run loop: %d turns over %.1fs asked for (%.1f turns/s)",
+                settleTurns, settleSeconds,
+                settleSeconds > 0 ? Double(settleTurns) / settleSeconds : 0
+            )
+        )
         writeLogs(to: directory)
 
         // A completion sentinel, written last and only here. Without it the only
@@ -434,7 +484,9 @@ enum SnapshotHarness {
         // the file count stop changing — which is also exactly what a crash
         // looks like, so a partial render reported itself as success.
         let sentinel = directory.appendingPathComponent("_complete")
-        try? Data("\(scenes.count - failures)/\(scenes.count)\n".utf8).write(to: sentinel)
+        try? Data(
+            "\(scenes.count - failures - assertionFailures)/\(scenes.count)\n".utf8
+        ).write(to: sentinel)
 
         print("snapshots: \(scenes.count - failures)/\(scenes.count) written to \(path)")
 
@@ -444,7 +496,7 @@ enum SnapshotHarness {
         // to retract a render that already happened.
         dwellForAccessibilityCheck(scenes, directory: directory)
 
-        exit(failures == 0 ? 0 : 1)
+        exit(failures == 0 && assertionFailures == 0 ? 0 : 1)
     }
 
     // MARK: - Accessibility dwell
@@ -675,6 +727,9 @@ enum SnapshotHarness {
     /// log and not to the terminal running `dev-verify.sh`. Every reason a
     /// scene failed was therefore written somewhere nobody looks.
     private static var failureLog: [String] = []
+    /// Counted separately from render and comparison failures because a scene
+    /// whose frame is perfectly good can still be showing the wrong thing.
+    private static var assertionFailures = 0
     /// Every comparison's measured number, failing or not, so the threshold's
     /// margins are auditable on a green run rather than only on a red one.
     private static var measurements: [String] = []
@@ -772,6 +827,11 @@ enum SnapshotHarness {
             act(host)
             host.layoutSubtreeIfNeeded()
             settle(seconds: 0.35)
+        }
+
+        if let assertion = scene.assertOnHost, let complaint = assertion(host) {
+            fail("\(scene.name): \(complaint)")
+            assertionFailures += 1
         }
 
         // `contentView = nil` as well as `close()`, and the second half is the
@@ -1123,13 +1183,87 @@ enum SnapshotHarness {
             : NSColor(calibratedWhite: 0.96, alpha: 1)
     }
 
+    /// Where the first `NSScrollView` under `view` is parked, in points from the
+    /// top of its content. `nil` when the hierarchy has no scroll view at all,
+    /// which is itself worth failing on: a scene that asserts a scroll position
+    /// against a pane that stopped being scrollable would otherwise pass.
+    ///
+    /// SwiftUI's `ScrollView` is an `NSScrollView` underneath on macOS. Reading
+    /// `contentView.bounds.origin.y` is reading the same number the user sees
+    /// the effect of, which is the point — it is not a proxy for the scroll, it
+    /// is the scroll.
+    static func scrollOffset(in view: NSView) -> CGFloat? {
+        if let scroll = view as? NSScrollView {
+            return scroll.contentView.bounds.origin.y
+        }
+        for child in view.subviews {
+            if let found = scrollOffset(in: child) { return found }
+        }
+        return nil
+    }
+
+    /// Fails unless the pane is parked at least `atLeast` points down.
+    ///
+    /// The pair of these on `settings-audio-guide-*` is a calibrated
+    /// instrument rather than a threshold picked by taste: the `-before` frame
+    /// of the same transition asserts the pane is at the top, so the two
+    /// together prove the assertion can tell the states apart. A floor with no
+    /// matching control is a number that has never been shown to fail.
+    static func requireScrolled(atLeast points: CGFloat) -> @MainActor (NSView) -> String? {
+        { host in
+            guard let offset = scrollOffset(in: host) else {
+                return "no NSScrollView in the hierarchy, so the guided scroll "
+                    + "could not have happened and nothing here would have said so"
+            }
+            guard offset >= points else {
+                return String(
+                    format: "parked %.0fpt from the top of its content, needs at least "
+                        + "%.0fpt — the guided scroll did not happen", Double(offset),
+                    Double(points)
+                )
+            }
+            return nil
+        }
+    }
+
+    /// The control for `requireScrolled`. Fails if the pane has moved at all.
+    static func requireAtTop() -> @MainActor (NSView) -> String? {
+        { host in
+            guard let offset = scrollOffset(in: host) else {
+                return "no NSScrollView in the hierarchy"
+            }
+            guard offset <= 1 else {
+                return String(
+                    format: "expected the top of the content, found %.0fpt down",
+                    Double(offset)
+                )
+            }
+            return nil
+        }
+    }
+
     /// Spins the main run loop. Internal because a scene's `prepare` sometimes
     /// has to let a coordinator react before the next thing it does.
     static func settle(seconds: TimeInterval) {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.02))
+            settleTurns += 1
         }
+        settleSeconds += seconds
     }
+
+    /// How many turns the run loop has actually taken, against how many seconds
+    /// were asked for.
+    ///
+    /// A `settle` that returns on time says nothing about whether anything ran.
+    /// macOS throttles a background process's run loop under App Nap, and a
+    /// throttled loop starves every animation and every `RunLoop.main`-delivered
+    /// publisher the frames depend on while each `settle` still returns exactly
+    /// when its deadline says. The ratio is the only way to see that from the
+    /// outside, and it is written on green runs as well as red ones — a number
+    /// that only appears on failure is a number nobody has a baseline for.
+    private(set) static var settleTurns = 0
+    private(set) static var settleSeconds: TimeInterval = 0
 }
 #endif

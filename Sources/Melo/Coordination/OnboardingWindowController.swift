@@ -242,15 +242,18 @@ final class OnboardingWindowController {
     }
 
     func show() {
+        MainThreadStall.beginReport()
         // Before the window is presented, not after. Setup is the flow the Dock
         // tile exists for, and `setActivationPolicy` is the thing most likely to
         // disturb key status — doing it first means `presentUnprompted()` is the
         // last word on which window is key, rather than something a later policy
         // switch has to undo.
-        DockPresence.shared.claim(.firstRunSetup)
+        MainThreadStall.measure("setup.dockClaim") {
+            DockPresence.shared.claim(.firstRunSetup)
+        }
 
         if let window {
-            window.presentUnprompted()
+            MainThreadStall.measure("setup.represent") { window.presentUnprompted() }
             return
         }
 
@@ -294,7 +297,15 @@ final class OnboardingWindowController {
                 }
             }
         )
-        window.contentViewController = NSHostingController(rootView: view)
+        // Two spans, not one. Building the controller is cheap; assigning it is
+        // where AppKit calls `loadView` and SwiftUI lays the whole flow out for
+        // the first time, and those are different suspects with different fixes.
+        let controller = MainThreadStall.measure("setup.hostingController") {
+            NSHostingController(rootView: view)
+        }
+        MainThreadStall.measure("setup.firstLayout") {
+            window.contentViewController = controller
+        }
 
         let observer = OnboardingWindowCloseObserver { [weak self] in
             self?.markCompletedIfNeeded()
@@ -309,6 +320,7 @@ final class OnboardingWindowController {
         closeObserver = observer
 
         self.window = window
-        window.presentUnprompted()
+        MainThreadStall.measure("setup.present") { window.presentUnprompted() }
+        MainThreadStall.report("first-run setup")
     }
 }

@@ -200,14 +200,65 @@ struct MeloApp: App {
         // running copy; anything above this line would run during that check.
         UpdateStartupConfirmation.handlePreflightAndExitIfNeeded()
 
-        // Second, and before anything is constructed. A second Melo hands the
-        // user over to the copy already running and exits from inside this call;
-        // everything below would otherwise be a second audio engine, a second
-        // set of process taps and a second menu bar item, built only to be
-        // thrown away. Exempt for the render harness and for `--melo-preflight`
-        // — see the type comment, which explains why that exemption is not the
-        // hole it looks like.
-        SingleInstanceGuard.claimOrHandOff()
+        // Whether this process is the render harness, decided once and read
+        // again further down.
+        //
+        // The harness exists to launch extra instances — `dev-verify-locked.sh`
+        // runs `open -n` against a staged copy while the user's own Melo is
+        // running — so the single-instance guard must not apply to it. The
+        // exemption is applied *here*, at the call site, and not only inside the
+        // guard where it also lives.
+        //
+        // That is deliberate and it is not belt-and-braces. Under the harness
+        // this now means the guard is never entered at all: no argument list is
+        // copied, no environment dictionary is built, no existential is boxed
+        // for the call below, and `SingleInstanceGuard` is never touched as a
+        // type. "Exempt" reads as *nothing happens*, which is a property you can
+        // confirm by looking at this line, rather than a promise about what an
+        // early `return` avoids inside a function you have to go and read.
+        #if MELO_DEV
+        let isRenderHarness = SnapshotHarness.isRequested
+        #else
+        let isRenderHarness = false
+        #endif
+
+        // Before anything is constructed. A second Melo hands the user over to
+        // the copy already running and exits from inside this call; everything
+        // below would otherwise be a second audio engine, a second set of
+        // process taps and a second menu bar item, built only to be thrown away.
+        // `--melo-preflight` is exempt too — see the type comment, which
+        // explains why these exemptions are not the hole they look like.
+        if !isRenderHarness {
+            SingleInstanceGuard.claimOrHandOff()
+            // Started here, before anything heavy is constructed, so the launch
+            // sequence itself is watched. Melo opens up to four windows nobody
+            // asked for inside the first half-second, and a stall in any of them
+            // beachballs the pointer over whatever app the user is actually in.
+            // Not started under the render harness: it would log a stall for
+            // every scene, because `SnapshotHarness.settle` deliberately owns
+            // the main thread for minutes at a time.
+            MainThreadStall.startWatchdog()
+        }
+
+        // Before AppKit builds a main menu, which it does inside
+        // `applicationWillFinishLaunching`, further down the same launch.
+        //
+        // Measured on this Mac: the main thread was unresponsive for 1165ms at
+        // launch, and a 10-second sample put 452 of those samples inside
+        // SwiftUI's `AppDelegate.applicationWillFinishLaunching`, 327 of them in
+        // `makeMainMenu` and 317 of *those* under `RequestTextInputCommands` —
+        // AppKit asking the text input system what to put in Edit ▸ Emoji &
+        // Symbols and Start Dictation. That enumeration is the single largest
+        // thing Melo does at launch, and it is done to fill in two items of a
+        // menu bar that an `LSUIElement` app does not display.
+        //
+        // These two defaults are AppKit's documented way to say "do not add
+        // those items". They are registered rather than set, so a user who has
+        // deliberately turned them on for this app keeps their answer.
+        UserDefaults.standard.register(defaults: [
+            "NSDisabledDictationMenuItem": true,
+            "NSDisabledCharacterPaletteMenuItem": true
+        ])
 
         // Before the first line that reads UserDefaults. Melo's bundle identifier
         // changed from its pre-2.9.4 placeholder, and macOS keys the defaults
@@ -297,10 +348,17 @@ struct MeloApp: App {
         // as soon as both halves of the answer exist rather than at the end of
         // init, because the window in which a launch would go unanswered is the
         // window in which two Melos survive.
-        SingleInstanceGuard.beginListening(
-            popupController: popupController,
-            popupVisibility: popupService
-        )
+        //
+        // Same call-site exemption as above, and for the second reason as well
+        // as the first: a harness holding an accessibility dwell window must
+        // never be the process that answers a handover and drags a scene forward
+        // mid-render.
+        if !isRenderHarness {
+            SingleInstanceGuard.beginListening(
+                popupController: popupController,
+                popupVisibility: popupService
+            )
+        }
         let hud = HUDWindowController(settingsManager: settings, mediaKeyStatus: statusService, popupVisibility: popupService)
         let feedbackPlayer = VolumeFeedbackPlayer()
 

@@ -120,6 +120,7 @@ enum SnapshotScenes {
             capture: SnapshotHarness.Capture = .layer,
             note: String? = nil,
             prepare: @escaping @MainActor () -> Void = {},
+            assertOnHost: (@MainActor (NSView) -> String?)? = nil,
             content: @escaping @MainActor () -> AnyView
         ) -> SnapshotHarness.Scene {
             SnapshotHarness.Scene(
@@ -137,6 +138,7 @@ enum SnapshotScenes {
                     MeloEasterEggClock.forcedTime = nil
                     prepare()
                 },
+                assertOnHost: assertOnHost,
                 note: note,
                 content: content
             )
@@ -1506,14 +1508,27 @@ enum SnapshotScenes {
                 + "Devices sits low in the pane rather than pinned to the top — that is "
                 + "correct. The thing to read is that the Volume section is no longer on "
                 + "screen. The action is a target handed to the tab, not a press of the "
-                + "Guide's button; what the button is wired to is UNVERIFIED.",
+                + "Guide's button; what the button is wired to is UNVERIFIED. The "
+                + "scroll position is asserted on the live view as a number, in both "
+                + "frames — see the pair of assertions below.",
             prepare: {
                 applyAppearance(.dark)
                 audioSectionTarget = nil
             },
             act: {
                 audioSectionTarget = guideTarget(entryID: "system-sounds", serial: 1)
-            }
+            },
+            // The control and the assertion, on the same pane through the same
+            // code path, differing only in what they expect. A floor on the
+            // AFTER frame alone would be a number nobody has watched fail.
+            //
+            // Both floors were set from a run with them raised to an
+            // unsatisfiable 20000pt, so the numbers are measured rather than
+            // guessed: BEFORE reported exactly 0pt and AFTER reported 602pt.
+            // 200pt sits far below the real descent and far above anything the
+            // tab does at rest.
+            assertBefore: SnapshotHarness.requireAtTop(),
+            assertAfter: SnapshotHarness.requireScrolled(atLeast: 200)
         ) { audioTab() }
 
         // A section that can reach the very top of the pane, so the frame shows
@@ -1525,7 +1540,15 @@ enum SnapshotScenes {
                 .dark,
                 note: "The Audio tab after the Guide entry \"Smart Sound\" asked for its "
                     + "section. Smart Sound is the third of six, so it can reach the top of "
-                    + "the pane. Volume and Calls should be scrolled off above it."
+                    + "the pane. Volume and Calls should be scrolled off above it.",
+                // This frame had no check of any kind. It is not a transition,
+                // so no pixel floor covers it, and it has been failing in step
+                // with `settings-audio-guide-devices` — silently, because
+                // nothing was looking. The number is smaller than the Devices
+                // floor because Smart Sound is the third section rather than
+                // the last: measured the same way, it lands at 346pt against
+                // Devices' 602pt.
+                assertOnHost: SnapshotHarness.requireScrolled(atLeast: 120)
             ) {
                 AnyView(
                     AudioTab(

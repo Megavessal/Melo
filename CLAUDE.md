@@ -231,3 +231,26 @@ Dated 2026-08-07.
   launch; deleting a forty-minute recording is orders past that, and the failure
   is silent until the month is up and the file is gone. Unbounded growth of the
   user's own files in their own folder is the correct behaviour.
+
+- **Two scenes in the render harness are flaky on their own.**
+  `settings-audio-guide-devices` and `settings-audio-guide-smartsound` fail
+  together about two runs in five, and each outcome is byte-identical: passing
+  frames hash `9c168550` / `733defd4`, failing frames `039886d8` / `62119bfa`.
+  A red there is not evidence about whatever changed last — re-run twice before
+  diagnosing. Three mechanisms were tested in an isolated SwiftUI probe and
+  refuted (a `.scrollPosition(id:)` registration race, a dependence on the
+  animation clock, and content above the target changing after the scroll
+  lands). Both scenes now assert the live `NSScrollView` offset as a number, so
+  the next failure says how far the pane actually got instead of what fraction
+  of pixels moved.
+- **Wait for `dev-verify.sh` to exit, not for `_complete`.** The sentinel is
+  written when the last frame lands; twenty verify scripts then run against the
+  source tree. Editing source in that window makes them fail with "frames are
+  older than the source they are evidence about", which is the staleness guard
+  working — but the red belongs to whoever edited, not to the code.
+- **A profiler changes the thing it profiles.** `sample` attaching to Melo made
+  a launch stall read 1163ms; the same build with no sampler attached read
+  487ms. `dlopen` blocks on `RemoteNotificationResponder::blockOnSynchronousEvent`
+  while an observer is attached, so any launch measurement taken under `sample`
+  is roughly double. Take the number from `MainThreadStall`'s watchdog, which
+  runs unattached, and use the sample only to find *where* the time goes.

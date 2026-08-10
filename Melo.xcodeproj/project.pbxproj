@@ -295,6 +295,7 @@
 		59E361C2D0AD4517A2758184 /* DropdownWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */; };
 		69E38F3B0704461ABC4B09BD /* InstalledAppCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */; };
 		C4AAE089EF8D4242A3FBFD3A /* SingleInstanceGuard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664502F222D64AC8A3B2098D /* SingleInstanceGuard.swift */; };
+		AB0879235D0F4F30ACF1317E /* MainThreadStall.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85C291578CD4CEBBA0A8E21 /* MainThreadStall.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -588,6 +589,7 @@
 		D4C48CF4070F4615A5F49DD0 /* DropdownWidth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Views/Components/DropdownWidth.swift; sourceTree = SOURCE_ROOT; };
 		E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/InstalledAppCatalog.swift; sourceTree = SOURCE_ROOT; };
 		664502F222D64AC8A3B2098D /* SingleInstanceGuard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/SingleInstanceGuard.swift; sourceTree = SOURCE_ROOT; };
+		A85C291578CD4CEBBA0A8E21 /* MainThreadStall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Utilities/MainThreadStall.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -794,6 +796,7 @@
 			EDEC4D1AF95BF62C5556252E /* ShortcutsRegistry.swift */,
 			7874A2FEACC9129601503D71 /* TargetAppResolver.swift */,
 			6F0A63C469F0539A8BA7865D /* DeviceIconCache.swift */,
+			A85C291578CD4CEBBA0A8E21 /* MainThreadStall.swift */,
 			E7807A47203B4C54A3E28D9C /* InstalledAppCatalog.swift */,
 			333B597EE66841B684A5859F /* SnapshotScenes.swift */,
 			602D160EEF954371824009D2 /* SnapshotHarness.swift */,
@@ -952,6 +955,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			AB0879235D0F4F30ACF1317E /* MainThreadStall.swift in Sources */,
 			C4AAE089EF8D4242A3FBFD3A /* SingleInstanceGuard.swift in Sources */,
 			69E38F3B0704461ABC4B09BD /* InstalledAppCatalog.swift in Sources */,
 			59E361C2D0AD4517A2758184 /* DropdownWidth.swift in Sources */,
