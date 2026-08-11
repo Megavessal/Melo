@@ -129,6 +129,12 @@ enum SnapshotScenes {
             settings.appSettings = appSettings
             EditorTimeline.shared.resetForSnapshot()
             EditorClipWaveforms.shared.resetForSnapshot()
+            // The popup's contents are held back for the first fraction of a
+            // second of a real launch. No scene should ever photograph that
+            // placeholder — today none goes through `menuBarContent`, they
+            // build `MenuBarPopupView` directly, and this is here so the first
+            // one that does is not a mystery blank frame.
+            PopupWarmUp.shared.readyForSnapshot()
         }
 
         @MainActor func scene(

@@ -134,6 +134,8 @@ struct MeloApp: App {
     @StateObject private var sparkleUpdateController: SparkleUpdateController
     @StateObject private var developerUpdateManager: DeveloperUpdateManager
     @State private var showMenuBarExtra = true
+    /// See `PopupWarmUp`. Observed so the contents swap in when it flips.
+    private var warmUp = PopupWarmUp.shared
 
     /// Snapshot icon computed at launch from the user's chosen style and the current
     /// default-device volume/mute. The coordinator keeps it in sync afterwards.
@@ -168,6 +170,23 @@ struct MeloApp: App {
 
     @ViewBuilder
     private var menuBarContent: some View {
+        // Held back for the first fraction of a second — see `PopupWarmUp`. The
+        // placeholder is the popup's own width so the window is created at the
+        // size it will settle at, and `contentSizeDidUpdate` has nothing to
+        // correct when the real contents arrive.
+        if warmUp.isReady {
+            popupContents
+        } else {
+            Color.clear
+                .frame(
+                    width: audioEngine.settingsManager.appSettings.popupSize.dimensions.width,
+                    height: 1
+                )
+        }
+    }
+
+    @ViewBuilder
+    private var popupContents: some View {
         // `deviceVolumeMonitor` is declared as `any DeviceVolumeProviding` on
         // AudioEngine so tests can inject mocks; in production it's always the
         // concrete `DeviceVolumeMonitor` that this view consumes directly.
@@ -238,6 +257,10 @@ struct MeloApp: App {
             // every scene, because `SnapshotHarness.settle` deliberately owns
             // the main thread for minutes at a time.
             MainThreadStall.startWatchdog()
+            // Starts the clock that lets the popup's contents in. Not started
+            // under the harness: a render never reaches an idle run loop, so a
+            // scene would photograph the placeholder.
+            PopupWarmUp.shared.begin()
         }
 
         // Before AppKit builds a main menu, which it does inside

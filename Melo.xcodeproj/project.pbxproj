@@ -305,6 +305,7 @@
 		7514F99B90134315932EC89A /* MasterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54D2A64805C44F61A479E638 /* MasterPanelView.swift */; };
 		F3CB98DC345D4BC8A910B828 /* EditorModeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28F3457336C04F429F61D400 /* EditorModeControls.swift */; };
 		4948AE590B0D4FDBB8075D41 /* EditorDocumentFingerprint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D0BC0715F814F04A522E5A0 /* EditorDocumentFingerprint.swift */; };
+		EB8731FDB3044C59BEB7E226 /* PopupWarmUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B70A4FBCBAB4B55AFD8BB26 /* PopupWarmUp.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -608,6 +609,7 @@
 		54D2A64805C44F61A479E638 /* MasterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/MasterPanelView.swift; sourceTree = SOURCE_ROOT; };
 		28F3457336C04F429F61D400 /* EditorModeControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Window/EditorModeControls.swift; sourceTree = SOURCE_ROOT; };
 		1D0BC0715F814F04A522E5A0 /* EditorDocumentFingerprint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Editor/Core/EditorDocumentFingerprint.swift; sourceTree = SOURCE_ROOT; };
+		8B70A4FBCBAB4B55AFD8BB26 /* PopupWarmUp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/Melo/Coordination/PopupWarmUp.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -779,6 +781,7 @@
 			E6B4276472AE325FD33B4599 /* BiquadProcessable.swift */,
 			7DE7F06B980C7D37F64538B5 /* TransportType.swift */,
 			BE256477EF46AC7A5A59B5D1 /* AccessibilityPermissionService.swift */,
+			8B70A4FBCBAB4B55AFD8BB26 /* PopupWarmUp.swift */,
 			664502F222D64AC8A3B2098D /* SingleInstanceGuard.swift */,
 			BE566B26122749F8874F5E67 /* DockPresence.swift */,
 			3D477695CC974EB1B3E81706 /* LegacyDefaultsMigration.swift */,
@@ -982,6 +985,7 @@
 
 /* Begin PBXSourcesBuildPhase section */
 		1CDF2F71A52B082132B04DFF /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (
+			EB8731FDB3044C59BEB7E226 /* PopupWarmUp.swift in Sources */,
 			4948AE590B0D4FDBB8075D41 /* EditorDocumentFingerprint.swift in Sources */,
 			F3CB98DC345D4BC8A910B828 /* EditorModeControls.swift in Sources */,
 			7514F99B90134315932EC89A /* MasterPanelView.swift in Sources */,

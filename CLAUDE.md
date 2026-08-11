@@ -281,3 +281,17 @@ Dated 2026-08-07.
   the value cannot change the width). Measured with the real font, "400%" is
   32.2pt and the component adds 4pt of padding each side against a 40pt box —
   short by two tenths of a point, for every caller including the device rows.
+
+- **Moving main-thread work is not the same as removing it, and the move can
+  cost more than the work.** Melo's popup laid itself out during launch. It was
+  deferred 700ms on the reasoning that the layout has to happen somewhere so it
+  should happen when nobody is waiting. Measured: the delay saved nothing at
+  launch that a bare `Task` hop did not already save, and it put **1643ms** on
+  the first click — five times the launch cost it replaced, because the window
+  is shown and animated from 1pt tall while the graph is built. Deferring by one
+  run-loop turn gave 310ms at launch and nothing on the click. Before deferring
+  anything, measure the destination as well as the source.
+- **A launch measurement means nothing without the interaction that follows
+  it.** The 700ms version looked like a clean win — three launches, all faster.
+  The regression only appeared when something actually opened the popup. When a
+  fix moves work later, the test has to go later too.
